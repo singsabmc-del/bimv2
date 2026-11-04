@@ -1,0 +1,201 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', 'Battambang', 'Khmer OS Battambang', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+}
+
+.tabular-nums {
+  font-family: 'JetBrains Mono', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.font-khmer {
+  font-family: 'Battambang', 'Khmer OS Battambang', 'Kantumruy Pro', sans-serif;
+}
+
+/* Hide scrollbars for pill rows, navigation bars, and designated containers */
+.no-scrollbar::-webkit-scrollbar,
+.hide-scrollbar::-webkit-scrollbar,
+[data-no-scrollbar="true"]::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+}
+
+.no-scrollbar,
+.hide-scrollbar,
+[data-no-scrollbar="true"] {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media print {
+  /* Complete isolation: hide all application shell navigation, bars, modals backdrops, action buttons */
+  aside,
+  header,
+  nav,
+  footer,
+  .no-print,
+  [role="navigation"],
+  [aria-label="Mobile Navigation"] {
+    display: none !important;
+  }
+
+  /* Reset document root to clean white paper */
+  html,
+  body {
+    background-color: #ffffff !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    font-size: 12pt;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Reset main layout flex offsets */
+  .min-h-screen {
+    min-height: auto !important;
+    background: #ffffff !important;
+  }
+
+  .lg\:pl-64,
+  .pl-64 {
+    padding-left: 0 !important;
+  }
+
+  /* When printing from modal previews, unconstrain fixed overlays and strip dark backdrops */
+  .fixed.inset-0,
+  div[class*="fixed inset-0"] {
+    position: static !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-shadow: none !important;
+    border: none !important;
+    z-index: auto !important;
+  }
+
+  /* Unconstrain modal container widths and heights */
+  .max-w-4xl,
+  .max-w-5xl,
+  .max-w-6xl,
+  .max-w-3xl,
+  .max-w-2xl,
+  .max-w-xl,
+  .max-w-lg,
+  .max-w-md {
+    max-width: 100% !important;
+    width: 100% !important;
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .max-h-\[95vh\],
+  .max-h-\[90vh\],
+  .max-h-\[85vh\] {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  /* Printable containers formatting */
+  .print-container,
+  .printable-sheet,
+  #official-student-invoice-sheet,
+  #official-tuition-invoice,
+  #pos-receipt-print-area,
+  #bus-invoice-sheet {
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    background: #ffffff !important;
+    display: block !important;
+    overflow: visible !important;
+  }
+
+  /* Tables pagination and crisp lines */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    page-break-inside: auto;
+  }
+
+  tr {
+    page-break-inside: avoid !important;
+    page-break-after: auto;
+  }
+
+  thead {
+    display: table-header-group !important;
+  }
+
+  tfoot {
+    display: table-footer-group !important;
+  }
+
+  /* Ensure colors and backgrounds in tables & headers render properly */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Completely hide all scrollbars, thumbs, and tracks across all elements on print */
+  *,
+  *::before,
+  *::after,
+  html,
+  body,
+  div,
+  main,
+  section,
+  table,
+  .overflow-x-auto,
+  .overflow-y-auto {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+
+  ::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    background: transparent !important;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: transparent !important;
+    display: none !important;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent !important;
+    display: none !important;
+  }
+
+  @page {
+    size: auto;
+    margin: 10mm 12mm 10mm 12mm;
+  }
+}
+
+

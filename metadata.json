@@ -1,0 +1,6 @@
+{
+  "name": "BIM Rangsei School Management System",
+  "description": "Comprehensive school administrative management system for BIM Rangsei School (សាលា អ៊ីរ៉ែលកម្ពុជា) to manage student tuition fees, stationery sales, uniform sales, canteen vendor fees, and report extraction.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
