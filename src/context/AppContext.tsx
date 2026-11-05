@@ -1355,10 +1355,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         body: JSON.stringify(bundle),
       });
       const data = await res.json().catch(() => ({}));
-      if (res.ok && data.success) {
+      if (res.ok && data.success && data.savedToSupabase) {
         return {
           success: true,
           message: 'ទិន្នន័យត្រូវបានរក្សាទុកក្នុង Supabase Cloud Database ដោយជោគជ័យ!',
+        };
+      }
+      if (res.ok && data.success && !data.savedToSupabase) {
+        return {
+          success: false,
+          message: data.supabaseError 
+            ? `បានរក្សាទុកក្នុង Server តែបរាជ័យក្នុងការរក្សាទុកទៅ Supabase: ${data.supabaseError}`
+            : 'បរាជ័យក្នុងការរក្សាទុកទៅ Supabase',
         };
       }
       return {

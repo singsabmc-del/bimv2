@@ -1,16 +1,23 @@
 import { createClient } from '@supabase/supabase-js';
 
-export const SUPABASE_URL =
-  import.meta.env.VITE_SUPABASE_URL ||
-  'https://fsiccthpfzmyaowwjzsw.supabase.co';
+const REAL_SUPABASE_URL = 'https://fsiccthpfzmyaowwjzsw.supabase.co';
+const REAL_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZzaWNjdGhwZnpteWFvd3dqenN3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM3NzExMzMsImV4cCI6MjEwOTM0NzEzM30.NeTUZ8VTaVnA5kAtrZv2Y-s6iMbcTmWwm4SdHt3wNrI';
+const REAL_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_U0h9397Q3Bfs9qi7jUP0YQ_qBs8GkGS';
 
-export const SUPABASE_ANON_KEY =
-  import.meta.env.VITE_SUPABASE_ANON_KEY ||
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZzaWNjdGhwZnpteWFvd3dqenN3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM3NzExMzMsImV4cCI6MjEwOTM0NzEzM30.NeTUZ8VTaVnA5kAtrZv2Y-s6iMbcTmWwm4SdHt3wNrI';
+const envUrl = import.meta.env.VITE_SUPABASE_URL;
+export const SUPABASE_URL = (envUrl && !envUrl.includes('your-project') && envUrl.startsWith('http'))
+  ? envUrl
+  : REAL_SUPABASE_URL;
 
-export const SUPABASE_PUBLISHABLE_KEY =
-  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
-  'sb_publishable_U0h9397Q3Bfs9qi7jUP0YQ_qBs8GkGS';
+const envAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+export const SUPABASE_ANON_KEY = (envAnonKey && !envAnonKey.includes('your-anon-key') && envAnonKey.length > 20)
+  ? envAnonKey
+  : REAL_SUPABASE_ANON_KEY;
+
+const envPublKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+export const SUPABASE_PUBLISHABLE_KEY = (envPublKey && !envPublKey.includes('your-publishable-key'))
+  ? envPublKey
+  : REAL_SUPABASE_PUBLISHABLE_KEY;
 
 // Client-side Supabase instance
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {

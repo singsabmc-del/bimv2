@@ -16,9 +16,25 @@ const DATA_DIR = path.join(__dirname, 'data');
 const STORE_FILE = path.join(DATA_DIR, 'school-store.json');
 
 // Supabase & Postgres Configuration
-const SUPABASE_URL = process.env.BIM_SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://fsiccthpfzmyaowwjzsw.supabase.co';
-const SUPABASE_SERVICE_ROLE_KEY = process.env.BIM_SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZzaWNjdGhwZnpteWFvd3dqenN3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5Mzc3MTEzMywiZXhwIjoyMTA5MzQ3MTMzfQ.qUE-BNWWix4xcqkZm6pKXCmtQc_LZvnBTyvwsmJzopo';
-const SUPABASE_ANON_KEY = process.env.BIM_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZzaWNjdGhwZnpteWFvd3dqenN3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM3NzExMzMsImV4cCI6MjEwOTM0NzEzM30.NeTUZ8VTaVnA5kAtrZv2Y-s6iMbcTmWwm4SdHt3wNrI';
+const REAL_SUPABASE_URL = 'https://fsiccthpfzmyaowwjzsw.supabase.co';
+const REAL_SUPABASE_SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZzaWNjdGhwZnpteWFvd3dqenN3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5Mzc3MTEzMywiZXhwIjoyMTA5MzQ3MTMzfQ.qUE-BNWWix4xcqkZm6pKXCmtQc_LZvnBTyvwsmJzopo';
+const REAL_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZzaWNjdGhwZnpteWFvd3dqenN3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM3NzExMzMsImV4cCI6MjEwOTM0NzEzM30.NeTUZ8VTaVnA5kAtrZv2Y-s6iMbcTmWwm4SdHt3wNrI';
+
+const envUrl = process.env.BIM_SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const SUPABASE_URL = (envUrl && !envUrl.includes('your-project') && envUrl.startsWith('http'))
+  ? envUrl.trim()
+  : REAL_SUPABASE_URL;
+
+const envServiceKey = process.env.BIM_SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_SERVICE_ROLE_KEY = (envServiceKey && !envServiceKey.includes('your-service-role-key') && envServiceKey.length > 20)
+  ? envServiceKey.trim()
+  : REAL_SUPABASE_SERVICE_ROLE_KEY;
+
+const envAnonKey = process.env.BIM_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+const SUPABASE_ANON_KEY = (envAnonKey && !envAnonKey.includes('your-anon-key') && envAnonKey.length > 20)
+  ? envAnonKey.trim()
+  : REAL_SUPABASE_ANON_KEY;
+
 const RAW_POSTGRES_URL = process.env.BIM_POSTGRES_URL || process.env.DATABASE_URL || '';
 // Strip query parameters so pg uses explicit ssl: { rejectUnauthorized: false }
 const POSTGRES_URL = RAW_POSTGRES_URL ? RAW_POSTGRES_URL.split('?')[0].trim() : '';
@@ -220,10 +236,10 @@ async function startServer() {
       }
     }
 
-    // 2. Try Supabase REST Client with fast timeout
+    // 2. Try Supabase REST Client with timeout
     try {
       const restPromise = supabaseAdmin.from('bim_school_state').select('data, updated_at').eq('id', 'latest').single();
-      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1500));
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000));
       const { data, error }: any = await Promise.race([restPromise, timeoutPromise]);
       if (!error && data && data.data) {
         return { data: data.data, source: 'supabase_rest', updatedAt: data.updated_at };
@@ -285,18 +301,22 @@ async function startServer() {
         } catch {}
       }
     } else {
-      // Save directly via Supabase REST API with timeout
+      // Save directly via Supabase REST API with reasonable network timeout
       try {
         const restPromise = supabaseAdmin.from('bim_school_state').upsert({
           id: 'latest',
           data: payload,
           updated_at: new Date().toISOString(),
         });
-        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1500));
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 12000));
         const { error }: any = await Promise.race([restPromise, timeoutPromise]);
-        if (!error) savedToSupabase = true;
+        if (!error) {
+          savedToSupabase = true;
+        } else {
+          supabaseError = error?.message || 'Supabase upsert rejected';
+        }
       } catch (err: any) {
-        supabaseError = err?.message;
+        supabaseError = err?.message || 'Network timeout saving to Supabase';
       }
     }
 
