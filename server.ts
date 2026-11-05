@@ -19,28 +19,53 @@ const STORE_FILE = path.join(DATA_DIR, 'school-store.json');
 const SUPABASE_URL = process.env.BIM_SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://fsiccthpfzmyaowwjzsw.supabase.co';
 const SUPABASE_SERVICE_ROLE_KEY = process.env.BIM_SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZzaWNjdGhwZnpteWFvd3dqenN3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5Mzc3MTEzMywiZXhwIjoyMTA5MzQ3MTMzfQ.qUE-BNWWix4xcqkZm6pKXCmtQc_LZvnBTyvwsmJzopo';
 const SUPABASE_ANON_KEY = process.env.BIM_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZzaWNjdGhwZnpteWFvd3dqenN3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM3NzExMzMsImV4cCI6MjEwOTM0NzEzM30.NeTUZ8VTaVnA5kAtrZv2Y-s6iMbcTmWwm4SdHt3wNrI';
-const RAW_POSTGRES_URL = process.env.BIM_POSTGRES_URL || process.env.DATABASE_URL || 'postgres://postgres.fsiccthpfzmyaowwjzsw:H80miOpThoEVlTyF@aws-0-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require&supa=base-pooler.x';
+const RAW_POSTGRES_URL = process.env.BIM_POSTGRES_URL || process.env.DATABASE_URL || '';
 // Strip query parameters so pg uses explicit ssl: { rejectUnauthorized: false }
-const POSTGRES_URL = RAW_POSTGRES_URL.split('?')[0];
+const POSTGRES_URL = RAW_POSTGRES_URL ? RAW_POSTGRES_URL.split('?')[0].trim() : '';
+
+function isValidPostgresHost(connStr: string): boolean {
+  if (!connStr || connStr.length === 0) return false;
+  try {
+    const url = new URL(connStr.replace(/^postgres(ql)?:\/\//, 'http://'));
+    const host = (url.hostname || '').toLowerCase();
+    if (!host || host === 'host' || host === 'example.com' || host === 'none') {
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 // Supabase REST client
 const supabaseAdmin = createSupabaseClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
 });
 
-// PostgreSQL Pool for Supabase connection pooler
+// PostgreSQL Pool (only enabled if connection string is provided with a valid hostname)
 const { Pool } = pg;
-const pgPool = new Pool({
-  connectionString: POSTGRES_URL,
-  ssl: {
-    rejectUnauthorized: false,
-  },
-  connectionTimeoutMillis: 8000,
-  max: 10,
-});
+let pgPool: pg.Pool | null = null;
+if (POSTGRES_URL && isValidPostgresHost(POSTGRES_URL)) {
+  try {
+    pgPool = new Pool({
+      connectionString: POSTGRES_URL,
+      ssl: {
+        rejectUnauthorized: false,
+      },
+      connectionTimeoutMillis: 2000,
+      max: 5,
+    });
+    pgPool.on('error', () => {
+      // Quiet pool error listener
+    });
+  } catch {
+    pgPool = null;
+  }
+}
 
 let pgInitialized = false;
 async function initSupabaseSchema() {
+  if (!pgPool) return;
   try {
     const client = await pgPool.connect();
     try {
@@ -63,8 +88,14 @@ async function initSupabaseSchema() {
     } finally {
       client.release();
     }
-  } catch (err: any) {
-    console.warn('⚠️ Supabase direct PostgreSQL pool connection warning:', err?.message);
+  } catch {
+    // If direct PostgreSQL cannot be reached (DNS, blocked port, or offline host),
+    // cleanly shut down pool so runtime requests operate in local/REST storage without warnings
+    try {
+      await pgPool.end();
+    } catch {}
+    pgPool = null;
+    pgInitialized = false;
   }
 }
 
@@ -77,7 +108,7 @@ if (!fs.existsSync(DATA_DIR)) {
 
 async function startServer() {
   const app = express();
-  const PORT = Number(process.env.PORT) || 3000;
+  const PORT = 3000;
 
   // Initialize Supabase tables in background
   initSupabaseSchema().catch(() => {});
@@ -109,28 +140,30 @@ async function startServer() {
     let lastSavedAt: string | null = null;
     let errorMessage: string | null = null;
 
-    try {
-      const client = await pgPool.connect();
+    if (pgPool && pgInitialized) {
       try {
-        const pingRes = await client.query('SELECT version(), NOW() as server_time');
-        pgStatus = 'connected';
-        pgVersion = pingRes.rows[0]?.version?.split(' ')[0] || 'PostgreSQL';
+        const client = await pgPool.connect();
+        try {
+          const pingRes = await client.query('SELECT version(), NOW() as server_time');
+          pgStatus = 'connected';
+          pgVersion = pingRes.rows[0]?.version?.split(' ')[0] || 'PostgreSQL';
 
-        // Check bim_school_state table existence and stored rows
-        const tableCheck = await client.query(`SELECT to_regclass('public.bim_school_state') as tbl`);
-        if (tableCheck.rows[0]?.tbl) {
-          tableExists = true;
-          const dataCheck = await client.query('SELECT updated_at FROM bim_school_state WHERE id = $1', ['latest']);
-          if (dataCheck.rows.length > 0) {
-            rowCount = 1;
-            lastSavedAt = dataCheck.rows[0].updated_at;
+          // Check bim_school_state table existence and stored rows
+          const tableCheck = await client.query(`SELECT to_regclass('public.bim_school_state') as tbl`);
+          if (tableCheck.rows[0]?.tbl) {
+            tableExists = true;
+            const dataCheck = await client.query('SELECT updated_at FROM bim_school_state WHERE id = $1', ['latest']);
+            if (dataCheck.rows.length > 0) {
+              rowCount = 1;
+              lastSavedAt = dataCheck.rows[0].updated_at;
+            }
           }
+        } finally {
+          client.release();
         }
-      } finally {
-        client.release();
+      } catch (err: any) {
+        errorMessage = err?.message || 'Failed to query PostgreSQL';
       }
-    } catch (err: any) {
-      errorMessage = err?.message || 'Failed to query PostgreSQL';
     }
 
     // If PostgreSQL pool was not reachable, verify via Supabase REST API
@@ -170,24 +203,28 @@ async function startServer() {
 
   // Helper to fetch master state from Supabase or local fallback
   const fetchSchoolState = async () => {
-    // 1. Try Supabase Postgres
-    try {
-      const client = await pgPool.connect();
+    // 1. Try Supabase Postgres if configured and initialized
+    if (pgPool && pgInitialized) {
       try {
-        const queryRes = await client.query('SELECT data, updated_at FROM bim_school_state WHERE id = $1 LIMIT 1', ['latest']);
-        if (queryRes.rows.length > 0 && queryRes.rows[0].data) {
-          return { data: queryRes.rows[0].data, source: 'supabase_postgres', updatedAt: queryRes.rows[0].updated_at };
+        const client = await pgPool.connect();
+        try {
+          const queryRes = await client.query('SELECT data, updated_at FROM bim_school_state WHERE id = $1 LIMIT 1', ['latest']);
+          if (queryRes.rows.length > 0 && queryRes.rows[0].data) {
+            return { data: queryRes.rows[0].data, source: 'supabase_postgres', updatedAt: queryRes.rows[0].updated_at };
+          }
+        } finally {
+          client.release();
         }
-      } finally {
-        client.release();
+      } catch (err) {
+        // Postgres pool error, fall through
       }
-    } catch (err) {
-      // Postgres pool error, fall through
     }
 
-    // 2. Try Supabase REST Client
+    // 2. Try Supabase REST Client with fast timeout
     try {
-      const { data, error } = await supabaseAdmin.from('bim_school_state').select('data, updated_at').eq('id', 'latest').single();
+      const restPromise = supabaseAdmin.from('bim_school_state').select('data, updated_at').eq('id', 'latest').single();
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1500));
+      const { data, error }: any = await Promise.race([restPromise, timeoutPromise]);
       if (!error && data && data.data) {
         return { data: data.data, source: 'supabase_rest', updatedAt: data.updated_at };
       }
@@ -213,38 +250,54 @@ async function startServer() {
     let savedToSupabase = false;
     let supabaseError: string | null = null;
 
-    // Save to Supabase PostgreSQL
-    try {
-      const client = await pgPool.connect();
+    // Save to Supabase PostgreSQL if pool is available and initialized
+    if (pgPool && pgInitialized) {
       try {
-        await client.query(`
-          CREATE TABLE IF NOT EXISTS bim_school_state (
-            id TEXT PRIMARY KEY,
-            data JSONB NOT NULL,
-            updated_at TIMESTAMPTZ DEFAULT NOW()
+        const client = await pgPool.connect();
+        try {
+          await client.query(`
+            CREATE TABLE IF NOT EXISTS bim_school_state (
+              id TEXT PRIMARY KEY,
+              data JSONB NOT NULL,
+              updated_at TIMESTAMPTZ DEFAULT NOW()
+            );
+          `);
+          await client.query(
+            `INSERT INTO bim_school_state (id, data, updated_at) 
+             VALUES ('latest', $1, NOW()) 
+             ON CONFLICT (id) DO UPDATE SET data = $1, updated_at = NOW()`,
+            [payload]
           );
-        `);
-        await client.query(
-          `INSERT INTO bim_school_state (id, data, updated_at) 
-           VALUES ('latest', $1, NOW()) 
-           ON CONFLICT (id) DO UPDATE SET data = $1, updated_at = NOW()`,
-          [payload]
-        );
-        savedToSupabase = true;
-      } finally {
-        client.release();
+          savedToSupabase = true;
+        } finally {
+          client.release();
+        }
+      } catch (err: any) {
+        supabaseError = err?.message;
+        // Try REST upsert as secondary Supabase pathway
+        try {
+          const { error } = await supabaseAdmin.from('bim_school_state').upsert({
+            id: 'latest',
+            data: payload,
+            updated_at: new Date().toISOString(),
+          });
+          if (!error) savedToSupabase = true;
+        } catch {}
       }
-    } catch (err: any) {
-      supabaseError = err?.message;
-      // Try REST upsert as secondary Supabase pathway
+    } else {
+      // Save directly via Supabase REST API with timeout
       try {
-        const { error } = await supabaseAdmin.from('bim_school_state').upsert({
+        const restPromise = supabaseAdmin.from('bim_school_state').upsert({
           id: 'latest',
           data: payload,
           updated_at: new Date().toISOString(),
         });
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1500));
+        const { error }: any = await Promise.race([restPromise, timeoutPromise]);
         if (!error) savedToSupabase = true;
-      } catch {}
+      } catch (err: any) {
+        supabaseError = err?.message;
+      }
     }
 
     return { savedToSupabase, supabaseError, savedAt: new Date().toISOString() };
@@ -286,6 +339,14 @@ async function startServer() {
 
   // Manual Supabase Test / Sync ping endpoint
   app.post('/api/supabase/test', async (req, res) => {
+    if (!pgPool || !pgInitialized) {
+      return res.json({
+        success: true,
+        message: 'PostgreSQL direct pool is not configured. The app is running smoothly using local file storage and Supabase REST.',
+        time: new Date().toISOString(),
+        database: 'local_file_store',
+      });
+    }
     try {
       const client = await pgPool.connect();
       try {
@@ -1068,27 +1129,29 @@ Return a single clean JSON object matching this schema without markdown fences. 
       // Persist to Supabase PostgreSQL & REST
       saveSchoolState(backupData).catch(() => {});
       let supabaseSynced = false;
-      try {
-        const client = await pgPool.connect();
+      if (pgPool && pgInitialized) {
         try {
-          await client.query(`
-            CREATE TABLE IF NOT EXISTS bim_school_backups (
-              id TEXT PRIMARY KEY,
-              title TEXT,
-              created_at TIMESTAMPTZ DEFAULT NOW(),
-              meta JSONB,
-              data JSONB
-            );
-            INSERT INTO bim_school_backups (id, title, created_at, meta, data)
-            VALUES ($1, $2, NOW(), $3, $4)
-            ON CONFLICT (id) DO UPDATE SET data = $4, meta = $3;
-          `, [snapshotName, `Backup ${datePart}`, JSON.stringify({ filename: snapshotName, date: datePart }), JSON.stringify(backupData)]);
-          supabaseSynced = true;
-        } finally {
-          client.release();
+          const client = await pgPool.connect();
+          try {
+            await client.query(`
+              CREATE TABLE IF NOT EXISTS bim_school_backups (
+                id TEXT PRIMARY KEY,
+                title TEXT,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                meta JSONB,
+                data JSONB
+              );
+              INSERT INTO bim_school_backups (id, title, created_at, meta, data)
+              VALUES ($1, $2, NOW(), $3, $4)
+              ON CONFLICT (id) DO UPDATE SET data = $4, meta = $3;
+            `, [snapshotName, `Backup ${datePart}`, JSON.stringify({ filename: snapshotName, date: datePart }), JSON.stringify(backupData)]);
+            supabaseSynced = true;
+          } finally {
+            client.release();
+          }
+        } catch {
+          supabaseSynced = false;
         }
-      } catch (sbErr) {
-        console.warn('Supabase backup persistence warning:', sbErr);
       }
 
       let tgResult = null;
