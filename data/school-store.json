@@ -1,3 +1,5 @@
 {
-  "test": "hello"
+  "ping": "test_sync",
+  "timestamp": 1794038654913,
+  "lastSavedAt": 1794038654913
 }

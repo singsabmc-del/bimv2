@@ -110,9 +110,10 @@ export async function checkSupabaseHealth(): Promise<SupabaseHealthResult> {
 }
 
 /**
- * Save school master state snapshot to Supabase through the backend
+ * Save school master state snapshot to Supabase through the backend with client fallback
  */
 export async function saveStateToSupabase(stateBundle: any): Promise<{ success: boolean; error?: string }> {
+  // 1. Try server-side proxy first
   try {
     const res = await fetch('/api/supabase/state', {
       method: 'POST',
@@ -120,22 +121,35 @@ export async function saveStateToSupabase(stateBundle: any): Promise<{ success: 
       body: JSON.stringify(stateBundle),
     });
 
-    if (!res.ok) {
-      const errJson = await res.json().catch(() => ({}));
-      return { success: false, error: errJson.error || `HTTP ${res.status}` };
+    if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      if (data.success && data.savedToSupabase) {
+        return { success: true };
+      }
     }
+  } catch {}
 
-    const data = await res.json();
-    return { success: !!data.success };
+  // 2. Direct client fallback via Supabase client
+  try {
+    const { error } = await supabase.from('bim_school_state').upsert({
+      id: 'latest',
+      data: stateBundle,
+      updated_at: new Date().toISOString(),
+    });
+    if (!error) {
+      return { success: true };
+    }
+    return { success: false, error: error.message };
   } catch (err: any) {
     return { success: false, error: err.message || 'Network error saving to Supabase' };
   }
 }
 
 /**
- * Load school master state from Supabase through the backend
+ * Load school master state from Supabase through the backend with client fallback
  */
 export async function loadStateFromSupabase(): Promise<any | null> {
+  // 1. Try server proxy first
   try {
     const res = await fetch('/api/supabase/state');
     if (res.ok) {
@@ -144,8 +158,20 @@ export async function loadStateFromSupabase(): Promise<any | null> {
         return json.data;
       }
     }
-    return null;
-  } catch {
-    return null;
-  }
+  } catch {}
+
+  // 2. Direct client fallback via Supabase client
+  try {
+    const { data, error } = await supabase
+      .from('bim_school_state')
+      .select('data')
+      .eq('id', 'latest')
+      .single();
+    if (!error && data?.data) {
+      return data.data;
+    }
+  } catch {}
+
+  return null;
 }
+

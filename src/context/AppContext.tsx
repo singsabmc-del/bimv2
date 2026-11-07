@@ -67,6 +67,7 @@ import {
   checkDuplicateMaterialItem,
   checkDuplicateBusEnrollment,
 } from '../utils/duplicatePrevention';
+import { supabase } from '../lib/supabase';
 
 // Month generator helper for clean month records
 const createDefaultMaterialsReport = (month: string, year: number): DailyMaterialsReport => {
@@ -1349,30 +1350,60 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         settings,
         lastSavedAt: Date.now(),
       };
-      const res = await fetch('/api/supabase/state', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(bundle),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data.success && data.savedToSupabase) {
-        return {
-          success: true,
-          message: 'ទិន្នន័យត្រូវបានរក្សាទុកក្នុង Supabase Cloud Database ដោយជោគជ័យ!',
-        };
+
+      // 1. Path A: Try backend server endpoint first (which also updates local JSON cache)
+      let serverSaved = false;
+      let serverErrorMsg = '';
+
+      try {
+        const res = await fetch('/api/supabase/state', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(bundle),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.success && data.savedToSupabase) {
+          serverSaved = true;
+          return {
+            success: true,
+            message: 'ទិន្នន័យត្រូវបានរក្សាទុកក្នុង Supabase Cloud Database ដោយជោគជ័យ!',
+          };
+        }
+        if (data.supabaseError) {
+          serverErrorMsg = data.supabaseError;
+        }
+      } catch (err: any) {
+        serverErrorMsg = err?.message || 'Server proxy unreachable';
       }
-      if (res.ok && data.success && !data.savedToSupabase) {
+
+      // 2. Path B: Direct client-side Supabase REST fallback
+      // Since anon key has full table rights, direct client call guarantees persistence even if server proxy times out
+      try {
+        const { error } = await supabase.from('bim_school_state').upsert({
+          id: 'latest',
+          data: bundle,
+          updated_at: new Date().toISOString(),
+        });
+
+        if (!error) {
+          return {
+            success: true,
+            message: 'ទិន្នន័យត្រូវបានរក្សាទុកក្នុង Supabase Cloud Database ដោយជោគជ័យ!',
+          };
+        }
+
         return {
           success: false,
-          message: data.supabaseError 
-            ? `បានរក្សាទុកក្នុង Server តែបរាជ័យក្នុងការរក្សាទុកទៅ Supabase: ${data.supabaseError}`
-            : 'បរាជ័យក្នុងការរក្សាទុកទៅ Supabase',
+          message: error.message
+            ? `បរាជ័យក្នុងការរក្សាទុកទៅ Supabase: ${error.message}`
+            : (serverErrorMsg || 'បរាជ័យក្នុងការរក្សាទុកទៅ Supabase'),
+        };
+      } catch (clientErr: any) {
+        return {
+          success: false,
+          message: clientErr.message || serverErrorMsg || 'បរាជ័យក្នុងការរក្សាទុកទៅ Supabase',
         };
       }
-      return {
-        success: false,
-        message: data.error || data.supabaseError || 'បរាជ័យក្នុងការរក្សាទុកទៅ Supabase',
-      };
     } catch (err: any) {
       return { success: false, message: err.message || 'Error connecting to Supabase' };
     }
@@ -1380,26 +1411,55 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const restoreFromSupabaseNow = async (): Promise<{ success: boolean; message: string }> => {
     try {
-      const res = await fetch('/api/supabase/state');
-      if (!res.ok) {
-        return { success: false, message: 'មិនអាចទាញទិន្នន័យពី Supabase បានទេ' };
+      let d: any = null;
+
+      // 1. Path A: Try server endpoint first
+      try {
+        const res = await fetch('/api/supabase/state');
+        if (res.ok) {
+          const json = await res.json();
+          if (json && json.success && json.data) {
+            d = json.data;
+          }
+        }
+      } catch {}
+
+      // 2. Path B: Direct client fallback
+      if (!d) {
+        try {
+          const { data, error } = await supabase
+            .from('bim_school_state')
+            .select('data')
+            .eq('id', 'latest')
+            .single();
+          if (!error && data && data.data) {
+            d = data.data;
+          }
+        } catch {}
       }
-      const json = await res.json();
-      if (!json || !json.success || !json.data) {
-        return { success: false, message: 'ពុំមានទិន្នន័យរក្សាទុកក្នុង Supabase នៅឡើយទេ' };
+
+      if (!d) {
+        return { success: false, message: 'ពុំមានទិន្នន័យរក្សាទុកក្នុង Supabase នៅឡើយទេ ឬមិនអាចទាញយកបាន' };
       }
-      const d = json.data;
+
       if (d.classes) setClassData(d.classes);
+      if (d.classOrder) setClassOrder(d.classOrder);
       if (d.materialsHistory) setMaterialsHistory(d.materialsHistory);
       if (d.materialSalesHistory) setMaterialSalesHistory(d.materialSalesHistory);
       if (d.canteenHistory) setCanteenHistory(d.canteenHistory);
       if (d.uniformHistory) setUniformHistory(d.uniformHistory);
       if (d.uniformSalesHistory) setUniformSalesHistory(d.uniformSalesHistory);
+      if (d.uniformTypes) setUniformTypes(d.uniformTypes);
+      if (d.promotionHistory) setPromotionHistory(d.promotionHistory);
+      if (d.busRoutes) setBusRoutes(d.busRoutes);
       if (d.busEnrollments) setBusEnrollments(d.busEnrollments);
       if (d.busPayments) setBusPayments(d.busPayments);
+      if (d.busAttendance) setBusAttendance(d.busAttendance);
       if (d.branches) setBranches(d.branches);
+      if (d.currentBranchId) setCurrentBranchId(d.currentBranchId);
       if (d.users) setUsers(d.users);
       if (d.settings) setSettings(d.settings);
+
       return { success: true, message: 'បានទាញយកទិន្នន័យពី Supabase Database ដោយជោគជ័យ!' };
     } catch (err: any) {
       return { success: false, message: err.message || 'Error restoring from Supabase' };

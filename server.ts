@@ -297,18 +297,21 @@ async function startServer() {
             data: payload,
             updated_at: new Date().toISOString(),
           });
-          if (!error) savedToSupabase = true;
+          if (!error) {
+            savedToSupabase = true;
+            supabaseError = null;
+          }
         } catch {}
       }
     } else {
-      // Save directly via Supabase REST API with reasonable network timeout
+      // Save directly via Supabase REST API with generous network timeout
       try {
         const restPromise = supabaseAdmin.from('bim_school_state').upsert({
           id: 'latest',
           data: payload,
           updated_at: new Date().toISOString(),
         });
-        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 12000));
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Supabase request timed out after 25s')), 25000));
         const { error }: any = await Promise.race([restPromise, timeoutPromise]);
         if (!error) {
           savedToSupabase = true;
@@ -316,7 +319,7 @@ async function startServer() {
           supabaseError = error?.message || 'Supabase upsert rejected';
         }
       } catch (err: any) {
-        supabaseError = err?.message || 'Network timeout saving to Supabase';
+        supabaseError = err?.message || 'Network error saving to Supabase';
       }
     }
 
