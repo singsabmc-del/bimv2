@@ -46,6 +46,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { ExcelStudentImportModal } from './ExcelStudentImportModal';
+import { StudentGeneralInfoDocument } from './StudentGeneralInfoDocument';
 
 export interface RosterStudentRow {
   id: number;
@@ -126,6 +127,43 @@ export const OfficialClassRosterView: React.FC = () => {
   const [teacherPhone, setTeacherPhone] = useState('012 345 678');
   const [tempTeacherName, setTempTeacherName] = useState(homeroomTeacher);
   const [tempTeacherPhone, setTempTeacherPhone] = useState(teacherPhone);
+
+  // Settings Modal & Display Toggles (ការកំណត់ក្បាលបញ្ជី ជើងបញ្ជី និងជួរឈរ)
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [settingsActiveSubTab, setSettingsActiveSubTab] = useState<'header_footer' | 'signatures' | 'columns'>('header_footer');
+  const [showHeader, setShowHeader] = useState(true);
+  const [showFooter, setShowFooter] = useState(true);
+  const [ministryName, setMinistryName] = useState('ក្រសួងអប់រំ យុវជន និងកីឡា');
+  const [departmentName, setDepartmentName] = useState('មន្ទីរអប់រំ យុវជន និងកីឡាខេត្តបន្ទាយមានជ័យ');
+  const [schoolNameKhmer, setSchoolNameKhmer] = useState(settings?.schoolNameKhmer || 'សាលាអន្តរជាតិ BIM');
+  const [schoolNameEnglish, setSchoolNameEnglish] = useState(settings?.schoolNameEnglish || 'BIM School');
+  const [customDirectorName, setCustomDirectorName] = useState(settings?.directorName || 'យ៉េន ណាវីន');
+  const [footerLocationDate, setFooterLocationDate] = useState('ថ្ងៃ................ ទី....... ខែ............... ឆ្នាំ២០២៦');
+
+  // Column visibility
+  const [visibleColumns, setVisibleColumns] = useState({
+    id: true,
+    name: true,
+    gender: true,
+    dob: true,
+    age: true,
+    address: true,
+    phone: true,
+    guardian: true,
+    note: true,
+    actions: true,
+  });
+
+  // Temporary edit states for modal
+  const [tempTitle, setTempTitle] = useState(classNameTitle);
+  const [tempAcademicYear, setTempAcademicYear] = useState(academicYear);
+  const [tempHomeroomTeacher, setTempHomeroomTeacher] = useState(homeroomTeacher);
+  const [tempDirectorName, setTempDirectorName] = useState(customDirectorName);
+  const [tempSchoolNameKhmer, setTempSchoolNameKhmer] = useState(schoolNameKhmer);
+  const [tempSchoolNameEnglish, setTempSchoolNameEnglish] = useState(schoolNameEnglish);
+  const [tempMinistryName, setTempMinistryName] = useState(ministryName);
+  const [tempDepartmentName, setTempDepartmentName] = useState(departmentName);
+  const [tempFooterDate, setTempFooterDate] = useState(footerLocationDate);
 
   // Close class sort dropdown on click outside
   useEffect(() => {
@@ -310,6 +348,27 @@ export const OfficialClassRosterView: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => {
+                setTempTitle(classNameTitle);
+                setTempAcademicYear(academicYear);
+                setTempHomeroomTeacher(homeroomTeacher);
+                setTempTeacherPhone(teacherPhone);
+                setTempDirectorName(customDirectorName || settings?.directorName || 'យ៉េន ណាវីន');
+                setTempSchoolNameKhmer(schoolNameKhmer);
+                setTempSchoolNameEnglish(schoolNameEnglish);
+                setTempMinistryName(ministryName);
+                setTempDepartmentName(departmentName);
+                setTempFooterDate(footerLocationDate);
+                setIsSettingsModalOpen(true);
+              }}
+              className="flex items-center gap-1.5 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl text-xs font-bold font-khmer transition-all shadow-xs cursor-pointer"
+              title="ការកំណត់ក្បាលបញ្ជី ជើងបញ្ជី និងទម្រង់តារាង (Roster Settings)"
+            >
+              <Settings className="w-4 h-4 text-slate-950 shrink-0" />
+              <span>ការកំណត់</span>
+            </button>
+
             <button
               onClick={() => {
                 setTempTeacherName(homeroomTeacher);
@@ -557,28 +616,83 @@ export const OfficialClassRosterView: React.FC = () => {
           </div>
 
           {/* Roster Table Container matching Uploaded Image exact headers and style */}
-          <div className="bg-white rounded-2xl border border-slate-300 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-2xl border border-slate-300 shadow-sm overflow-hidden print:border-none print:shadow-none">
+            
+            {/* ================= OFFICIAL HEADER (ក្បាលបញ្ជីនាមសិស្ស) ================= */}
+            {showHeader && (
+              <div className="p-6 sm:p-8 border-b border-slate-200 bg-white">
+                <div className="flex flex-col sm:flex-row items-center sm:items-start justify-between gap-4 text-center sm:text-left">
+                  {/* Left: Ministry & School Info */}
+                  <div className="space-y-1">
+                    <div className="text-xs font-bold text-slate-800 font-khmer">
+                      {ministryName}
+                    </div>
+                    <div className="text-xs text-slate-600 font-khmer">
+                      {departmentName}
+                    </div>
+                    <div className="text-sm sm:text-base font-extrabold text-[#1D4ED8] font-khmer pt-0.5">
+                      {schoolNameKhmer} · {schoolNameEnglish}
+                    </div>
+                    <div className="text-xs font-semibold text-amber-700 font-khmer">
+                      {currentBranch.nameKhmer}
+                    </div>
+                  </div>
+
+                  {/* Right: Kingdom of Cambodia Motto */}
+                  <div className="text-center sm:text-right space-y-1">
+                    <div className="text-sm sm:text-base font-bold font-khmer text-slate-950 tracking-wider">
+                      ព្រះរាជាណាចក្រកម្ពុជា
+                    </div>
+                    <div className="text-xs sm:text-sm font-bold font-khmer text-slate-800">
+                      ជាតិ សាសនា ព្រះមហាក្សត្រ
+                    </div>
+                    <div className="text-xs text-slate-400 tracking-widest font-serif">❖ ❖ ❖</div>
+                  </div>
+                </div>
+
+                {/* Center: Title & Academic Year */}
+                <div className="text-center mt-5 mb-2 space-y-1.5">
+                  <h1 className="text-xl sm:text-2xl font-extrabold text-slate-950 font-khmer tracking-wide">
+                    {classNameTitle}
+                  </h1>
+                  <div className="flex items-center justify-center gap-2 sm:gap-3 text-xs sm:text-sm font-bold font-khmer text-slate-800 flex-wrap">
+                    <span className="px-3 py-1 rounded-lg bg-amber-100 text-amber-950 border border-amber-300 font-extrabold">
+                      ថ្នាក់រៀន៖ {classNameTitle}
+                    </span>
+                    <span>·</span>
+                    <span>ឆ្នាំសិក្សា៖ <span className="font-mono text-slate-900">{academicYear}</span></span>
+                    <span>·</span>
+                    <span>
+                      គ្រូបន្ទុកថ្នាក់៖ <span className="text-indigo-900 font-bold">{homeroomTeacher}</span>
+                      {teacherPhone && <span className="font-mono text-slate-600 ml-1">({teacherPhone})</span>}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Roster Table */}
             <div className="overflow-x-auto">
               <table className="w-full border-collapse border border-black text-xs font-khmer text-slate-900">
                 <thead>
                   {/* Yellow header row matching user uploaded image */}
                   <tr className="bg-[#fbb03b] text-black font-bold border-b border-black text-center text-xs">
-                    <th className="py-2.5 px-2 border border-black w-12 text-center font-bold">ID</th>
-                    <th className="py-2.5 px-3 border border-black text-left font-bold min-w-[130px]">Name</th>
-                    <th className="py-2.5 px-2 border border-black text-center font-bold w-20">Gender</th>
-                    <th className="py-2.5 px-2 border border-black text-center font-bold w-28">Date of birth</th>
-                    <th className="py-2.5 px-2 border border-black text-center font-bold w-24">Student Age</th>
-                    <th className="py-2.5 px-2 border border-black text-center font-bold min-w-[100px]">Address</th>
-                    <th className="py-2.5 px-2 border border-black text-center font-bold w-32 font-mono">Phone Number</th>
-                    <th className="py-2.5 px-3 border border-black text-left font-bold min-w-[130px]">Guardian's Name</th>
-                    <th className="py-2.5 px-2 border border-black text-center font-bold min-w-[100px]">Other markings</th>
-                    <th className="py-2.5 px-2 border border-black text-center font-bold w-28 no-print">សកម្មភាព</th>
+                    {visibleColumns.id && <th className="py-2.5 px-2 border border-black w-12 text-center font-bold">ID</th>}
+                    {visibleColumns.name && <th className="py-2.5 px-3 border border-black text-left font-bold min-w-[130px]">Name</th>}
+                    {visibleColumns.gender && <th className="py-2.5 px-2 border border-black text-center font-bold w-20">Gender</th>}
+                    {visibleColumns.dob && <th className="py-2.5 px-2 border border-black text-center font-bold w-28">Date of birth</th>}
+                    {visibleColumns.age && <th className="py-2.5 px-2 border border-black text-center font-bold w-24">Student Age</th>}
+                    {visibleColumns.address && <th className="py-2.5 px-2 border border-black text-center font-bold min-w-[100px]">Address</th>}
+                    {visibleColumns.phone && <th className="py-2.5 px-2 border border-black text-center font-bold w-32 font-mono">Phone Number</th>}
+                    {visibleColumns.guardian && <th className="py-2.5 px-3 border border-black text-left font-bold min-w-[130px]">Guardian's Name</th>}
+                    {visibleColumns.note && <th className="py-2.5 px-2 border border-black text-center font-bold min-w-[100px]">Other markings</th>}
+                    {visibleColumns.actions && <th className="py-2.5 px-2 border border-black text-center font-bold w-28 no-print">សកម្មភាព</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-black/40">
                   {filteredStudents.length === 0 ? (
                     <tr>
-                      <td colSpan={10} className="p-8 text-center text-slate-400 font-khmer">
+                      <td colSpan={Object.values(visibleColumns).filter(Boolean).length || 1} className="p-8 text-center text-slate-400 font-khmer">
                         រកមិនឃើញទិន្នន័យសិស្សទេ
                       </td>
                     </tr>
@@ -591,44 +705,64 @@ export const OfficialClassRosterView: React.FC = () => {
                           onClick={() => setSelectedStudentForAdmission(st)}
                           title="ចុចដើម្បីមើលព័ត៌មានលម្អិតតាមទម្រង់ Admission Form"
                         >
-                          <td className="py-2 px-2 border border-black text-center font-mono font-medium">
-                            {st.id}
-                          </td>
-                          <td className="py-2 px-3 border border-black text-left font-bold text-slate-950 group-hover:text-amber-800">
-                            {st.name}
-                          </td>
-                          <td className="py-2 px-2 border border-black text-center font-medium font-sans">
-                            {st.gender}
-                          </td>
-                          <td className="py-2 px-2 border border-black text-center font-mono">
-                            {st.dob}
-                          </td>
-                          <td className="py-2 px-2 border border-black text-center font-mono font-bold">
-                            {st.age}
-                          </td>
-                          <td className="py-2 px-2 border border-black text-center font-khmer">
-                            {st.address}
-                          </td>
-                          <td className="py-2 px-2 border border-black text-center font-mono font-semibold">
-                            {st.phone}
-                          </td>
-                          <td className="py-2 px-3 border border-black text-left font-khmer">
-                            {st.guardianName}
-                          </td>
-                          <td className="py-2 px-2 border border-black text-center text-[11px] text-slate-500">
-                            {st.note || ''}
-                          </td>
-                          <td className="py-2 px-2 border border-black text-center no-print" onClick={(e) => e.stopPropagation()}>
-                            <button
-                              type="button"
-                              onClick={() => setSelectedStudentForAdmission(st)}
-                              className="px-2 py-1 bg-amber-100 hover:bg-amber-200 text-amber-950 rounded-lg text-[11px] font-bold font-khmer transition-all flex items-center justify-center gap-1 mx-auto cursor-pointer"
-                              title="មើលទម្រង់ពាក្យសុំចូលរៀន (Admission Form)"
-                            >
-                              <FileText className="w-3.5 h-3.5 text-amber-800" />
-                              <span>ពាក្យសុំ</span>
-                            </button>
-                          </td>
+                          {visibleColumns.id && (
+                            <td className="py-2 px-2 border border-black text-center font-mono font-medium">
+                              {st.id}
+                            </td>
+                          )}
+                          {visibleColumns.name && (
+                            <td className="py-2 px-3 border border-black text-left font-bold text-slate-950 group-hover:text-amber-800">
+                              {st.name}
+                            </td>
+                          )}
+                          {visibleColumns.gender && (
+                            <td className="py-2 px-2 border border-black text-center font-medium font-sans">
+                              {st.gender}
+                            </td>
+                          )}
+                          {visibleColumns.dob && (
+                            <td className="py-2 px-2 border border-black text-center font-mono">
+                              {st.dob}
+                            </td>
+                          )}
+                          {visibleColumns.age && (
+                            <td className="py-2 px-2 border border-black text-center font-mono font-bold">
+                              {st.age}
+                            </td>
+                          )}
+                          {visibleColumns.address && (
+                            <td className="py-2 px-2 border border-black text-center font-khmer">
+                              {st.address}
+                            </td>
+                          )}
+                          {visibleColumns.phone && (
+                            <td className="py-2 px-2 border border-black text-center font-mono font-semibold">
+                              {st.phone}
+                            </td>
+                          )}
+                          {visibleColumns.guardian && (
+                            <td className="py-2 px-3 border border-black text-left font-khmer">
+                              {st.guardianName}
+                            </td>
+                          )}
+                          {visibleColumns.note && (
+                            <td className="py-2 px-2 border border-black text-center text-[11px] text-slate-500">
+                              {st.note || ''}
+                            </td>
+                          )}
+                          {visibleColumns.actions && (
+                            <td className="py-2 px-2 border border-black text-center no-print" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedStudentForAdmission(st)}
+                                className="px-2 py-1 bg-amber-100 hover:bg-amber-200 text-amber-950 rounded-lg text-[11px] font-bold font-khmer transition-all flex items-center justify-center gap-1 mx-auto cursor-pointer"
+                                title="មើលទម្រង់ពាក្យសុំចូលរៀន (Admission Form)"
+                              >
+                                <FileText className="w-3.5 h-3.5 text-amber-800" />
+                                <span>ពាក្យសុំ</span>
+                              </button>
+                            </td>
+                          )}
                         </tr>
                       );
                     })
@@ -636,6 +770,64 @@ export const OfficialClassRosterView: React.FC = () => {
                 </tbody>
               </table>
             </div>
+
+            {/* ================= OFFICIAL FOOTER (ជើងបញ្ជីនាមសិស្ស) ================= */}
+            {showFooter && (
+              <div className="p-6 sm:p-8 border-t border-slate-200 bg-white space-y-6">
+                {/* Summary Statement Line */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-khmer text-slate-900 bg-amber-50/70 border border-amber-200/80 rounded-xl px-4 py-2.5">
+                  <div className="font-bold">
+                    បញ្ឈប់បញ្ជីត្រឹមចំនួន៖ <span className="font-mono text-sm text-slate-950 font-extrabold">{totalStudentsCount}</span> នាក់
+                    {'  '}ស្រីមានចំនួន <span className="font-mono text-sm text-rose-700 font-extrabold">{femaleCount}</span> នាក់
+                    {'  '}ប្រុសមានចំនួន <span className="font-mono text-sm text-blue-700 font-extrabold">{maleCount}</span> នាក់
+                  </div>
+                  <div className="text-slate-500 text-[11px] font-mono">
+                    កាលបរិច្ឆេទស្រង់៖ {new Date().toLocaleDateString('km-KH')}
+                  </div>
+                </div>
+
+                {/* Signatures & Stamps */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 pt-4 text-xs font-khmer text-slate-800">
+                  {/* Left: Homeroom Teacher Signature */}
+                  <div className="text-center sm:text-left space-y-16">
+                    <div>
+                      <div className="font-bold text-slate-900 text-sm">គ្រូបន្ទុកថ្នាក់</div>
+                      <div className="text-[11px] text-slate-500 font-sans">Homeroom Teacher</div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="font-bold text-slate-950 text-sm font-khmer">
+                        {homeroomTeacher}
+                      </div>
+                      <div className="text-[11px] font-mono text-slate-600">
+                        ទូរស័ព្ទទាក់ទង៖ {teacherPhone || '012 345 678'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right: School Director Signature & Stamp */}
+                  <div className="text-center sm:text-right space-y-16">
+                    <div>
+                      <div className="text-[11px] text-slate-600 font-khmer">
+                        {footerLocationDate}
+                      </div>
+                      <div className="font-bold text-slate-900 text-sm mt-1">
+                        បានឃើញ និងឯកភាព · នាយកសាលា
+                      </div>
+                      <div className="text-[11px] text-slate-500 font-sans">Seen & Approved by Director</div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="font-bold text-slate-950 text-sm font-khmer">
+                        {customDirectorName || settings.directorName || 'យ៉េន ណាវីន'}
+                      </div>
+                      <div className="text-[11px] text-slate-500">
+                        {schoolNameKhmer}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
           </div>
         </div>
       </div>
@@ -685,99 +877,34 @@ export const OfficialClassRosterView: React.FC = () => {
             </div>
 
             {/* Modal Body: Complete Form Sections (I to VI) */}
-            <div className="flex-1 overflow-y-auto p-5 sm:p-7 space-y-6">
-              {/* SECTION I: PUPIL DETAILS */}
-              <div className="p-4 sm:p-5 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
-                <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                  <h4 className="font-bold text-slate-900 text-sm font-khmer flex items-center gap-2">
-                    <User className="w-4 h-4 text-amber-600" />
-                    <span>I. ព័ត៌មានសិស្ស / Pupil Details</span>
-                  </h4>
-                  <span className="font-mono text-xs text-indigo-700 font-bold">
-                    កូដ៖ {selectedStudentForAdmission.studentCode || `BIM-${selectedStudentForAdmission.id.toString().padStart(4, '0')}`}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-khmer">
-                  <div>
-                    <span className="text-slate-500 block text-[11px]">នាម និងគោត្តនាម៖</span>
-                    <strong className="text-slate-900 text-sm">{selectedStudentForAdmission.name}</strong>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 block text-[11px]">ឈ្មោះអក្សរឡាតាំង៖</span>
-                    <strong className="font-mono uppercase text-slate-900">
-                      {selectedStudentForAdmission.latinName || selectedStudentForAdmission.originalStudent?.latinName || '---'}
-                    </strong>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 block text-[11px]">ភេទ៖</span>
-                    <strong className="text-slate-900">
-                      {selectedStudentForAdmission.gender === 'Female' ? 'ស្រី (Female)' : 'ប្រុស (Male)'}
-                    </strong>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 block text-[11px]">ថ្ងៃខែឆ្នាំកំណើត & អាយុ៖</span>
-                    <strong className="font-mono text-slate-900">
-                      {selectedStudentForAdmission.dob} ({selectedStudentForAdmission.age} ឆ្នាំ)
-                    </strong>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 block text-[11px]">សញ្ជាតិ៖</span>
-                    <strong className="text-slate-900">
-                      {selectedStudentForAdmission.originalStudent?.nationality || 'ខ្មែរ'}
-                    </strong>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 block text-[11px]">សាសនា៖</span>
-                    <strong className="text-slate-900">
-                      {selectedStudentForAdmission.originalStudent?.religion || 'ព្រះពុទ្ធ'}
-                    </strong>
-                  </div>
-                  <div className="sm:col-span-2">
-                    <span className="text-slate-500 block text-[11px]">ទីកន្លែងកំណើត៖</span>
-                    <strong className="text-slate-900">
-                      {selectedStudentForAdmission.originalStudent?.placeOfBirth || selectedStudentForAdmission.address}
-                    </strong>
-                  </div>
-                </div>
-              </div>
-
-              {/* SECTION II: GRADE LEVEL */}
-              <div className="p-4 sm:p-5 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
-                <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                  <h4 className="font-bold text-slate-900 text-sm font-khmer flex items-center gap-2">
-                    <BookOpen className="w-4 h-4 text-indigo-600" />
-                    <span>II. កម្មវិធីសិក្សា / Grade Level</span>
-                  </h4>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs font-khmer">
-                  <div>
-                    <span className="text-slate-500 block text-[11px]">ថ្នាក់រៀនបច្ចុប្បន្ន៖</span>
-                    <strong className="text-indigo-900 font-bold">{classNameTitle}</strong>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 block text-[11px]">ឆ្នាំសិក្សា៖</span>
-                    <strong className="font-mono text-slate-900">{academicYear}</strong>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 block text-[11px]">គ្រឹះស្ថានសិក្សា៖</span>
-                    <strong className="text-slate-900">{settings.schoolNameKhmer} ({currentBranch.nameKhmer})</strong>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 block text-[11px]">ថ្ងៃសិក្សា៖</span>
-                    <strong className="text-slate-900">
-                      {selectedStudentForAdmission.admissionData?.studyDays || 'ថ្ងៃចន្ទ-ថ្ងៃសុក្រ'}
-                    </strong>
-                  </div>
-                  <div className="sm:col-span-2">
-                    <span className="text-slate-500 block text-[11px]">ម៉ោងសិក្សា៖</span>
-                    <strong className="text-slate-900">
-                      {selectedStudentForAdmission.admissionData?.studyHours || 'ម៉ោង ៧:០០ នាទី - ១៦:០០ នាទី'}
-                    </strong>
-                  </div>
-                </div>
-              </div>
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 bg-slate-100">
+              {/* SECTION I & II: Exact Official Document matching image_1d7d19d3.png */}
+              <StudentGeneralInfoDocument
+                student={selectedStudentForAdmission.originalStudent || {
+                  id: selectedStudentForAdmission.id,
+                  studentCode: selectedStudentForAdmission.studentCode || `BIM-2020-${selectedStudentForAdmission.id.toString().padStart(3, '0')}`,
+                  name: selectedStudentForAdmission.name,
+                  latinName: selectedStudentForAdmission.latinName || '',
+                  gender: selectedStudentForAdmission.gender,
+                  note: 'New' as const,
+                  startDate: '2026-10-01',
+                  feesGroup: 'October',
+                  caseType: 'Full' as const,
+                  cash: 12.5,
+                  paidBy: 'Cash' as const,
+                  paymentDate: '2026-10-01',
+                  dob: selectedStudentForAdmission.dob,
+                  address: selectedStudentForAdmission.address,
+                  placeOfBirth: selectedStudentForAdmission.address,
+                  guardianName: selectedStudentForAdmission.guardianName,
+                  phone: selectedStudentForAdmission.phone,
+                  nationality: 'ខ្មែរ',
+                  religion: 'ព្រះពុទ្ធ',
+                  admissionData: selectedStudentForAdmission.admissionData,
+                }}
+                className={classNameTitle}
+                allowEdit={false}
+              />
 
               {/* SECTION III: STUDENT HEALTH */}
               <div className="p-4 sm:p-5 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
@@ -1007,6 +1134,409 @@ export const OfficialClassRosterView: React.FC = () => {
                 >
                   រក្សាទុកគ្រូបន្ទុកថ្នាក់
                 </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: ROSTER & TABLE SETTINGS (ការកំណត់ក្បាលបញ្ជី ជើងបញ្ជី និងជួរឈរ) */}
+      {isSettingsModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-slate-200 text-xs my-auto animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 p-4 sm:p-5 rounded-t-2xl flex items-center justify-between shrink-0 shadow-xs">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/30 backdrop-blur-xs flex items-center justify-center text-slate-950 shrink-0 font-bold shadow-2xs">
+                  <Settings className="w-5 h-5 text-slate-950" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-extrabold text-base font-khmer text-slate-950">
+                      ការកំណត់បញ្ជីនាមសិស្ស · Roster Settings
+                    </h3>
+                  </div>
+                  <p className="text-[11px] text-slate-900/80 font-khmer font-medium mt-0.5">
+                    កំណត់ក្បាលបញ្ជី ជើងបញ្ជី ហត្ថលេខា និងជម្រើសបង្ហាញជួរឈរ
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsSettingsModalOpen(false)}
+                className="p-1.5 text-slate-950 hover:bg-black/10 rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Sub-tab Navigation */}
+            <div className="flex border-b border-slate-200 bg-slate-50 px-4 pt-2 gap-2 text-xs font-khmer shrink-0">
+              <button
+                type="button"
+                onClick={() => setSettingsActiveSubTab('header_footer')}
+                className={`py-2 px-3.5 border-b-2 font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  settingsActiveSubTab === 'header_footer'
+                    ? 'border-amber-500 text-amber-950 bg-white rounded-t-lg'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <FileText className="w-4 h-4 text-amber-600" />
+                <span>ក្បាលបញ្ជី & ស្ថាប័ន (Header)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSettingsActiveSubTab('signatures')}
+                className={`py-2 px-3.5 border-b-2 font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  settingsActiveSubTab === 'signatures'
+                    ? 'border-amber-500 text-amber-950 bg-white rounded-t-lg'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <UserCheck className="w-4 h-4 text-amber-600" />
+                <span>ជើងបញ្ជី & ហត្ថលេខា (Footer)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSettingsActiveSubTab('columns')}
+                className={`py-2 px-3.5 border-b-2 font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  settingsActiveSubTab === 'columns'
+                    ? 'border-amber-500 text-amber-950 bg-white rounded-t-lg'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <SlidersHorizontal className="w-4 h-4 text-amber-600" />
+                <span>ការបង្ហាញជួរឈរ (Columns)</span>
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                setClassNameTitle(tempTitle);
+                setAcademicYear(tempAcademicYear);
+                setHomeroomTeacher(tempHomeroomTeacher);
+                setTeacherPhone(tempTeacherPhone);
+                setCustomDirectorName(tempDirectorName);
+                setSchoolNameKhmer(tempSchoolNameKhmer);
+                setSchoolNameEnglish(tempSchoolNameEnglish);
+                setMinistryName(tempMinistryName);
+                setDepartmentName(tempDepartmentName);
+                setFooterLocationDate(tempFooterDate);
+
+                updateSettings({
+                  directorName: tempDirectorName,
+                  schoolNameKhmer: tempSchoolNameKhmer,
+                  schoolNameEnglish: tempSchoolNameEnglish,
+                  academicYear: tempAcademicYear,
+                });
+
+                setIsSettingsModalOpen(false);
+              }}
+              className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4 text-xs font-khmer"
+            >
+              {/* TAB 1: HEADER & SCHOOL INFO */}
+              {settingsActiveSubTab === 'header_footer' && (
+                <div className="space-y-4">
+                  {/* Master toggle for header */}
+                  <div className="flex items-center justify-between p-3.5 bg-amber-50 border border-amber-200 rounded-xl">
+                    <div>
+                      <div className="font-bold text-slate-900 text-xs">
+                        បង្ហាញក្បាលបញ្ជីផ្លូវការ (Show Official Cambodian Header)
+                      </div>
+                      <div className="text-[11px] text-slate-500">
+                        បង្ហាញព្រះរាជាណាចក្រកម្ពុជា ក្រសួងអប់រំ និងឈ្មោះសាលានៅផ្នែកខាងលើ
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={showHeader}
+                        onChange={(e) => setShowHeader(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="block text-slate-700 font-bold mb-1">
+                        ចំណងជើងតារាង (Class Roster Title) *
+                      </label>
+                      <input
+                        type="text"
+                        value={tempTitle}
+                        onChange={(e) => setTempTitle(e.target.value)}
+                        placeholder="ឧ. បញ្ជីនាមសិស្សតាមថ្នាក់ ឬ បញ្ជីនាមសិស្សថ្នាក់ទី ១A"
+                        required
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 text-xs font-khmer font-bold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-700 font-bold mb-1">
+                        ឆ្នាំសិក្សា (Academic Year) *
+                      </label>
+                      <input
+                        type="text"
+                        value={tempAcademicYear}
+                        onChange={(e) => setTempAcademicYear(e.target.value)}
+                        placeholder="ឧ. ២០២៦-២០២៧"
+                        required
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 text-xs font-mono font-bold"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="block text-slate-700 font-bold mb-1">
+                        ឈ្មោះសាលារៀន (ភាសាខ្មែរ)
+                      </label>
+                      <input
+                        type="text"
+                        value={tempSchoolNameKhmer}
+                        onChange={(e) => setTempSchoolNameKhmer(e.target.value)}
+                        placeholder="ឧ. សាលាអន្តរជាតិ BIM"
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 text-xs font-khmer font-bold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-700 font-bold mb-1">
+                        ឈ្មោះសាលារៀន (School Name English)
+                      </label>
+                      <input
+                        type="text"
+                        value={tempSchoolNameEnglish}
+                        onChange={(e) => setTempSchoolNameEnglish(e.target.value)}
+                        placeholder="ឧ. BIM School"
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 text-xs font-sans font-bold"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="block text-slate-700 font-bold mb-1">
+                        ក្រសួងសាមី (Ministry Line)
+                      </label>
+                      <input
+                        type="text"
+                        value={tempMinistryName}
+                        onChange={(e) => setTempMinistryName(e.target.value)}
+                        placeholder="ក្រសួងអប់រំ យុវជន និងកីឡា"
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 text-xs font-khmer"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-700 font-bold mb-1">
+                        មន្ទីរអប់រំខេត្ត/ក្រុង (Department Line)
+                      </label>
+                      <input
+                        type="text"
+                        value={tempDepartmentName}
+                        onChange={(e) => setTempDepartmentName(e.target.value)}
+                        placeholder="មន្ទីរអប់រំ យុវជន និងកីឡាខេត្តបន្ទាយមានជ័យ"
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 text-xs font-khmer"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 2: SIGNATURES & FOOTER */}
+              {settingsActiveSubTab === 'signatures' && (
+                <div className="space-y-4">
+                  {/* Master toggle for footer */}
+                  <div className="flex items-center justify-between p-3.5 bg-amber-50 border border-amber-200 rounded-xl">
+                    <div>
+                      <div className="font-bold text-slate-900 text-xs">
+                        បង្ហាញជើងបញ្ជី & ហត្ថលេខា (Show Footer & Signatures)
+                      </div>
+                      <div className="text-[11px] text-slate-500">
+                        បង្ហាញហត្ថលេខាគ្រូបន្ទុកថ្នាក់ នាយកសាលា និងសេចក្តីសង្ខេបចំនួនសិស្ស
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={showFooter}
+                        onChange={(e) => setShowFooter(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="block text-slate-700 font-bold mb-1">
+                        ឈ្មោះគ្រូបន្ទុកថ្នាក់ (Homeroom Teacher)
+                      </label>
+                      <input
+                        type="text"
+                        value={tempHomeroomTeacher}
+                        onChange={(e) => setTempHomeroomTeacher(e.target.value)}
+                        placeholder="ឧ. សុខ ម៉ាលី"
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 text-xs font-khmer font-bold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-700 font-bold mb-1">
+                        លេខទូរស័ព្ទទាក់ទង (Teacher Phone)
+                      </label>
+                      <input
+                        type="tel"
+                        value={tempTeacherPhone}
+                        onChange={(e) => setTempTeacherPhone(e.target.value)}
+                        placeholder="ឧ. 012 345 678"
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="block text-slate-700 font-bold mb-1">
+                        ឈ្មោះនាយកសាលា (School Director Name)
+                      </label>
+                      <input
+                        type="text"
+                        value={tempDirectorName}
+                        onChange={(e) => setTempDirectorName(e.target.value)}
+                        placeholder="ឧ. យ៉េន ណាវីន"
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 text-xs font-khmer font-bold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-700 font-bold mb-1">
+                        កាលបរិច្ឆេទលើជើងបញ្ជី (Footer Date/Location Line)
+                      </label>
+                      <input
+                        type="text"
+                        value={tempFooterDate}
+                        onChange={(e) => setTempFooterDate(e.target.value)}
+                        placeholder="ឧ. ថ្ងៃ................ ទី....... ខែ............... ឆ្នាំ២០២៦"
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 text-xs font-khmer"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 3: COLUMN VISIBILITY */}
+              {settingsActiveSubTab === 'columns' && (
+                <div className="space-y-3">
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-slate-600 text-[11px]">
+                    ជ្រើសរើសជួរឈរដែលអ្នកចង់បង្ហាញ ឬលាក់នៅលើតារាងបញ្ជីនាមសិស្ស៖
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {[
+                      { key: 'id', label: 'ID (លេខរៀង / អត្តលេខ)', desc: 'ជួរឈរ ID សិស្ស' },
+                      { key: 'name', label: 'Name (ឈ្មោះសិស្ស)', desc: 'ឈ្មោះជាភាសាខ្មែរ' },
+                      { key: 'gender', label: 'Gender (ភេទ)', desc: 'Man / Female' },
+                      { key: 'dob', label: 'Date of birth (ថ្ងៃខែឆ្នាំកំណើត)', desc: 'ខែ/ថ្ងៃ/ឆ្នាំ' },
+                      { key: 'age', label: 'Student Age (អាយុសិស្ស)', desc: 'អាយុគិតតាមឆ្នាំកំណើត' },
+                      { key: 'address', label: 'Address (អាសយដ្ឋាន)', desc: 'ភូមិ/ឃុំ/សង្កាត់' },
+                      { key: 'phone', label: 'Phone Number (លេខទូរស័ព្ទ)', desc: 'លេខទំនាក់ទំនង' },
+                      { key: 'guardian', label: "Guardian's Name (ឈ្មោះអាណាព្យាបាល)", desc: 'ឪពុក ម្តាយ ឬអាណាព្យាបាល' },
+                      { key: 'note', label: 'Other markings (ចំណាំផ្សេងៗ)', desc: 'កំណត់ចំណាំផ្សេងៗ' },
+                      { key: 'actions', label: 'សកម្មភាព (Actions / Admission Form)', desc: 'ប៊ូតុងបើកមើលពាក្យសុំចូលរៀន' },
+                    ].map((col) => {
+                      const isChecked = visibleColumns[col.key as keyof typeof visibleColumns];
+                      return (
+                        <label
+                          key={col.key}
+                          className={`flex items-start gap-2.5 p-2.5 rounded-xl border transition-all cursor-pointer ${
+                            isChecked
+                              ? 'bg-amber-50/60 border-amber-300 text-slate-900'
+                              : 'bg-white border-slate-200 text-slate-400 opacity-60'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) =>
+                              setVisibleColumns((prev) => ({
+                                ...prev,
+                                [col.key]: e.target.checked,
+                              }))
+                            }
+                            className="mt-0.5 w-4 h-4 rounded text-amber-600 focus:ring-amber-500 border-slate-300"
+                          />
+                          <div className="min-w-0">
+                            <div className="font-bold text-xs">{col.label}</div>
+                            <div className="text-[10px] text-slate-500">{col.desc}</div>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Modal Footer Controls */}
+              <div className="flex items-center justify-between pt-4 border-t border-slate-200 mt-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTempTitle('បញ្ជីនាមសិស្សតាមថ្នាក់');
+                    setTempAcademicYear('២០២៦-២០២៧');
+                    setTempHomeroomTeacher('សុខ ម៉ាលី');
+                    setTempTeacherPhone('012 345 678');
+                    setTempDirectorName(settings?.directorName || 'យ៉េន ណាវីន');
+                    setTempSchoolNameKhmer(settings?.schoolNameKhmer || 'សាលាអន្តរជាតិ BIM');
+                    setTempSchoolNameEnglish(settings?.schoolNameEnglish || 'BIM School');
+                    setTempMinistryName('ក្រសួងអប់រំ យុវជន និងកីឡា');
+                    setTempDepartmentName('មន្ទីរអប់រំ យុវជន និងកីឡាខេត្តបន្ទាយមានជ័យ');
+                    setTempFooterDate('ថ្ងៃ................ ទី....... ខែ............... ឆ្នាំ២០២៦');
+                    setShowHeader(true);
+                    setShowFooter(true);
+                    setVisibleColumns({
+                      id: true,
+                      name: true,
+                      gender: true,
+                      dob: true,
+                      age: true,
+                      address: true,
+                      phone: true,
+                      guardian: true,
+                      note: true,
+                      actions: true,
+                    });
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl font-khmer text-xs transition-colors cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>កំណត់ដូចដើម (Reset)</span>
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsSettingsModalOpen(false)}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-khmer text-xs font-bold transition-all cursor-pointer"
+                  >
+                    បោះបង់
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl font-khmer text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
+                  >
+                    <CheckCircle2 className="w-4 h-4 text-slate-950" />
+                    <span>រក្សាទុកការកំណត់</span>
+                  </button>
+                </div>
               </div>
             </form>
           </div>

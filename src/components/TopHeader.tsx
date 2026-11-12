@@ -15,6 +15,7 @@ import {
   LogOut,
   QrCode,
   Database,
+  Settings,
 } from 'lucide-react';
 
 import { MONTH_NAMES, MONTH_NAMES_KH } from '../types';
@@ -755,6 +756,22 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
               <Database className={`w-3.5 h-3.5 ${autoBackupConfig?.enabled ? 'text-indigo-600' : 'text-slate-500'}`} />
               <span className="hidden xl:inline font-khmer text-xs">
                 {t('បម្រុងទុកទិន្នន័យ', 'Auto-Backup')}
+              </span>
+            </button>
+
+            {/* Quick Settings Button */}
+            <button
+              onClick={() => setActiveTab('system_settings')}
+              title={t('ការកំណត់ប្រព័ន្ធ (System Settings)', 'System Settings')}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all shadow-2xs cursor-pointer ${
+                activeTab === 'system_settings'
+                  ? 'bg-amber-500 text-slate-950 border-amber-500 shadow-xs'
+                  : 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-800'
+              }`}
+            >
+              <Settings className={`w-3.5 h-3.5 ${activeTab === 'system_settings' ? 'text-slate-950' : 'text-slate-700'}`} />
+              <span className="hidden sm:inline font-khmer text-xs">
+                {t('ការកំណត់', 'Settings')}
               </span>
             </button>
 

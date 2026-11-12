@@ -501,17 +501,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             <button
               onClick={() => handleNavClick('system_settings')}
-              className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl transition-all text-xs ${
+              className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl transition-all text-xs ${
                 activeTab === 'system_settings'
-                  ? 'bg-slate-800 text-white font-bold'
-                  : 'text-slate-400 hover:bg-slate-800/60 hover:text-white'
+                  ? 'bg-amber-500 text-slate-950 font-bold shadow-xs'
+                  : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
               } ${language === 'km' ? 'font-khmer' : 'font-sans'}`}
             >
-              <Settings className="w-4 h-4 text-slate-400 shrink-0" />
-              <span className="truncate">
-                {language === 'km'
-                  ? 'ការកំណត់ & Telegram Backup'
-                  : 'Settings & Telegram Backup'}
+              <div className="flex items-center gap-2.5 truncate">
+                <Settings className={`w-4 h-4 shrink-0 ${activeTab === 'system_settings' ? 'text-slate-950' : 'text-amber-400'}`} />
+                <span className="truncate">
+                  {language === 'km'
+                    ? 'ការកំណត់ & Telegram Backup'
+                    : 'Settings & Telegram Backup'}
+                </span>
+              </div>
+              <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono ${activeTab === 'system_settings' ? 'bg-slate-950/20 text-slate-950 font-bold' : 'bg-slate-800 text-slate-400'}`}>
+                ⚙
               </span>
             </button>
           </div>

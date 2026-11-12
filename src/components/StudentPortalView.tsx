@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { StudentAdmissionModal } from './StudentAdmissionModal';
 import { StudentInvoiceHistoryTable } from './StudentInvoiceHistoryTable';
+import { StudentGeneralInfoDocument } from './StudentGeneralInfoDocument';
 
 export const StudentPortalView: React.FC = () => {
   const {
@@ -58,6 +59,7 @@ export const StudentPortalView: React.FC = () => {
 
   const [searchStudentQuery, setSearchStudentQuery] = useState('');
   const [activePortalTab, setActivePortalTab] = useState<'profile' | 'receipts' | 'materials' | 'bus_service' | 'id_card' | 'admission_dossier' | 'submit_slip'>('profile');
+  const [profileViewMode, setProfileViewMode] = useState<'official_document' | 'cards'>('official_document');
   const [isAdmissionModalOpen, setIsAdmissionModalOpen] = useState(false);
   const [selectedStudentForAdmission, setSelectedStudentForAdmission] = useState<StudentFeeRecord | null>(null);
 
@@ -315,7 +317,55 @@ export const StudentPortalView: React.FC = () => {
 
       {/* Main Content by Tab */}
       {activePortalTab === 'profile' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="space-y-4">
+          {/* Sub-view switcher between Official Document & Summary Cards */}
+          <div className="no-print flex items-center justify-between gap-3 bg-white border border-slate-200 rounded-xl px-4 py-2.5 shadow-2xs">
+            <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-lg">
+              <button
+                type="button"
+                onClick={() => setProfileViewMode('official_document')}
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-xs font-khmer font-bold transition-all cursor-pointer ${
+                  profileViewMode === 'official_document'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>{t('ទម្រង់ពាក្យសុំផ្លូវការ (Official Form)', 'Official Registration Form')}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setProfileViewMode('cards')}
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-xs font-khmer font-bold transition-all cursor-pointer ${
+                  profileViewMode === 'cards'
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <User className="w-3.5 h-3.5" />
+                <span>{t('សង្ខេប & ការទូទាត់ (Tuition & Cards)', 'Summary Cards & Overview')}</span>
+              </button>
+            </div>
+
+            <div className="text-xs text-slate-500 font-khmer hidden sm:block">
+              សិស្ស៖ <strong className="text-slate-900">{currentStudent.name}</strong> ({currentStudent.studentCode}) · ថ្នាក់ {currentStudentClass?.className || '1A'}
+            </div>
+          </div>
+
+          {profileViewMode === 'official_document' ? (
+            <StudentGeneralInfoDocument
+              student={currentStudent}
+              className={currentStudentClass?.className || '1A'}
+              allowEdit={permissions.canEdit}
+              onUpdateStudent={(updated) => {
+                if (currentStudentClass) {
+                  updateStudentFee(currentStudentClass.classId, currentStudent.id, updated);
+                }
+              }}
+            />
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left: Identity Card (4 cols) */}
           <div className="lg:col-span-4 bg-white border border-slate-200 rounded-2xl p-6 shadow-2xs space-y-6 flex flex-col justify-between">
             <div className="space-y-4">
@@ -692,7 +742,9 @@ export const StudentPortalView: React.FC = () => {
                 </button>
               </div>
             </div>
-          </div>
+            </div>
+            </div>
+          )}
         </div>
       )}
 
