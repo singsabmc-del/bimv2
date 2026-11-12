@@ -23,6 +23,7 @@ import { TeacherManagementView } from './components/TeacherManagementView';
 import { StudentAttendanceView } from './components/StudentAttendanceView';
 import { MonthlyReportsView } from './components/MonthlyReportsView';
 import { StudentAdmissionModal } from './components/StudentAdmissionModal';
+import { StudentAdmissionView } from './components/StudentAdmissionView';
 import { PromoteStudentsModal } from './components/PromoteStudentsModal';
 import { InvoiceVerificationModal } from './components/InvoiceVerificationModal';
 import { AutoBackupModal } from './components/AutoBackupModal';
@@ -132,9 +133,8 @@ function MainApp() {
           )}
 
           {activeTab === 'student_admission' && (
-            <StudentAdmissionModal
-              isOpen={true}
-              onClose={() => setActiveTab('student_list')}
+            <StudentAdmissionView
+              onBack={() => setActiveTab('student_list')}
             />
           )}
 
@@ -150,6 +150,10 @@ function MainApp() {
           )}
 
           {/* Section 3: Teacher Management */}
+          {activeTab === 'teacher_list' && (
+            <TeacherManagementView initialSubTab="teacher_list" />
+          )}
+
           {activeTab === 'teacher_info' && (
             <TeacherManagementView initialSubTab="teacher_info" />
           )}
@@ -160,6 +164,10 @@ function MainApp() {
 
           {activeTab === 'teacher_subject' && (
             <TeacherManagementView initialSubTab="subject" />
+          )}
+
+          {activeTab === 'teacher_attendance' && (
+            <TeacherManagementView initialSubTab="teacher_attendance" />
           )}
 
           {/* Section 4: Daily School Revenue (School Income) */}

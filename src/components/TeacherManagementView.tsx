@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { TeacherRecord, SubjectItem, ScheduleSlot, ScheduleTimePeriod } from '../types';
 import {
@@ -33,6 +33,7 @@ import {
   Sun,
   Moon,
   AlertTriangle,
+  Send,
 } from 'lucide-react';
 
 // Baseline initial subjects
@@ -251,16 +252,29 @@ const TIME_PERIOD_PRESETS = [
   },
 ];
 
+export type TeacherSubTab =
+  | 'teacher_list'
+  | 'teacher_info'
+  | 'teaching_schedule'
+  | 'subject'
+  | 'teacher_attendance';
+
 interface TeacherManagementViewProps {
-  initialSubTab?: 'teacher_info' | 'teaching_schedule' | 'subject';
+  initialSubTab?: TeacherSubTab;
 }
 
 export const TeacherManagementView: React.FC<TeacherManagementViewProps> = ({
-  initialSubTab = 'teacher_info',
+  initialSubTab = 'teacher_list',
 }) => {
-  const { classData, orderedClassList, currentBranch, branches, permissions, t, settings } = useApp();
+  const { classData, orderedClassList, currentBranch, branches, permissions, t, settings, sendTelegramAlert } = useApp();
 
-  const [activeSubTab, setActiveSubTab] = useState<'teacher_info' | 'teaching_schedule' | 'subject'>(initialSubTab);
+  const [activeSubTab, setActiveSubTab] = useState<TeacherSubTab>(initialSubTab);
+
+  useEffect(() => {
+    if (initialSubTab) {
+      setActiveSubTab(initialSubTab);
+    }
+  }, [initialSubTab]);
 
   // Local state persistence for teachers, subjects, schedules, and custom time periods
   const [teachers, setTeachers] = useState<TeacherRecord[]>(() => {
@@ -304,6 +318,87 @@ export const TeacherManagementView: React.FC<TeacherManagementViewProps> = ({
   const [teacherSearch, setTeacherSearch] = useState('');
   const [selectedClassFilter, setSelectedClassFilter] = useState<string>('1A');
   const [selectedScheduleDay, setSelectedScheduleDay] = useState<string>('all');
+
+  // Teacher Attendance state & persistence
+  const [attendanceDate, setAttendanceDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [attendanceRecords, setAttendanceRecords] = useState<Record<string, { status: 'present' | 'absent' | 'leave' | 'late'; note?: string }>>(() => {
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const stored = localStorage.getItem(`BIM_RANGSEI_TEACHER_ATT_${today}`);
+      return stored ? JSON.parse(stored) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  // Reload attendance when date changes
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(`BIM_RANGSEI_TEACHER_ATT_${attendanceDate}`);
+      if (stored) {
+        setAttendanceRecords(JSON.parse(stored));
+      } else {
+        setAttendanceRecords({});
+      }
+    } catch {}
+  }, [attendanceDate]);
+
+  const handleAttendanceChange = (teacherId: string, status: 'present' | 'absent' | 'leave' | 'late', note?: string) => {
+    setAttendanceRecords((prev) => {
+      const updated = {
+        ...prev,
+        [teacherId]: {
+          status,
+          note: note !== undefined ? note : (prev[teacherId]?.note || ''),
+        },
+      };
+      try {
+        localStorage.setItem(`BIM_RANGSEI_TEACHER_ATT_${attendanceDate}`, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  };
+
+  const handleMarkAllTeachersPresent = () => {
+    const updated: Record<string, { status: 'present' | 'absent' | 'leave' | 'late'; note?: string }> = {};
+    teachers.forEach((tch) => {
+      updated[tch.id] = { status: 'present', note: attendanceRecords[tch.id]?.note || '' };
+    });
+    setAttendanceRecords(updated);
+    try {
+      localStorage.setItem(`BIM_RANGSEI_TEACHER_ATT_${attendanceDate}`, JSON.stringify(updated));
+    } catch {}
+  };
+
+  const handleShareAttendanceTelegram = () => {
+    let presentCount = 0;
+    let absentCount = 0;
+    let leaveCount = 0;
+    let lateCount = 0;
+
+    teachers.forEach((tch) => {
+      const rec = attendanceRecords[tch.id]?.status || 'present';
+      if (rec === 'present') presentCount++;
+      else if (rec === 'absent') absentCount++;
+      else if (rec === 'leave') leaveCount++;
+      else if (rec === 'late') lateCount++;
+    });
+
+    const lines = teachers.map((tch) => {
+      const status = attendanceRecords[tch.id]?.status || 'present';
+      const statusKh = status === 'present' ? '✅ វត្តមាន' : status === 'absent' ? '❌ អវត្តមាន' : status === 'leave' ? '📝 សុំច្បាប់' : '⚠️ មកយឺត';
+      const note = attendanceRecords[tch.id]?.note ? ` (${attendanceRecords[tch.id]?.note})` : '';
+      return `• ${tch.nameKhmer} [${tch.teacherCode}]: ${statusKh}${note}`;
+    }).join('\n');
+
+    sendTelegramAlert(
+      `📋 របាយការណ៍វត្តមានលោកគ្រូ-អ្នកគ្រូ (Teacher Attendance)`,
+      `កាលបរិច្ឆេទ៖ ${attendanceDate}\nសាខា៖ ${currentBranch.nameKhmer}\n\nសរុបគ្រូ៖ ${teachers.length} នាក់\n• វត្តមាន៖ ${presentCount} នាក់\n• អវត្តមាន៖ ${absentCount} នាក់\n• សុំច្បាប់៖ ${leaveCount} នាក់\n• មកយឺត៖ ${lateCount} នាក់\n\nព័ត៌មានលម្អិត៖\n${lines}`,
+      'system',
+      'Teacher Attendance',
+      attendanceDate
+    );
+  };
 
   // Modals state
   const [isTeacherModalOpen, setIsTeacherModalOpen] = useState(false);
@@ -572,8 +667,23 @@ export const TeacherManagementView: React.FC<TeacherManagementViewProps> = ({
           </div>
         </div>
 
-        {/* 3 Sub-tabs exact to diagram */}
+        {/* 5 Sub-tabs exact to diagram */}
         <div className="flex items-center gap-2 border-b border-slate-200 mt-6 pt-1 overflow-x-auto">
+          <button
+            onClick={() => setActiveSubTab('teacher_list')}
+            className={`flex items-center gap-2 pb-3 px-3 text-xs font-bold font-khmer border-b-2 transition-all whitespace-nowrap cursor-pointer ${
+              activeSubTab === 'teacher_list'
+                ? 'border-indigo-600 text-indigo-600'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span>បញ្ជីឈ្មោះគ្រូបង្រៀន (Teacher List)</span>
+            <span className="ml-1 px-1.5 py-0.5 rounded-full bg-slate-100 text-[10px] text-slate-600 font-mono">
+              {teachers.length}
+            </span>
+          </button>
+
           <button
             onClick={() => setActiveSubTab('teacher_info')}
             className={`flex items-center gap-2 pb-3 px-3 text-xs font-bold font-khmer border-b-2 transition-all whitespace-nowrap cursor-pointer ${
@@ -582,11 +692,8 @@ export const TeacherManagementView: React.FC<TeacherManagementViewProps> = ({
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            <Users className="w-4 h-4" />
+            <GraduationCap className="w-4 h-4" />
             <span>ព័ត៌មានគ្រូបង្រៀន (Teacher Information)</span>
-            <span className="ml-1 px-1.5 py-0.5 rounded-full bg-slate-100 text-[10px] text-slate-600 font-mono">
-              {teachers.length}
-            </span>
           </button>
 
           <button
@@ -618,6 +725,18 @@ export const TeacherManagementView: React.FC<TeacherManagementViewProps> = ({
               {subjects.length}
             </span>
           </button>
+
+          <button
+            onClick={() => setActiveSubTab('teacher_attendance')}
+            className={`flex items-center gap-2 pb-3 px-3 text-xs font-bold font-khmer border-b-2 transition-all whitespace-nowrap cursor-pointer ${
+              activeSubTab === 'teacher_attendance'
+                ? 'border-indigo-600 text-indigo-600'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <CheckCircle2 className="w-4 h-4" />
+            <span>វត្តមានគ្រូបង្រៀន (Teacher Attendance)</span>
+          </button>
         </div>
       </div>
 
@@ -634,17 +753,19 @@ export const TeacherManagementView: React.FC<TeacherManagementViewProps> = ({
             {currentBranch.nameKhmer}
           </div>
           <div className="text-base font-bold font-khmer text-slate-900 pt-2 uppercase">
-            {activeSubTab === 'teacher_info' && 'បញ្ជីព័ត៌មានលោកគ្រូ-អ្នកគ្រូ (Official Teacher Directory)'}
+            {activeSubTab === 'teacher_list' && 'បញ្ជីឈ្មោះលោកគ្រូ-អ្នកគ្រូ (Official Teacher Directory)'}
+            {activeSubTab === 'teacher_info' && 'ព័ត៌មានលម្អិតលោកគ្រូ-អ្នកគ្រូ (Teacher Information & Profiles)'}
             {activeSubTab === 'teaching_schedule' && `កាលវិភាគបង្រៀនប្រចាំសប្តាហ៍ (${classData[selectedClassFilter]?.className || selectedClassFilter})`}
             {activeSubTab === 'subject' && 'តារាងកម្មវិធីសិក្សា និងមុខវិជ្ជា (Curriculum Subjects)'}
+            {activeSubTab === 'teacher_attendance' && `វត្តមានលោកគ្រូ-អ្នកគ្រូប្រចាំថ្ងៃ (${attendanceDate})`}
           </div>
           <div className="text-[10px] font-mono text-slate-500">
             ឆ្នាំសិក្សា៖ {settings.academicYear} · វេន៖ {classData[selectedClassFilter]?.period || 'វេនព្រឹក'} · បោះពុម្ពថ្ងៃទី៖ {new Date().toLocaleDateString('km-KH')}
           </div>
         </div>
 
-        {/* 1. TEACHER INFORMATION SUB-VIEW */}
-        {activeSubTab === 'teacher_info' && (
+        {/* 1. TEACHER LIST SUB-VIEW */}
+        {activeSubTab === 'teacher_list' && (
           <div className="space-y-4">
             {/* Search & Actions Bar */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 no-print">
@@ -792,7 +913,176 @@ export const TeacherManagementView: React.FC<TeacherManagementViewProps> = ({
           </div>
         )}
 
-        {/* 2. TEACHING SCHEDULE SUB-VIEW */}
+        {/* 2. TEACHER INFORMATION PROFILE CARDS SUB-VIEW */}
+        {activeSubTab === 'teacher_info' && (
+          <div className="space-y-4">
+            {/* Search & Actions Bar */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 no-print">
+              <div className="relative w-full sm:w-80">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  placeholder="ស្វែងរកតាមឈ្មោះ កូដ លេខទូរស័ព្ទ..."
+                  value={teacherSearch}
+                  onChange={(e) => setTeacherSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-khmer focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+
+              {permissions.canEdit && (
+                <button
+                  onClick={() => {
+                    setEditingTeacher(null);
+                    setIsTeacherModalOpen(true);
+                  }}
+                  className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold font-khmer shadow-xs transition-all cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>បន្ថែមគ្រូបង្រៀនថ្មី</span>
+                </button>
+              )}
+            </div>
+
+            {/* Profile Cards Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredTeachers.length === 0 ? (
+                <div className="col-span-full py-12 text-center text-slate-400 font-khmer bg-white rounded-2xl border border-slate-200">
+                  មិនមានទិន្នន័យគ្រូបង្រៀនដែលត្រូវនឹងការស្វែងរកទេ
+                </div>
+              ) : (
+                filteredTeachers.map((tch) => {
+                  const initials = tch.nameKhmer.slice(0, 2) || 'គ្រូ';
+                  return (
+                    <div
+                      key={tch.id}
+                      className="bg-white rounded-2xl border border-slate-200/90 shadow-xs hover:shadow-md transition-all p-5 flex flex-col justify-between space-y-4"
+                    >
+                      <div>
+                        {/* Top Profile Header */}
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white flex items-center justify-center font-bold text-sm font-khmer shadow-xs shrink-0">
+                              {initials}
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-bold text-slate-900 font-khmer text-sm">
+                                  {tch.nameKhmer}
+                                </h4>
+                                <span className={`px-2 py-0.2 rounded-full text-[10px] font-semibold font-khmer ${
+                                  tch.status === 'active' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'
+                                }`}>
+                                  {tch.status === 'active' ? 'សកម្ម' : 'ឈប់'}
+                                </span>
+                              </div>
+                              <p className="text-xs text-slate-500 font-sans mt-0.5">{tch.nameEnglish}</p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="font-mono text-[10px] text-indigo-700 font-bold bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200">
+                                  {tch.teacherCode}
+                                </span>
+                                <span className="text-[11px] text-slate-400">·</span>
+                                <span className="text-[11px] font-khmer text-slate-600">
+                                  {tch.gender === 'Female' ? 'ស្រី' : 'ប្រុស'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {permissions.canEdit && (
+                            <button
+                              onClick={() => {
+                                setEditingTeacher(tch);
+                                setIsTeacherModalOpen(true);
+                              }}
+                              className="p-1.5 text-slate-400 hover:text-indigo-600 rounded-lg hover:bg-slate-100 transition-colors"
+                              title="កែប្រែព័ត៌មានគ្រូ"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Details Breakdown */}
+                        <div className="mt-4 space-y-2 pt-3 border-t border-slate-100 text-xs">
+                          {/* Homeroom */}
+                          <div className="flex items-center justify-between text-slate-600">
+                            <span className="font-khmer text-slate-500">ថ្នាក់ទទួលបន្ទុក៖</span>
+                            {tch.homeroomClassName ? (
+                              <span className="font-bold text-indigo-700 font-khmer bg-indigo-50/80 px-2 py-0.5 rounded-lg border border-indigo-100">
+                                {tch.homeroomClassName}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 font-khmer">មិនទាន់ចាត់តាំង</span>
+                            )}
+                          </div>
+
+                          {/* Qualifications */}
+                          <div className="flex items-start justify-between gap-2 text-slate-600">
+                            <span className="font-khmer text-slate-500 shrink-0">កម្រិតវប្បធម៌៖</span>
+                            <span className="font-khmer text-slate-800 text-right font-medium">
+                              {tch.qualification || '---'}
+                            </span>
+                          </div>
+
+                          {/* Contact Info */}
+                          <div className="flex items-center justify-between text-slate-600">
+                            <span className="font-khmer text-slate-500">ទូរស័ព្ទ៖</span>
+                            <a href={`tel:${tch.phone}`} className="font-mono text-slate-800 font-bold hover:text-indigo-600">
+                              {tch.phone}
+                            </a>
+                          </div>
+
+                          {tch.email && (
+                            <div className="flex items-center justify-between text-slate-600">
+                              <span className="font-khmer text-slate-500">អ៊ីមែល៖</span>
+                              <span className="font-sans text-slate-700 truncate max-w-[180px]">{tch.email}</span>
+                            </div>
+                          )}
+
+                          {/* Subjects */}
+                          <div className="pt-2">
+                            <div className="text-[11px] font-khmer text-slate-500 mb-1.5">មុខវិជ្ជាបង្រៀន៖</div>
+                            <div className="flex flex-wrap gap-1">
+                              {tch.subjects.map((sub, i) => (
+                                <span
+                                  key={i}
+                                  className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[10px] font-khmer"
+                                >
+                                  {sub.split('(')[0].trim()}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Card Bottom Actions */}
+                      <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                        <div className="text-[11px] font-mono text-slate-400">
+                          {tch.joinDate ? `ចូលបម្រើការ៖ ${tch.joinDate}` : ''}
+                        </div>
+                        <button
+                          onClick={() => {
+                            if (tch.homeroomClassId) {
+                              setSelectedClassFilter(tch.homeroomClassId);
+                            }
+                            setActiveSubTab('teaching_schedule');
+                          }}
+                          className="flex items-center gap-1 text-indigo-600 hover:text-indigo-800 font-khmer font-bold cursor-pointer"
+                        >
+                          <span>កាលវិភាគ</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* 3. TEACHING SCHEDULE SUB-VIEW */}
         {activeSubTab === 'teaching_schedule' && (
           <div className="space-y-4">
             {/* Top Toolbar: Class Selector + Day Filter + Ultra-Fast Schedule Action Buttons */}
@@ -1217,6 +1507,196 @@ export const TeacherManagementView: React.FC<TeacherManagementViewProps> = ({
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* 5. TEACHER ATTENDANCE SUB-VIEW */}
+        {activeSubTab === 'teacher_attendance' && (
+          <div className="space-y-4">
+            {/* Top Toolbar: Date Picker, Quick Mark All, Telegram Share */}
+            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4 no-print">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold font-khmer text-slate-700 whitespace-nowrap">
+                    កាលបរិច្ឆេទវត្តមាន៖
+                  </span>
+                  <input
+                    type="date"
+                    value={attendanceDate}
+                    onChange={(e) => setAttendanceDate(e.target.value)}
+                    className="px-3 py-1.5 border border-slate-200 rounded-xl text-xs font-mono font-bold bg-slate-50 focus:bg-white text-slate-900"
+                  />
+                </div>
+
+                <div className="text-xs text-slate-500 font-khmer">
+                  សាខា៖ <strong className="text-slate-800">{currentBranch.nameKhmer}</strong>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={handleMarkAllTeachersPresent}
+                  className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold font-khmer shadow-xs transition-all cursor-pointer"
+                  title="កត់ត្រាមានវត្តមានទាំងអស់"
+                >
+                  <CheckCircle2 className="w-4 h-4 text-white" />
+                  <span>ស្រង់វត្តមានគ្រប់គ្រូ (Mark All Present)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleShareAttendanceTelegram}
+                  className="flex items-center gap-1.5 px-3.5 py-2 bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 rounded-xl text-xs font-bold font-khmer transition-all cursor-pointer"
+                  title="ផ្ញើរបាយការណ៍ទៅ Telegram"
+                >
+                  <Send className="w-3.5 h-3.5 text-sky-600" />
+                  <span>ផ្ញើទៅ Telegram</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Summary Metrics */}
+            {(() => {
+              let presentCount = 0;
+              let absentCount = 0;
+              let leaveCount = 0;
+              let lateCount = 0;
+              teachers.forEach((t) => {
+                const s = attendanceRecords[t.id]?.status || 'present';
+                if (s === 'present') presentCount++;
+                else if (s === 'absent') absentCount++;
+                else if (s === 'leave') leaveCount++;
+                else if (s === 'late') lateCount++;
+              });
+              return (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 no-print">
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3">
+                    <div className="text-[11px] font-bold text-emerald-800 font-khmer">វត្តមាន (Present)</div>
+                    <div className="text-xl font-bold font-mono text-emerald-700 mt-1">{presentCount} នាក់</div>
+                  </div>
+                  <div className="bg-rose-50 border border-rose-200 rounded-xl p-3">
+                    <div className="text-[11px] font-bold text-rose-800 font-khmer">អវត្តមាន (Absent)</div>
+                    <div className="text-xl font-bold font-mono text-rose-700 mt-1">{absentCount} នាក់</div>
+                  </div>
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+                    <div className="text-[11px] font-bold text-amber-800 font-khmer">សុំច្បាប់ (Leave)</div>
+                    <div className="text-xl font-bold font-mono text-amber-700 mt-1">{leaveCount} នាក់</div>
+                  </div>
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
+                    <div className="text-[11px] font-bold text-blue-800 font-khmer">មកយឺត (Late)</div>
+                    <div className="text-xl font-bold font-mono text-blue-700 mt-1">{lateCount} នាក់</div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Attendance Matrix Table */}
+            <div className="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200 font-khmer">
+                      <th className="py-3 px-3.5 text-center w-12">ល.រ</th>
+                      <th className="py-3 px-4 w-28">កូដគ្រូ</th>
+                      <th className="py-3 px-4">ឈ្មោះគ្រូបង្រៀន</th>
+                      <th className="py-3 px-4">ថ្នាក់ទទួលបន្ទុក</th>
+                      <th className="py-3 px-4">មុខវិជ្ជា</th>
+                      <th className="py-3 px-4 text-center w-64">ស្ថានភាពវត្តមាន</th>
+                      <th className="py-3 px-4">មូលហេតុ / ចំណាំ</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-sans">
+                    {teachers.map((tch, idx) => {
+                      const rec = attendanceRecords[tch.id] || { status: 'present', note: '' };
+                      return (
+                        <tr key={tch.id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="py-3 px-3.5 text-center font-mono text-slate-500">
+                            {idx + 1}
+                          </td>
+                          <td className="py-3 px-4 font-mono font-bold text-indigo-700">
+                            {tch.teacherCode}
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="font-bold text-slate-900 font-khmer">{tch.nameKhmer}</div>
+                            <div className="text-[11px] text-slate-400 font-sans">{tch.nameEnglish}</div>
+                          </td>
+                          <td className="py-3 px-4 font-khmer">
+                            {tch.homeroomClassName ? (
+                              <span className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 text-[11px] font-bold">
+                                {tch.homeroomClassName}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400">-</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-[11px] font-khmer text-slate-600 max-w-xs truncate">
+                            {tch.subjects.map((s) => s.split('(')[0].trim()).join(', ')}
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            <div className="inline-flex p-1 bg-slate-100 rounded-xl gap-1">
+                              <button
+                                type="button"
+                                onClick={() => handleAttendanceChange(tch.id, 'present')}
+                                className={`px-2.5 py-1 rounded-lg text-xs font-khmer font-bold transition-all cursor-pointer ${
+                                  rec.status === 'present'
+                                    ? 'bg-emerald-600 text-white shadow-xs'
+                                    : 'text-slate-600 hover:text-slate-900'
+                                }`}
+                              >
+                                វត្តមាន
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleAttendanceChange(tch.id, 'absent')}
+                                className={`px-2.5 py-1 rounded-lg text-xs font-khmer font-bold transition-all cursor-pointer ${
+                                  rec.status === 'absent'
+                                    ? 'bg-rose-600 text-white shadow-xs'
+                                    : 'text-slate-600 hover:text-slate-900'
+                                }`}
+                              >
+                                អវត្តមាន
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleAttendanceChange(tch.id, 'leave')}
+                                className={`px-2.5 py-1 rounded-lg text-xs font-khmer font-bold transition-all cursor-pointer ${
+                                  rec.status === 'leave'
+                                    ? 'bg-amber-500 text-slate-950 shadow-xs'
+                                    : 'text-slate-600 hover:text-slate-900'
+                                }`}
+                              >
+                                ច្បាប់
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleAttendanceChange(tch.id, 'late')}
+                                className={`px-2.5 py-1 rounded-lg text-xs font-khmer font-bold transition-all cursor-pointer ${
+                                  rec.status === 'late'
+                                    ? 'bg-blue-600 text-white shadow-xs'
+                                    : 'text-slate-600 hover:text-slate-900'
+                                }`}
+                              >
+                                យឺត
+                              </button>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <input
+                              type="text"
+                              value={rec.note || ''}
+                              onChange={(e) => handleAttendanceChange(tch.id, rec.status, e.target.value)}
+                              placeholder="ចំណាំ ឬ មូលហេតុ..."
+                              className="w-full px-2.5 py-1 border border-slate-200 rounded-lg text-xs font-khmer bg-white focus:bg-white focus:border-indigo-400"
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}

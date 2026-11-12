@@ -44,9 +44,11 @@ export type NavTab =
   | 'student_upgrade'
   | 'student_info'
   // 3. Teacher Management
+  | 'teacher_list'
   | 'teacher_info'
   | 'teaching_schedule'
   | 'teacher_subject'
+  | 'teacher_attendance'
   // 4. Daily School Revenue
   | 'revenue_student'
   | 'revenue_uniform'
@@ -183,6 +185,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       color: 'indigo',
       items: [
         {
+          id: 'teacher_list' as NavTab,
+          label: 'Teacher List',
+          labelKhmer: 'បញ្ជីឈ្មោះគ្រូបង្រៀន',
+          icon: Users,
+          activeMatch: ['teacher_list'],
+        },
+        {
           id: 'teacher_info' as NavTab,
           label: 'Teacher Information',
           labelKhmer: 'ព័ត៌មានគ្រូបង្រៀន',
@@ -202,6 +211,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           labelKhmer: 'មុខវិជ្ជាសិក្សា',
           icon: BookOpen,
           activeMatch: ['teacher_subject'],
+        },
+        {
+          id: 'teacher_attendance' as NavTab,
+          label: 'Teacher Attendance',
+          labelKhmer: 'វត្តមានគ្រូបង្រៀន',
+          icon: CheckCircle2,
+          activeMatch: ['teacher_attendance'],
         },
       ],
     },

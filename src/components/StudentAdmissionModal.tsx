@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { StudentFeeRecord, StudentAdmissionData } from '../types';
 import { checkDuplicateStudent } from '../utils/duplicatePrevention';
@@ -190,6 +190,46 @@ export const StudentAdmissionModal: React.FC<StudentAdmissionModalProps> = ({
       existingStudent?.id
     );
   }, [classData, studentIdCode, nameKhmer, dob, caretakerPhone, fatherPhone, motherPhone, selectedClassId, existingStudent]);
+
+  const SECTIONS = [
+    { id: 'pupil', labelKh: 'I. ព័ត៌មានសិស្ស', labelEn: 'Pupil Details', icon: User, color: 'text-amber-600' },
+    { id: 'grade', labelKh: 'II. កម្មវិធីសិក្សា', labelEn: 'Grade Level', icon: BookOpen, color: 'text-indigo-600' },
+    { id: 'health', labelKh: 'III. សុខភាពកុមារ', labelEn: 'Student Health', icon: Heart, color: 'text-rose-600' },
+    { id: 'parents', labelKh: 'IV. មាតាបិតា & អាណាព្យាបាល', labelEn: 'Parents & Caretaker', icon: Users, color: 'text-sky-600' },
+    { id: 'other', labelKh: 'V. សេវាកម្ម & អាសយដ្ឋាន', labelEn: 'Services & Address', icon: Utensils, color: 'text-amber-600' },
+    { id: 'declaration', labelKh: 'VI. សេចក្តីបញ្ជាក់ & ចុះឈ្មោះ', labelEn: 'Declaration & Confirm', icon: ShieldCheck, color: 'text-emerald-600' },
+  ];
+
+  const scrollToSection = (sectionId: string) => {
+    setActiveSection(sectionId as any);
+    const container = document.getElementById('admission-form-scroll-container');
+    const target = document.getElementById(`section-${sectionId}`);
+    if (container && target) {
+      const topOffset = target.offsetTop - container.offsetTop - 12;
+      container.scrollTo({ top: Math.max(0, topOffset), behavior: 'smooth' });
+    }
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const container = document.getElementById('admission-form-scroll-container');
+    if (!container) return;
+
+    const handleScroll = () => {
+      const scrollPos = container.scrollTop + 140;
+      const sectionIds = ['pupil', 'grade', 'health', 'parents', 'other', 'declaration'];
+      for (let i = sectionIds.length - 1; i >= 0; i--) {
+        const el = document.getElementById(`section-${sectionIds[i]}`);
+        if (el && el.offsetTop - container.offsetTop <= scrollPos) {
+          setActiveSection(sectionIds[i] as any);
+          break;
+        }
+      }
+    };
+
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -485,7 +525,7 @@ export const StudentAdmissionModal: React.FC<StudentAdmissionModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-slate-200 text-xs my-auto animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-white rounded-2xl max-w-6xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-slate-200 text-xs my-auto animate-in fade-in zoom-in-95 duration-200">
         {/* Modal Top Header */}
         <div className="bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 text-white p-4 rounded-t-2xl flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
@@ -600,41 +640,104 @@ export const StudentAdmissionModal: React.FC<StudentAdmissionModalProps> = ({
           </div>
         )}
 
-        {/* Form Section Navigation */}
-        <div className="px-4 border-b border-slate-200 bg-slate-50 flex items-center gap-1 overflow-x-auto no-scrollbar shrink-0 py-2">
-          {[
-            { id: 'pupil', label: 'I. ព័ត៌មានសិស្ស (Pupil)', icon: User },
-            { id: 'grade', label: 'II. កម្មវិធីសិក្សា (Grade)', icon: BookOpen },
-            { id: 'health', label: 'III. សុខភាពកុមារ (Health)', icon: Heart },
-            { id: 'parents', label: 'IV. មាតាបិតា (Parents)', icon: Users },
-            { id: 'other', label: 'V. សេវាកម្ម & អាសយដ្ឋាន', icon: Utensils },
-            { id: 'declaration', label: 'VI. សេចក្តីបញ្ជាក់ & ចុះឈ្មោះ', icon: ShieldCheck },
-          ].map((sec) => {
-            const Icon = sec.icon;
-            const isActive = activeSection === sec.id;
-            return (
-              <button
-                type="button"
-                key={sec.id}
-                onClick={() => setActiveSection(sec.id as any)}
-                className={`px-3 py-1.5 rounded-xl font-khmer text-xs font-bold whitespace-nowrap flex items-center gap-1.5 transition-all cursor-pointer ${
-                  isActive
-                    ? 'bg-slate-900 text-white shadow-xs'
-                    : 'text-slate-600 hover:bg-slate-200/70 hover:text-slate-900'
-                }`}
-              >
-                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-amber-400' : 'text-slate-400'}`} />
-                <span>{sec.label}</span>
-              </button>
-            );
-          })}
-        </div>
+        {/* Main Two-Column Layout: Left Vertical Navigation Rail + Right Single-Page Form */}
+        <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0 bg-slate-100/50">
+          {/* Vertical Navigation Tab Slice (Left Column) */}
+          <aside className="w-full md:w-64 lg:w-72 bg-slate-50 border-r border-slate-200/90 p-3 sm:p-4 shrink-0 flex flex-col justify-between overflow-y-auto no-scrollbar gap-4">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between px-1">
+                <span className="font-bold text-[11px] text-slate-500 uppercase tracking-wider font-khmer">
+                  ផ្នែកទម្រង់ (Form Sections)
+                </span>
+                <span className="text-[10px] bg-amber-100 text-amber-900 px-2 py-0.5 rounded-full font-mono font-bold">
+                  Single Page
+                </span>
+              </div>
 
-        {/* Modal Form Body (Scrollable) */}
-        <form onSubmit={handleSaveStudent} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
-          {/* SECTION I: PUPIL DETAILS */}
-          {activeSection === 'pupil' && (
-            <div className="space-y-4 animate-in fade-in duration-150">
+              {/* Vertical Tab List */}
+              <nav className="space-y-1.5" aria-label="Admission sections">
+                {SECTIONS.map((sec) => {
+                  const Icon = sec.icon;
+                  const isActive = activeSection === sec.id;
+                  return (
+                    <button
+                      key={sec.id}
+                      type="button"
+                      onClick={() => scrollToSection(sec.id)}
+                      className={`w-full text-left p-2.5 rounded-xl transition-all flex items-start gap-2.5 group cursor-pointer ${
+                        isActive
+                          ? 'bg-amber-500 text-slate-950 font-bold shadow-xs'
+                          : 'text-slate-600 hover:bg-slate-200/80 hover:text-slate-900 bg-white/80 border border-slate-200/70'
+                      }`}
+                    >
+                      <div
+                        className={`p-1.5 rounded-lg shrink-0 mt-0.5 transition-colors ${
+                          isActive
+                            ? 'bg-amber-600/30 text-slate-950'
+                            : 'bg-slate-100 text-slate-500 group-hover:text-slate-700'
+                        }`}
+                      >
+                        <Icon className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="font-khmer text-xs leading-snug line-clamp-1">
+                          {sec.labelKh}
+                        </div>
+                        <div
+                          className={`text-[10px] leading-tight ${
+                            isActive ? 'text-slate-900/80 font-medium' : 'text-slate-400 font-sans'
+                          }`}
+                        >
+                          {sec.labelEn}
+                        </div>
+                      </div>
+                      {isActive && (
+                        <div className="w-1.5 h-6 bg-slate-950 rounded-full self-center shrink-0" />
+                      )}
+                    </button>
+                  );
+                })}
+              </nav>
+            </div>
+
+            {/* Target Class & Registration Info Card in Vertical Slice */}
+            <div className="p-3 bg-white border border-slate-200 rounded-xl space-y-2.5 shadow-2xs">
+              <label className="block text-slate-700 font-bold text-[11px] font-khmer">
+                ជ្រើសរើសថ្នាក់រៀន (Target Class)
+              </label>
+              <select
+                value={selectedClassId}
+                onChange={(e) => {
+                  setSelectedClassId(e.target.value);
+                  setPresentGrade(e.target.value);
+                }}
+                className="w-full px-2.5 py-1.5 border border-amber-300 rounded-lg text-xs font-khmer font-bold bg-amber-50/50 text-slate-900 cursor-pointer"
+              >
+                {orderedClassList.map((cls) => {
+                  const bCode = branches.find((b) => b.id === (cls.branchId || 'branch-central'))?.code || 'BIM-01';
+                  return (
+                    <option key={cls.classId} value={cls.classId}>
+                      {cls.className} [{bCode}] ({cls.period})
+                    </option>
+                  );
+                })}
+              </select>
+
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500 font-khmer">
+                <span>កូដសិស្ស៖</span>
+                <span className="font-mono font-bold text-indigo-700">{studentIdCode}</span>
+              </div>
+            </div>
+          </aside>
+
+          {/* Single-Page Continuous Form Body (Right Column) */}
+          <form
+            onSubmit={handleSaveStudent}
+            id="admission-form-scroll-container"
+            className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-7 space-y-6 scroll-smooth bg-slate-50/40"
+          >
+            {/* SECTION I: PUPIL DETAILS */}
+            <div id="section-pupil" className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-2xl shadow-xs space-y-4 scroll-mt-2">
               <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                 <h4 className="font-bold text-slate-900 text-sm font-khmer flex items-center gap-2">
                   <User className="w-4 h-4 text-amber-600" />
@@ -788,11 +891,9 @@ export const StudentAdmissionModal: React.FC<StudentAdmissionModalProps> = ({
                 </div>
               </div>
             </div>
-          )}
 
-          {/* SECTION II: GRADE LEVEL */}
-          {activeSection === 'grade' && (
-            <div className="space-y-4 animate-in fade-in duration-150">
+            {/* SECTION II: GRADE LEVEL */}
+            <div id="section-grade" className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-2xl shadow-xs space-y-4 scroll-mt-2">
               <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                 <h4 className="font-bold text-slate-900 text-sm font-khmer flex items-center gap-2">
                   <BookOpen className="w-4 h-4 text-indigo-600" />
@@ -924,11 +1025,9 @@ export const StudentAdmissionModal: React.FC<StudentAdmissionModalProps> = ({
                 </div>
               </div>
             </div>
-          )}
 
-          {/* SECTION III: STUDENT HEALTH (12 Conditions) */}
-          {activeSection === 'health' && (
-            <div className="space-y-4 animate-in fade-in duration-150">
+            {/* SECTION III: STUDENT HEALTH (12 Conditions) */}
+            <div id="section-health" className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-2xl shadow-xs space-y-4 scroll-mt-2">
               <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                 <div>
                   <h4 className="font-bold text-slate-900 text-sm font-khmer flex items-center gap-2">
@@ -1085,11 +1184,9 @@ export const StudentAdmissionModal: React.FC<StudentAdmissionModalProps> = ({
                 )}
               </div>
             </div>
-          )}
 
-          {/* SECTION IV: PARENTS & CARETAKER */}
-          {activeSection === 'parents' && (
-            <div className="space-y-4 animate-in fade-in duration-150">
+            {/* SECTION IV: PARENTS & CARETAKER */}
+            <div id="section-parents" className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-2xl shadow-xs space-y-4 scroll-mt-2">
               <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                 <h4 className="font-bold text-slate-900 text-sm font-khmer flex items-center gap-2">
                   <Users className="w-4 h-4 text-indigo-600" />
@@ -1283,11 +1380,9 @@ export const StudentAdmissionModal: React.FC<StudentAdmissionModalProps> = ({
                 )}
               </div>
             </div>
-          )}
 
-          {/* SECTION V: SERVICES & ADDRESS */}
-          {activeSection === 'other' && (
-            <div className="space-y-4 animate-in fade-in duration-150">
+            {/* SECTION V: SERVICES & ADDRESS */}
+            <div id="section-other" className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-2xl shadow-xs space-y-4 scroll-mt-2">
               <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                 <h4 className="font-bold text-slate-900 text-sm font-khmer flex items-center gap-2">
                   <Utensils className="w-4 h-4 text-amber-600" />
@@ -1394,11 +1489,9 @@ export const StudentAdmissionModal: React.FC<StudentAdmissionModalProps> = ({
                 </div>
               </div>
             </div>
-          )}
 
-          {/* SECTION VI: DECLARATION & ENROLL */}
-          {activeSection === 'declaration' && (
-            <div className="space-y-4 animate-in fade-in duration-150">
+            {/* SECTION VI: DECLARATION & ENROLL */}
+            <div id="section-declaration" className="p-4 sm:p-5 bg-white border border-slate-200/90 rounded-2xl shadow-xs space-y-4 scroll-mt-2">
               <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                 <h4 className="font-bold text-slate-900 text-sm font-khmer flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4 text-emerald-600" />
@@ -1451,34 +1544,35 @@ export const StudentAdmissionModal: React.FC<StudentAdmissionModalProps> = ({
                 </div>
               </div>
             </div>
-          )}
 
-          {/* Form Actions Footer */}
-          <div className="pt-4 border-t border-slate-200 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-1.5 text-xs text-slate-500 font-khmer">
-              <span>សាខា៖</span>
-              <strong className="text-slate-800">{currentBranch.nameKhmer}</strong>
+            {/* Sticky Form Actions Footer */}
+            <div className="sticky bottom-0 bg-white/95 backdrop-blur-md p-3.5 sm:p-4 border border-slate-200/90 rounded-2xl shadow-lg flex items-center justify-between gap-3 z-10">
+              <div className="flex items-center gap-1.5 text-xs text-slate-500 font-khmer">
+                <span>សាខា៖</span>
+                <strong className="text-slate-800">{currentBranch.nameKhmer}</strong>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-4 py-2 text-slate-600 hover:text-slate-800 font-khmer cursor-pointer"
+                >
+                  បោះបង់
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl font-bold font-khmer text-xs shadow-xs flex items-center gap-2 transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>{existingStudent ? 'រក្សាទុកការកែប្រែ' : 'ចុះឈ្មោះសិស្សចូលរៀន'}</span>
+                </button>
+              </div>
             </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 text-slate-600 hover:text-slate-800 font-khmer cursor-pointer"
-              >
-                បោះបង់
-              </button>
-
-              <button
-                type="submit"
-                className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl font-bold font-khmer text-xs shadow-xs flex items-center gap-2 transition-all active:scale-95 cursor-pointer"
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                <span>{existingStudent ? 'រក្សាទុកការកែប្រែ' : 'ចុះឈ្មោះសិស្សចូលរៀន'}</span>
-              </button>
-            </div>
-          </div>
-        </form>
+          </form>
+        </div>
       </div>
 
       {/* Excel Batch Student Import Modal */}

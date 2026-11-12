@@ -14,6 +14,10 @@ import {
   Check,
   Building,
   FileSpreadsheet,
+  ChevronLeft,
+  ChevronRight,
+  GraduationCap,
+  GripVertical,
 } from 'lucide-react';
 import { Student31DaysAttendanceReport } from './Student31DaysAttendanceReport';
 
@@ -21,6 +25,7 @@ export const StudentAttendanceView: React.FC = () => {
   const {
     classData,
     orderedClassList,
+    reorderClasses,
     selectedClassId,
     setSelectedClassId,
     currentBranch,
@@ -29,6 +34,20 @@ export const StudentAttendanceView: React.FC = () => {
     permissions,
     t,
   } = useApp();
+
+  const [isClassSliceOpen, setIsClassSliceOpen] = useState(true);
+  const [classSliceSearch, setClassSliceSearch] = useState('');
+  const [draggedClassIndex, setDraggedClassIndex] = useState<number | null>(null);
+
+  const filteredClasses = useMemo(() => {
+    if (!classSliceSearch.trim()) return orderedClassList;
+    const q = classSliceSearch.toLowerCase().trim();
+    return orderedClassList.filter((c) =>
+      c.className.toLowerCase().includes(q) ||
+      c.period.toLowerCase().includes(q) ||
+      (c.homeroomTeacher && c.homeroomTeacher.toLowerCase().includes(q))
+    );
+  }, [orderedClassList, classSliceSearch]);
 
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     return new Date().toISOString().slice(0, 10);
@@ -209,56 +228,180 @@ export const StudentAttendanceView: React.FC = () => {
             </span>
           </button>
         </div>
+      </div>
 
-        {attendanceViewMode === 'daily' && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-6 pt-4 border-t border-slate-100">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 font-khmer mb-1">
-                ជ្រើសរើសថ្នាក់រៀន (Class)
-              </label>
-              <select
-                value={activeClassId}
-                onChange={(e) => setActiveClassId(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-khmer font-bold bg-slate-50 focus:bg-white"
+      {/* Main Two-Column Layout: Left Vertical Slice Class Rail + Right Attendance Workspace */}
+      <div className="flex flex-col lg:flex-row gap-5 items-start w-full">
+        {/* VERTICAL SLICE: CLASS SELECTOR RAIL */}
+        <aside className={`transition-all duration-300 shrink-0 w-full ${isClassSliceOpen ? 'lg:w-64 xl:w-72' : 'lg:w-16'} no-print`}>
+          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-3.5 sticky top-20 flex flex-col space-y-3">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-emerald-500/15 text-emerald-800 flex items-center justify-center font-bold shrink-0">
+                  <GraduationCap className="w-4 h-4 text-emerald-700" />
+                </div>
+                {isClassSliceOpen && (
+                  <div className="truncate">
+                    <div className="font-bold text-xs text-slate-900 font-khmer flex items-center gap-1.5">
+                      <span>ថ្នាក់រៀន (Classes)</span>
+                      <span className="px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-600 font-mono text-[10px]">
+                        {orderedClassList.length}
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-slate-400 font-khmer">ជ្រើសរើសដើម្បីកត់វត្តមាន</div>
+                  </div>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsClassSliceOpen(!isClassSliceOpen)}
+                className="p-1.5 text-slate-400 hover:text-slate-800 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                title={isClassSliceOpen ? 'បង្រួមបញ្ជីថ្នាក់' : 'ពង្រីកបញ្ជីថ្នាក់'}
               >
-                {orderedClassList.map((c) => (
-                  <option key={c.classId} value={c.classId}>
-                    {c.className} ({c.period}) · {c.students.length} សិស្ស
-                  </option>
-                ))}
-              </select>
+                {isClassSliceOpen ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+              </button>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 font-khmer mb-1">
-                កាលបរិច្ឆេទស្រង់វត្តមាន (Date)
-              </label>
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-mono bg-slate-50 focus:bg-white"
-              />
+            {isClassSliceOpen ? (
+              <>
+                {/* Search in class slice */}
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+                  <input
+                    type="text"
+                    placeholder="ស្វែងរកថ្នាក់ / គ្រូ..."
+                    value={classSliceSearch}
+                    onChange={(e) => setClassSliceSearch(e.target.value)}
+                    className="w-full pl-8 pr-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-khmer focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  />
+                </div>
+
+                {/* Class list vertical buttons */}
+                <div className="space-y-1.5 max-h-[calc(100vh-280px)] overflow-y-auto no-scrollbar pt-1">
+                  {filteredClasses.map((cls, idx) => {
+                    const isSelected = activeClassId === cls.classId;
+                    return (
+                      <div
+                        key={cls.classId}
+                        draggable={permissions.canEdit}
+                        onDragStart={() => setDraggedClassIndex(idx)}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={() => {
+                          if (draggedClassIndex === null || draggedClassIndex === idx) return;
+                          const currentList = orderedClassList.map((c) => c.classId);
+                          const updated = [...currentList];
+                          const [moved] = updated.splice(draggedClassIndex, 1);
+                          updated.splice(idx, 0, moved);
+                          reorderClasses(updated);
+                          setDraggedClassIndex(null);
+                        }}
+                        onClick={() => setActiveClassId(cls.classId)}
+                        className={`w-full p-2.5 rounded-xl border text-left transition-all flex items-center justify-between group cursor-pointer ${
+                          isSelected
+                            ? 'bg-slate-900 border-slate-900 text-white shadow-xs'
+                            : 'bg-white border-slate-200/80 text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          {permissions.canEdit && (
+                            <span className="cursor-grab text-slate-400 group-hover:text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <GripVertical className="w-3.5 h-3.5" />
+                            </span>
+                          )}
+                          <div className="truncate">
+                            <div className="font-bold text-xs font-khmer flex items-center gap-1.5">
+                              <span>{cls.className}</span>
+                            </div>
+                            <div className={`text-[10px] ${isSelected ? 'text-slate-300' : 'text-slate-400'}`}>
+                              {cls.period}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span
+                            className={`px-1.5 py-0.5 rounded-md font-mono text-[10px] font-bold ${
+                              isSelected ? 'bg-amber-400 text-slate-950' : 'bg-slate-100 text-slate-600'
+                            }`}
+                          >
+                            {cls.students.length} សិស្ស
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              /* Collapsed rail icons */
+              <div className="space-y-1.5 flex flex-col items-center">
+                {orderedClassList.map((cls) => {
+                  const isSelected = activeClassId === cls.classId;
+                  return (
+                    <button
+                      key={cls.classId}
+                      type="button"
+                      onClick={() => setActiveClassId(cls.classId)}
+                      className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs transition-all cursor-pointer ${
+                        isSelected ? 'bg-slate-900 text-amber-400 shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                      title={`${cls.className} (${cls.students.length} សិស្ស)`}
+                    >
+                      {cls.className.slice(0, 3)}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </aside>
+
+        {/* WORKSPACE AREA */}
+        <div className="flex-1 min-w-0 w-full space-y-6">
+          {/* Active Class & Date / Search Toolbar */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs flex flex-wrap items-center justify-between gap-3 no-print">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-emerald-50 text-emerald-700 rounded-xl font-bold">
+                <Users className="w-5 h-5 text-emerald-600" />
+              </div>
+              <div>
+                <div className="font-bold text-sm font-khmer text-slate-900 flex items-center gap-2">
+                  <span>{currentClass?.className}</span>
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-mono font-bold">
+                    {currentClass?.students.length} សិស្ស
+                  </span>
+                </div>
+                <div className="text-[11px] text-slate-400 font-khmer">
+                  គ្រូបន្ទុកថ្នាក់៖ <strong className="text-slate-700">{currentClass?.homeroomTeacher || 'មិនទាន់កំណត់'}</strong> · {currentClass?.period}
+                </div>
+              </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 font-khmer mb-1">
-                ស្វែងរកសិស្ស (Search Student)
-              </label>
-              <div className="relative">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-slate-500 font-khmer font-bold">កាលបរិច្ឆេទ៖</span>
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="px-3 py-1.5 border border-slate-200 rounded-xl text-xs font-mono bg-slate-50 focus:bg-white"
+                />
+              </div>
+
+              <div className="relative w-48 sm:w-56">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
                 <input
                   type="text"
-                  placeholder="ស្វែងរកតាមឈ្មោះ ឬកូដ..."
+                  placeholder="ស្វែងរកសិស្ស..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl text-xs font-khmer bg-slate-50 focus:bg-white"
+                  className="w-full pl-8 pr-2.5 py-1.5 border border-slate-200 rounded-xl text-xs font-khmer bg-slate-50 focus:bg-white"
                 />
               </div>
             </div>
           </div>
-        )}
-      </div>
 
       {/* 31 Days Report View */}
       {attendanceViewMode === 'monthly_31days' && (
@@ -484,6 +627,8 @@ export const StudentAttendanceView: React.FC = () => {
       </div>
       </>
       )}
+        </div>
+      </div>
     </div>
   );
 };
