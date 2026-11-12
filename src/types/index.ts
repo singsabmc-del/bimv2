@@ -229,6 +229,54 @@ export interface PromotionRecord {
   feeGroupAssigned: string;
 }
 
+export interface AcademicYearArchive {
+  academicYear: string;
+  archivedDate: string; // ISO date
+  archivedBy: string;
+  totalStudents: number;
+  totalClasses: number;
+  classesData: { [classId: string]: ClassFeeData };
+  classOrder?: string[];
+  note?: string;
+}
+
+export interface ClassPromotionMapping {
+  sourceClassId: string;
+  sourceClassName: string;
+  targetClassId: string;
+  targetClassName: string;
+  action: 'promote' | 'graduate' | 'retain' | 'custom';
+  selectedStudentIds: number[];
+  excludedStudentIds: number[];
+  studentCount: number;
+}
+
+export interface BatchAnnualPromotionOptions {
+  sourceAcademicYear: string;
+  targetAcademicYear: string;
+  mappings: ClassPromotionMapping[];
+  keepOldYearArchived: boolean;
+  defaultFeeMonth: string;
+  advanceStudentAge: boolean;
+  sendTelegramAlert?: boolean;
+}
+
+export interface BatchAnnualPromotionResult {
+  success: boolean;
+  sourceYear: string;
+  targetYear: string;
+  totalPromotedStudents: number;
+  totalGraduatedStudents: number;
+  classesCreatedCount: number;
+  details: Array<{
+    sourceClassName: string;
+    targetClassName: string;
+    action: string;
+    studentCount: number;
+  }>;
+  error?: string;
+}
+
 export interface DailyMaterialItem {
   id: number;
   name: string;

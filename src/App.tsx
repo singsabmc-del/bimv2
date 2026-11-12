@@ -25,6 +25,7 @@ import { MonthlyReportsView } from './components/MonthlyReportsView';
 import { StudentAdmissionModal } from './components/StudentAdmissionModal';
 import { StudentAdmissionView } from './components/StudentAdmissionView';
 import { PromoteStudentsModal } from './components/PromoteStudentsModal';
+import { StudentAnnualUpgradeView } from './components/StudentAnnualUpgradeView';
 import { InvoiceVerificationModal } from './components/InvoiceVerificationModal';
 import { AutoBackupModal } from './components/AutoBackupModal';
 import { CloudSyncPromptToast } from './components/CloudSyncPromptToast';
@@ -139,10 +140,7 @@ function MainApp() {
           )}
 
           {activeTab === 'student_upgrade' && (
-            <PromoteStudentsModal
-              isOpen={true}
-              onClose={() => setActiveTab('student_list')}
-            />
+            <StudentAnnualUpgradeView />
           )}
 
           {(activeTab === 'student_info' || activeTab === 'student_portal') && (

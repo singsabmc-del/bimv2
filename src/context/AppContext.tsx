@@ -22,6 +22,10 @@ import {
   TelegramAlertLogItem,
   MONTH_NAMES,
   PromotionRecord,
+  AcademicYearArchive,
+  ClassPromotionMapping,
+  BatchAnnualPromotionOptions,
+  BatchAnnualPromotionResult,
   BusRoute,
   BusStudentEnrollment,
   BusAttendanceRecord,
@@ -258,6 +262,15 @@ interface AppContextType {
     }
   ) => { success: boolean; count: number; targetClassName: string; error?: string };
   promotionHistory: PromotionRecord[];
+  // Annual Academic Year Isolation & Upgrading (ការឡើងថ្នាក់សិស្សប្រចាំឆ្នាំ និងទិន្នន័យដាច់ដោយឡែក)
+  availableAcademicYears: string[];
+  activeAcademicYear: string;
+  academicYearArchives: { [year: string]: AcademicYearArchive };
+  switchAcademicYear: (targetYear: string) => { success: boolean; message: string };
+  batchPromoteAcademicYear: (options: BatchAnnualPromotionOptions) => Promise<BatchAnnualPromotionResult>;
+  restoreAcademicYearArchive: (year: string) => { success: boolean; message: string };
+  deleteAcademicYearArchive: (year: string) => { success: boolean; message: string };
+  addAcademicYearOption: (newYear: string) => void;
   // Daily Materials & Sales History (Multi-month)
   materialsHistory: { [key: string]: DailyMaterialsReport };
   selectedMaterialsMonth: string;
@@ -877,6 +890,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return getStoredItemWithFallback<PromotionRecord[]>(`${STORAGE_PREFIX}_PROMOTIONS`, 'PROMOTIONS', []);
   });
 
+  // Academic Years List & Active Academic Year
+  const [availableAcademicYears, setAvailableAcademicYears] = useState<string[]>(() => {
+    const stored = getStoredItemWithFallback<string[]>(
+      `${STORAGE_PREFIX}_ACADEMIC_YEARS_LIST`,
+      'ACADEMIC_YEARS_LIST',
+      ['2025-2026', '2026-2027', '2027-2028', '2028-2029', '2029-2030']
+    );
+    if (stored && Array.isArray(stored) && stored.length > 0) return stored;
+    return ['2025-2026', '2026-2027', '2027-2028', '2028-2029', '2029-2030'];
+  });
+
+  // Academic Year Archives: Isolated historical snapshots per academic year
+  const [academicYearArchives, setAcademicYearArchives] = useState<{ [year: string]: AcademicYearArchive }>(() => {
+    return getStoredItemWithFallback<{ [year: string]: AcademicYearArchive }>(
+      `${STORAGE_PREFIX}_ACADEMIC_YEAR_ARCHIVES`,
+      'ACADEMIC_YEAR_ARCHIVES',
+      {}
+    );
+  });
+
   // Global Period Synchronizer (Changes Month & Year across all school reports)
   const setGlobalPeriod = (month: string, year: number) => {
     setGlobalMonth(month);
@@ -1048,6 +1081,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem(`${STORAGE_PREFIX}_PROMOTIONS`, JSON.stringify(promotionHistory));
     localStorage.setItem('BIM_RANGSEI_PERMANENT_PROMOTIONS', JSON.stringify(promotionHistory));
   }, [promotionHistory]);
+
+  useEffect(() => {
+    localStorage.setItem(`${STORAGE_PREFIX}_ACADEMIC_YEARS_LIST`, JSON.stringify(availableAcademicYears));
+    localStorage.setItem('BIM_PERMANENT_ACADEMIC_YEARS_LIST', JSON.stringify(availableAcademicYears));
+  }, [availableAcademicYears]);
+
+  useEffect(() => {
+    localStorage.setItem(`${STORAGE_PREFIX}_ACADEMIC_YEAR_ARCHIVES`, JSON.stringify(academicYearArchives));
+    localStorage.setItem('BIM_PERMANENT_ACADEMIC_YEAR_ARCHIVES', JSON.stringify(academicYearArchives));
+  }, [academicYearArchives]);
 
   useEffect(() => {
     localStorage.setItem(`${STORAGE_PREFIX}_BUS_ROUTES`, JSON.stringify(busRoutes));
@@ -2862,6 +2905,351 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   };
 
+  // Switch Active Academic Year (with automatic snapshot of current year to ensure isolation)
+  const switchAcademicYear = (targetYear: string): { success: boolean; message: string } => {
+    const currentYear = settings.academicYear || '2026-2027';
+    if (currentYear === targetYear) {
+      return { success: true, message: `កំពុងស្ថិតក្នុងឆ្នាំសិក្សា ${targetYear} រួចហើយ` };
+    }
+
+    // 1. Snapshot current year's data into archive before leaving
+    const totalStudentsInCurrent = Object.values(classData).reduce((sum, c) => sum + (c.students?.length || 0), 0);
+    const currentSnapshot: AcademicYearArchive = {
+      academicYear: currentYear,
+      archivedDate: new Date().toISOString(),
+      archivedBy: currentUser.khmerName,
+      totalStudents: totalStudentsInCurrent,
+      totalClasses: Object.keys(classData).length,
+      classesData: JSON.parse(JSON.stringify(classData)),
+      classOrder: [...classOrder],
+      note: `ទិន្នន័យឆ្នាំសិក្សា ${currentYear} ត្រូវបានរក្សាទុកដោយស្វ័យប្រវត្ត`,
+    };
+
+    const updatedArchives = {
+      ...academicYearArchives,
+      [currentYear]: currentSnapshot,
+    };
+    setAcademicYearArchives(updatedArchives);
+
+    // 2. Check if targetYear already has archived data
+    if (updatedArchives[targetYear]) {
+      const targetArchive = updatedArchives[targetYear];
+      setClassData(JSON.parse(JSON.stringify(targetArchive.classesData)));
+      if (targetArchive.classOrder && Array.isArray(targetArchive.classOrder)) {
+        setClassOrder([...targetArchive.classOrder]);
+      }
+    }
+
+    // 3. Update settings.academicYear
+    updateSettings({ academicYear: targetYear });
+
+    // 4. Ensure targetYear is in availableAcademicYears
+    if (!availableAcademicYears.includes(targetYear)) {
+      setAvailableAcademicYears((prev) => [...prev, targetYear].sort());
+    }
+
+    showNotification(
+      t(`បានប្តូរទៅកាន់ឆ្នាំសិក្សា ${targetYear} ដោយជោគជ័យ!`, `Successfully switched to Academic Year ${targetYear}!`),
+      'success'
+    );
+
+    return { success: true, message: `បានប្តូរទៅឆ្នាំសិក្សា ${targetYear}` };
+  };
+
+  // Restore an Academic Year Archive back into active state
+  const restoreAcademicYearArchive = (year: string): { success: boolean; message: string } => {
+    const archive = academicYearArchives[year];
+    if (!archive) {
+      return { success: false, message: `រកមិនឃើញទិន្នន័យឆ្នាំសិក្សា ${year} ទេ` };
+    }
+
+    setClassData(JSON.parse(JSON.stringify(archive.classesData)));
+    if (archive.classOrder && Array.isArray(archive.classOrder)) {
+      setClassOrder([...archive.classOrder]);
+    }
+    updateSettings({ academicYear: year });
+
+    showNotification(t(`បានទាញយកទិន្នន័យឆ្នាំសិក្សា ${year} មកប្រើប្រាស់វិញ!`, `Restored data for Academic Year ${year}!`), 'success');
+    return { success: true, message: `បានទាញយកឆ្នាំ ${year} ជោគជ័យ` };
+  };
+
+  // Delete an Academic Year Archive
+  const deleteAcademicYearArchive = (year: string): { success: boolean; message: string } => {
+    if (!permissions.canDelete) {
+      showNotification(t('អ្នកគ្មានសិទ្ធិលុបប័ណ្ណសារឆ្នាំសិក្សាទេ!', 'Permission Denied.'), 'error');
+      return { success: false, message: 'Permission denied' };
+    }
+
+    if (settings.academicYear === year) {
+      showNotification(t('មិនអាចលុបឆ្នាំសិក្សាដែលកំពុងប្រើប្រាស់បានទេ!', 'Cannot delete active academic year.'), 'warning');
+      return { success: false, message: 'Cannot delete active year' };
+    }
+
+    setAcademicYearArchives((prev) => {
+      const copy = { ...prev };
+      delete copy[year];
+      return copy;
+    });
+
+    showNotification(t(`បានលុបប័ណ្ណសារឆ្នាំសិក្សា ${year} រួចរាល់!`, `Deleted archive for Academic Year ${year}!`), 'success');
+    return { success: true, message: `Deleted ${year}` };
+  };
+
+  // Add custom Academic Year option
+  const addAcademicYearOption = (newYear: string) => {
+    if (!newYear.trim()) return;
+    const trimmed = newYear.trim();
+    if (!availableAcademicYears.includes(trimmed)) {
+      setAvailableAcademicYears((prev) => [...prev, trimmed].sort());
+    }
+  };
+
+  // Batch Annual School-Wide Promotion (ការឡើងថ្នាក់សិស្សប្រចាំឆ្នាំ និងទិន្នន័យដាច់ដោយឡែក)
+  const batchPromoteAcademicYear = async (
+    options: BatchAnnualPromotionOptions
+  ): Promise<BatchAnnualPromotionResult> => {
+    if (!permissions.canEdit) {
+      showNotification(t('អ្នកគ្មានសិទ្ធិឡើងថ្នាក់សិស្សទេ!', 'Permission Denied: Cannot promote students.'), 'error');
+      return {
+        success: false,
+        sourceYear: options.sourceAcademicYear,
+        targetYear: options.targetAcademicYear,
+        totalPromotedStudents: 0,
+        totalGraduatedStudents: 0,
+        classesCreatedCount: 0,
+        details: [],
+        error: 'Permission denied',
+      };
+    }
+
+    const {
+      sourceAcademicYear,
+      targetAcademicYear,
+      mappings,
+      keepOldYearArchived,
+      defaultFeeMonth,
+      sendTelegramAlert: shouldSendTg,
+    } = options;
+
+    // 1. Snapshot old academic year to guarantee total isolation
+    const totalStudentsInSource = Object.values(classData).reduce((sum, c) => sum + (c.students?.length || 0), 0);
+    const sourceArchive: AcademicYearArchive = {
+      academicYear: sourceAcademicYear,
+      archivedDate: new Date().toISOString(),
+      archivedBy: currentUser.khmerName,
+      totalStudents: totalStudentsInSource,
+      totalClasses: Object.keys(classData).length,
+      classesData: JSON.parse(JSON.stringify(classData)),
+      classOrder: [...classOrder],
+      note: `ទិន្នន័យប្រវត្តិដើមឆ្នាំសិក្សា ${sourceAcademicYear} (រក្សាទុកដាច់ដោយឡែក ១០០% មុនពេលឡើងថ្នាក់)`,
+    };
+
+    if (keepOldYearArchived !== false) {
+      setAcademicYearArchives((prev) => ({
+        ...prev,
+        [sourceAcademicYear]: sourceArchive,
+      }));
+    }
+
+    // 2. Build new year's classData structure
+    const newClassDataMap: { [classId: string]: ClassFeeData } = {};
+    const newClassOrderList: string[] = [];
+    const newPromotionRecords: PromotionRecord[] = [];
+    let totalPromoted = 0;
+    let totalGraduated = 0;
+    let classesCreated = 0;
+    const details: Array<{
+      sourceClassName: string;
+      targetClassName: string;
+      action: string;
+      studentCount: number;
+    }> = [];
+
+    const nowStr = new Date().toISOString().slice(0, 10);
+    const feeMonth = defaultFeeMonth || 'October';
+    const targetYearStart = targetAcademicYear.split('-')[0] || '2027';
+
+    // Process each class mapping
+    mappings.forEach((mapping) => {
+      const sourceCls = classData[mapping.sourceClassId];
+      if (!sourceCls) return;
+
+      if (mapping.action === 'graduate') {
+        // Students graduating (e.g. Grade 6 completing elementary school)
+        const graduatingStudents = sourceCls.students.filter(
+          (s) => mapping.selectedStudentIds.includes(s.id) && !mapping.excludedStudentIds.includes(s.id)
+        );
+        totalGraduated += graduatingStudents.length;
+
+        graduatingStudents.forEach((st) => {
+          newPromotionRecords.push({
+            id: `prom-grad-${Date.now()}-${st.id}`,
+            studentId: st.id,
+            studentCode: st.studentCode,
+            studentName: st.name,
+            fromClassId: mapping.sourceClassId,
+            fromClassName: sourceCls.className,
+            toClassId: 'GRADUATED',
+            toClassName: 'បញ្ចប់ការសិក្សា (Graduated)',
+            promotedDate: nowStr,
+            academicYear: targetAcademicYear,
+            promotedBy: currentUser.khmerName,
+            feeGroupAssigned: 'Graduated',
+          });
+        });
+
+        details.push({
+          sourceClassName: sourceCls.className,
+          targetClassName: 'បញ្ចប់ការសិក្សា (Graduated)',
+          action: 'graduate',
+          studentCount: graduatingStudents.length,
+        });
+        return;
+      }
+
+      if (mapping.action === 'retain') {
+        return;
+      }
+
+      // Action: 'promote' or 'custom'
+      const eligibleStudents = sourceCls.students.filter(
+        (s) => mapping.selectedStudentIds.includes(s.id) && !mapping.excludedStudentIds.includes(s.id)
+      );
+
+      if (eligibleStudents.length === 0) return;
+
+      const targetId = mapping.targetClassId || `cls_${mapping.targetClassName.replace(/\s+/g, '_')}`;
+      const targetName = mapping.targetClassName;
+      const newPeriod = `01.10.${targetYearStart} _ 31.10.${targetYearStart}`;
+
+      // Initialize target class in new map if not yet created
+      if (!newClassDataMap[targetId]) {
+        classesCreated++;
+        newClassOrderList.push(targetId);
+        newClassDataMap[targetId] = {
+          classId: targetId,
+          className: targetName,
+          period: newPeriod,
+          branchId: sourceCls.branchId || currentBranchId,
+          homeroomTeacher: sourceCls.homeroomTeacher || '',
+          teacherPhone: sourceCls.teacherPhone || '',
+          targetCollectionRate: 0,
+          totalExpectedCash: 0,
+          totalCollectedCash: 0,
+          students: [],
+          summaryRows: [],
+        };
+      }
+
+      const targetClass = newClassDataMap[targetId];
+      let currentMaxId = targetClass.students.length > 0 ? Math.max(...targetClass.students.map((s) => s.id)) : 0;
+
+      // Transform promoted students with fresh new year record
+      const promotedStudents: StudentFeeRecord[] = eligibleStudents.map((st) => {
+        currentMaxId += 1;
+        totalPromoted += 1;
+
+        newPromotionRecords.push({
+          id: `prom-${Date.now()}-${st.id}`,
+          studentId: st.id,
+          studentCode: st.studentCode,
+          studentName: st.name,
+          fromClassId: mapping.sourceClassId,
+          fromClassName: sourceCls.className,
+          toClassId: targetId,
+          toClassName: targetName,
+          promotedDate: nowStr,
+          academicYear: targetAcademicYear,
+          promotedBy: currentUser.khmerName,
+          feeGroupAssigned: feeMonth,
+        });
+
+        const updatedAdmissionData = {
+          ...(st.admissionData || {}),
+          previousGrade: sourceCls.className,
+          presentGrade: targetName,
+          previousYear: sourceAcademicYear,
+          presentYear: targetAcademicYear,
+          schoolName: settings.schoolNameEnglish || 'BIM School',
+        };
+
+        return {
+          ...st,
+          id: currentMaxId,
+          note: 'Old', // returning promoted student
+          feesGroup: feeMonth,
+          startDate: `${targetYearStart}-10-01`,
+          paymentDate: 'Unpaid-1month',
+          paidBy: '$ -',
+          cash: 0,
+          feeHistory: [], // Fresh fee ledger for the new academic year
+          admissionData: updatedAdmissionData,
+        };
+      });
+
+      targetClass.students = [...targetClass.students, ...promotedStudents];
+      const summary = recomputeClassSummary(targetClass.students);
+      targetClass.summaryRows = summary.summaryRows;
+      targetClass.totalCollectedCash = summary.totalCollected;
+      targetClass.totalExpectedCash = summary.totalExpected;
+      targetClass.targetCollectionRate = summary.rate;
+
+      details.push({
+        sourceClassName: sourceCls.className,
+        targetClassName: targetName,
+        action: 'promote',
+        studentCount: eligibleStudents.length,
+      });
+    });
+
+    // 3. Set the new year's classData as active
+    setClassData(newClassDataMap);
+    if (newClassOrderList.length > 0) {
+      setClassOrder(newClassOrderList);
+    }
+
+    // 4. Update promotion history
+    setPromotionHistory((prev) => [...newPromotionRecords, ...prev]);
+
+    // 5. Update settings to new academic year
+    updateSettings({ academicYear: targetAcademicYear });
+
+    // 6. Ensure targetAcademicYear is in availableAcademicYears
+    if (!availableAcademicYears.includes(targetAcademicYear)) {
+      setAvailableAcademicYears((prev) => [...prev, targetAcademicYear].sort());
+    }
+
+    // 7. Telegram Alert
+    if (shouldSendTg !== false) {
+      const summaryText = details.map((d) => `• ${d.sourceClassName} ➔ ${d.targetClassName}: ${d.studentCount} នាក់`).join('\n');
+      sendTelegramAlert(
+        `🎓 ឡើងថ្នាក់សិស្សប្រចាំឆ្នាំជោគជ័យ (${sourceAcademicYear} ➔ ${targetAcademicYear})`,
+        `ឆ្នាំសិក្សាថ្មី៖ ${targetAcademicYear}\nចំនួនសិស្សឡើងថ្នាក់៖ ${totalPromoted} នាក់\nចំនួនសិស្សបញ្ចប់ការសិក្សា៖ ${totalGraduated} នាក់\nទិន្នន័យឆ្នាំចាស់ (${sourceAcademicYear}) ត្រូវបានរក្សាទុកដាច់ដោយឡែក ១០០%។\n\nព័ត៌មានលម្អិត៖\n${summaryText}\n\nប្រតិបត្តិករ៖ ${currentUser.khmerName}`,
+        'system',
+        `${totalPromoted} នាក់`,
+        targetAcademicYear
+      );
+    }
+
+    showNotification(
+      t(
+        `បានឡើងថ្នាក់សិស្សចំនួន ${totalPromoted} នាក់ ទៅកាន់ឆ្នាំសិក្សាថ្មី ${targetAcademicYear} ដោយជោគជ័យ! ទិន្នន័យឆ្នាំ ${sourceAcademicYear} ត្រូវបានរក្សាទុកដាច់ដោយឡែក។`,
+        `Successfully promoted ${totalPromoted} students to ${targetAcademicYear}! Previous data for ${sourceAcademicYear} remains archived.`
+      ),
+      'success'
+    );
+
+    return {
+      success: true,
+      sourceYear: sourceAcademicYear,
+      targetYear: targetAcademicYear,
+      totalPromotedStudents: totalPromoted,
+      totalGraduatedStudents: totalGraduated,
+      classesCreatedCount: classesCreated,
+      details,
+    };
+  };
+
   // Active Materials Report (Multi-Month)
   const currentMaterialsReport: DailyMaterialsReport =
     materialsHistory[selectedMaterialsMonth] ||
@@ -4652,6 +5040,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         sortAcademicMonths,
         promoteStudents,
         promotionHistory,
+        availableAcademicYears,
+        activeAcademicYear: settings.academicYear || '2026-2027',
+        academicYearArchives,
+        switchAcademicYear,
+        batchPromoteAcademicYear,
+        restoreAcademicYearArchive,
+        deleteAcademicYearArchive,
+        addAcademicYearOption,
         materialsHistory,
         selectedMaterialsMonth,
         setSelectedMaterialsMonth,
