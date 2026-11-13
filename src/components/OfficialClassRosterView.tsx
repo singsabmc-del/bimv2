@@ -621,38 +621,43 @@ export const OfficialClassRosterView: React.FC = () => {
             {/* ================= OFFICIAL HEADER (ក្បាលបញ្ជីនាមសិស្ស) ================= */}
             {showHeader && (
               <div className="p-6 sm:p-8 border-b border-slate-200 bg-white">
-                <div className="flex flex-col sm:flex-row items-center sm:items-start justify-between gap-4 text-center sm:text-left">
-                  {/* Left: Ministry & School Info */}
-                  <div className="space-y-1">
-                    <div className="text-xs font-bold text-slate-800 font-khmer">
+                <div className="flex flex-col sm:flex-row items-center sm:items-start justify-between gap-4">
+                  {/* Left: Ministry & School Info — every line centred on one axis */}
+                  <div className="flex flex-col items-center text-center">
+                    <div className="font-muol text-[13px] text-slate-900">
                       {ministryName}
                     </div>
-                    <div className="text-xs text-slate-600 font-khmer">
+                    <div className="font-muol text-[12px] text-slate-800">
                       {departmentName}
                     </div>
-                    <div className="text-sm sm:text-base font-extrabold text-[#1D4ED8] font-khmer pt-0.5">
-                      {schoolNameKhmer} · {schoolNameEnglish}
+                    <div className="font-muol text-[13px] text-[#1D4ED8]">
+                      {schoolNameKhmer}
                     </div>
-                    <div className="text-xs font-semibold text-amber-700 font-khmer">
+                    {schoolNameEnglish && (
+                      <div className="text-[11px] font-bold text-[#1D4ED8] font-sans tracking-wide">
+                        {schoolNameEnglish}
+                      </div>
+                    )}
+                    <div className="text-xs font-semibold text-amber-700 font-khmer mt-0.5">
                       {currentBranch.nameKhmer}
                     </div>
                   </div>
 
-                  {/* Right: Kingdom of Cambodia Motto */}
-                  <div className="text-center sm:text-right space-y-1">
-                    <div className="text-sm sm:text-base font-bold font-khmer text-slate-950 tracking-wider">
+                  {/* Right: Kingdom of Cambodia Motto — centred block */}
+                  <div className="flex flex-col items-center text-center">
+                    <div className="font-muol text-[15px] text-slate-950">
                       ព្រះរាជាណាចក្រកម្ពុជា
                     </div>
-                    <div className="text-xs sm:text-sm font-bold font-khmer text-slate-800">
+                    <div className="font-muol text-[13px] text-slate-900">
                       ជាតិ សាសនា ព្រះមហាក្សត្រ
                     </div>
-                    <div className="text-xs text-slate-400 tracking-widest font-serif">❖ ❖ ❖</div>
+                    <div className="text-xs text-slate-500 tracking-[0.4em] font-serif leading-none">❖ ❖ ❖</div>
                   </div>
                 </div>
 
                 {/* Center: Title & Academic Year */}
                 <div className="text-center mt-5 mb-2 space-y-1.5">
-                  <h1 className="text-xl sm:text-2xl font-extrabold text-slate-950 font-khmer tracking-wide">
+                  <h1 className="font-muol text-lg sm:text-xl text-slate-950">
                     {classNameTitle}
                   </h1>
                   <div className="flex items-center justify-center gap-2 sm:gap-3 text-xs sm:text-sm font-bold font-khmer text-slate-800 flex-wrap">
@@ -787,41 +792,38 @@ export const OfficialClassRosterView: React.FC = () => {
                 </div>
 
                 {/* Signatures & Stamps */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 pt-4 text-xs font-khmer text-slate-800">
-                  {/* Left: Homeroom Teacher Signature */}
-                  <div className="text-center sm:text-left space-y-16">
-                    <div>
-                      <div className="font-bold text-slate-900 text-sm">គ្រូបន្ទុកថ្នាក់</div>
-                      <div className="text-[11px] text-slate-500 font-sans">Homeroom Teacher</div>
+                <div className="grid grid-cols-2 gap-8 pt-4 text-xs font-khmer text-slate-800">
+                  {/* Left: Homeroom Teacher Signature — centred block */}
+                  <div className="flex flex-col items-center text-center">
+                    <div className="text-[11px] invisible select-none" aria-hidden="true">
+                      {footerLocationDate}
                     </div>
-                    <div className="space-y-1">
-                      <div className="font-bold text-slate-950 text-sm font-khmer">
-                        {homeroomTeacher}
-                      </div>
-                      <div className="text-[11px] font-mono text-slate-600">
-                        ទូរស័ព្ទទាក់ទង៖ {teacherPhone || '012 345 678'}
-                      </div>
+                    <div className="font-muol text-[13px] text-slate-900">គ្រូបន្ទុកថ្នាក់</div>
+                    <div className="text-[11px] text-slate-500 font-sans">Homeroom Teacher</div>
+                    <div className="h-16" />
+                    <div className="font-muol text-[13px] text-slate-950">
+                      {homeroomTeacher}
+                    </div>
+                    <div className="text-[11px] font-mono text-slate-600">
+                      ទូរស័ព្ទទាក់ទង៖ {teacherPhone || '012 345 678'}
                     </div>
                   </div>
 
-                  {/* Right: School Director Signature & Stamp */}
-                  <div className="text-center sm:text-right space-y-16">
-                    <div>
-                      <div className="text-[11px] text-slate-600 font-khmer">
-                        {footerLocationDate}
-                      </div>
-                      <div className="font-bold text-slate-900 text-sm mt-1">
-                        បានឃើញ និងឯកភាព · នាយកសាលា
-                      </div>
-                      <div className="text-[11px] text-slate-500 font-sans">Seen & Approved by Director</div>
+                  {/* Right: School Director Signature & Stamp — centred block */}
+                  <div className="flex flex-col items-center text-center">
+                    <div className="text-[11px] text-slate-700 font-khmer">
+                      {footerLocationDate}
                     </div>
-                    <div className="space-y-1">
-                      <div className="font-bold text-slate-950 text-sm font-khmer">
-                        {customDirectorName || settings.directorName || 'យ៉េន ណាវីន'}
-                      </div>
-                      <div className="text-[11px] text-slate-500">
-                        {schoolNameKhmer}
-                      </div>
+                    <div className="font-muol text-[13px] text-slate-900">
+                      បានឃើញ និងឯកភាព នាយកសាលា
+                    </div>
+                    <div className="text-[11px] text-slate-500 font-sans">Seen &amp; Approved by Director</div>
+                    <div className="h-16" />
+                    <div className="font-muol text-[13px] text-slate-950">
+                      {customDirectorName || settings.directorName || 'យ៉េន ណាវីន'}
+                    </div>
+                    <div className="text-[11px] text-slate-500">
+                      {schoolNameKhmer}
                     </div>
                   </div>
                 </div>
