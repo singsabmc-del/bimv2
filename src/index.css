@@ -15,6 +15,15 @@
   font-family: 'Battambang', 'Khmer OS Battambang', 'Kantumruy Pro', sans-serif;
 }
 
+/* Official document headings: Khmer OS Muol Light (installed on the PC), falling back to Google "Moul".
+   Muol glyphs are tall, so a generous line-height prevents clipping; never fake-bold it. */
+.font-muol {
+  font-family: 'Khmer OS Muol Light', 'Khmer OS Muol', 'Moul', 'Battambang', serif !important;
+  font-weight: normal !important;
+  line-height: 2 !important;
+  letter-spacing: 0 !important;
+}
+
 /* Hide scrollbars for pill rows, navigation bars, and designated containers */
 .no-scrollbar::-webkit-scrollbar,
 .hide-scrollbar::-webkit-scrollbar,
