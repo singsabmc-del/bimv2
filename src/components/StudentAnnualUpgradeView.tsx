@@ -63,17 +63,32 @@ export const StudentAnnualUpgradeView: React.FC = () => {
 
   // Academic year selection for promotion
   const currentYear = settings.academicYear || '2026-2027';
-  const [sourceYear, setSourceYear] = useState<string>(currentYear);
-  const [targetYear, setTargetYear] = useState<string>(() => {
-    const parts = currentYear.split('-');
+  const nextYearOf = (year: string) => {
+    const parts = year.split('-');
     if (parts.length === 2 && !isNaN(Number(parts[0])) && !isNaN(Number(parts[1]))) {
       return `${Number(parts[0]) + 1}-${Number(parts[1]) + 1}`;
     }
     return '2027-2028';
-  });
+  };
+  // The source is always the active year (the roster currently loaded). The target defaults to the next year.
+  const [sourceYear, setSourceYear] = useState<string>(currentYear);
+  const [targetYear, setTargetYear] = useState<string>(() => nextYearOf(currentYear));
+
+  // Keep years in step with the active year (e.g. right after a promotion 2026-2027 ➔ 2027-2028,
+  // the next run is automatically 2027-2028 ➔ 2028-2029).
+  useEffect(() => {
+    setSourceYear(currentYear);
+    setTargetYear(nextYearOf(currentYear));
+  }, [currentYear]);
+
+  const targetYearHasData = !!academicYearArchives[targetYear];
+  const targetYearInvalid = !targetYear || targetYear === sourceYear || targetYearHasData;
+
+  // Highest grade taught: students in this grade graduate instead of moving up
+  const [finalGrade, setFinalGrade] = useState<number>(6);
 
   const [defaultFeeMonth, setDefaultFeeMonth] = useState<string>('October');
-  const [keepOldYearArchived, setKeepOldYearArchived] = useState<boolean>(true);
+  const keepOldYearArchived = true; // the old year is always archived (enforced in AppContext)
   const [advanceStudentAge, setAdvanceStudentAge] = useState<boolean>(true);
   const [sendTelegram, setSendTelegram] = useState<boolean>(true);
 
@@ -92,69 +107,55 @@ export const StudentAnnualUpgradeView: React.FC = () => {
   const [isNewYearInputOpen, setIsNewYearInputOpen] = useState(false);
   const [customNewYearText, setCustomNewYearText] = useState('');
 
-  // Helper function to smartly suggest the next grade level
+  // Helper function to smartly suggest the next grade level.
+  // Understands Khmer digits (ថ្នាក់ទី ១ … ១២), "Grade N" and leading numbers, and keeps the
+  // section / branch suffix: "ថ្នាក់ទី ១A (Grade 1A - Toul Kork)" ➔ "ថ្នាក់ទី ២A (Grade 2A - Toul Kork)".
+  const KH_DIGITS = '០១២៣៤៥៦៧៨៩';
+  const toKhmerDigits = (n: number) => String(n).split('').map((d) => KH_DIGITS[Number(d)]).join('');
+  const parseAnyDigits = (str: string) =>
+    Number(
+      str
+        .split('')
+        .map((c) => {
+          const i = KH_DIGITS.indexOf(c);
+          return i >= 0 ? String(i) : c;
+        })
+        .join('')
+    );
+
   const suggestNextGrade = (className: string): { nextName: string; action: 'promote' | 'graduate' } => {
-    const trimName = className.trim();
+    const name = className.trim();
 
-    // Check for Grade 6 graduating
-    if (
-      trimName.includes('ថ្នាក់ទី ៦') ||
-      trimName.includes('ថ្នាក់ទី៦') ||
-      trimName.includes('Grade 6') ||
-      trimName.startsWith('6') ||
-      trimName.includes('កម្រិត ៦')
-    ) {
-      return { nextName: 'បញ្ចប់ការសិក្សាបឋម (Graduated Elementary)', action: 'graduate' };
-    }
-
-    // Kindergarten / Preschool to Grade 1
-    if (
-      trimName.includes('មត្តេយ្យ') ||
-      trimName.toLowerCase().includes('kindergarten') ||
-      trimName.toLowerCase().includes('preschool')
-    ) {
+    // Kindergarten / Preschool ➔ Grade 1
+    if (/មត្តេយ្យ|kindergarten|preschool|\bpre\b/i.test(name)) {
       return { nextName: 'ថ្នាក់ទី ១A (Grade 1A)', action: 'promote' };
     }
 
-    // Grade 1 -> Grade 2
-    if (trimName.includes('ថ្នាក់ទី ១') || trimName.includes('ថ្នាក់ទី១') || trimName.startsWith('1')) {
-      const suffix = trimName.replace(/ថ្នាក់ទី\s*១/g, '').replace(/1/g, '').trim();
-      return { nextName: `ថ្នាក់ទី ២${suffix ? ' ' + suffix : 'A'}`, action: 'promote' };
+    const khMatch = name.match(/ថ្នាក់ទី\s*([០-៩0-9]+)/);
+    const enMatch = name.match(/Grade\s*(\d+)/i);
+    const leadMatch = name.match(/^(\d+)/);
+    const grade = khMatch
+      ? parseAnyDigits(khMatch[1])
+      : enMatch
+      ? Number(enMatch[1])
+      : leadMatch
+      ? Number(leadMatch[1])
+      : NaN;
+
+    if (!Number.isFinite(grade)) {
+      return { nextName: `${name} (ឆ្នាំថ្មី)`, action: 'promote' };
+    }
+    if (grade >= finalGrade) {
+      return { nextName: 'បញ្ចប់ការសិក្សា (Graduated)', action: 'graduate' };
     }
 
-    // Grade 2 -> Grade 3
-    if (trimName.includes('ថ្នាក់ទី ២') || trimName.includes('ថ្នាក់ទី២') || trimName.startsWith('2')) {
-      const suffix = trimName.replace(/ថ្នាក់ទី\s*២/g, '').replace(/2/g, '').trim();
-      return { nextName: `ថ្នាក់ទី ៣${suffix ? ' ' + suffix : 'A'}`, action: 'promote' };
-    }
-
-    // Grade 3 -> Grade 4
-    if (trimName.includes('ថ្នាក់ទី ៣') || trimName.includes('ថ្នាក់ទី៣') || trimName.startsWith('3')) {
-      const suffix = trimName.replace(/ថ្នាក់ទី\s*៣/g, '').replace(/3/g, '').trim();
-      return { nextName: `ថ្នាក់ទី ៤${suffix ? ' ' + suffix : 'A'}`, action: 'promote' };
-    }
-
-    // Grade 4 -> Grade 5
-    if (trimName.includes('ថ្នាក់ទី ៤') || trimName.includes('ថ្នាក់ទី៤') || trimName.startsWith('4')) {
-      const suffix = trimName.replace(/ថ្នាក់ទី\s*៤/g, '').replace(/4/g, '').trim();
-      return { nextName: `ថ្នាក់ទី ៥${suffix ? ' ' + suffix : 'A'}`, action: 'promote' };
-    }
-
-    // Grade 5 -> Grade 6
-    if (trimName.includes('ថ្នាក់ទី ៥') || trimName.includes('ថ្នាក់ទី៥') || trimName.startsWith('5')) {
-      const suffix = trimName.replace(/ថ្នាក់ទី\s*៥/g, '').replace(/5/g, '').trim();
-      return { nextName: `ថ្នាក់ទី ៦${suffix ? ' ' + suffix : 'A'}`, action: 'promote' };
-    }
-
-    // Default numeric increment if contains numbers
-    const numMatch = trimName.match(/\d+/);
-    if (numMatch) {
-      const num = parseInt(numMatch[0], 10);
-      const nextNum = num + 1;
-      return { nextName: trimName.replace(numMatch[0], nextNum.toString()), action: 'promote' };
-    }
-
-    return { nextName: `${trimName} (ឆ្នាំថ្មី)`, action: 'promote' };
+    const next = grade + 1;
+    let nextName = name.replace(/(ថ្នាក់ទី\s*)([០-៩0-9]+)/, (_m, prefix: string, digits: string) =>
+      prefix + (/[០-៩]/.test(digits) ? toKhmerDigits(next) : String(next))
+    );
+    nextName = nextName.replace(/(Grade\s*)(\d+)/i, (_m, prefix: string) => prefix + next);
+    if (!khMatch && !enMatch && leadMatch) nextName = nextName.replace(/^\d+/, String(next));
+    return { nextName, action: 'promote' };
   };
 
   // State for class promotion mappings
@@ -184,7 +185,7 @@ export const StudentAnnualUpgradeView: React.FC = () => {
     });
 
     setClassMappings(initialMappings);
-  }, [orderedClassList, sourceYear]);
+  }, [orderedClassList, sourceYear, finalGrade]);
 
   // Update a single class mapping row
   const updateMappingRow = (
@@ -253,6 +254,15 @@ export const StudentAnnualUpgradeView: React.FC = () => {
       return;
     }
 
+    if (targetYearInvalid) {
+      alert(
+        targetYearHasData
+          ? t(`ឆ្នាំសិក្សា ${targetYear} មានទិន្នន័យរួចហើយ (បានឡើងថ្នាក់រួច)។`, `Academic year ${targetYear} already has data.`)
+          : t('សូមជ្រើសរើសឆ្នាំសិក្សាថ្មីដែលខុសពីឆ្នាំចាស់!', 'Please choose a target year different from the source year.')
+      );
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const options: BatchAnnualPromotionOptions = {
@@ -268,7 +278,7 @@ export const StudentAnnualUpgradeView: React.FC = () => {
       const result = await batchPromoteAcademicYear(options);
       setIsSubmitting(false);
       setIsConfirmModalOpen(false);
-      setPromotionSummaryResult(result);
+      setPromotionSummaryResult(result.success ? result : null);
     } catch (err: any) {
       alert('Error during annual promotion: ' + err.message);
       setIsSubmitting(false);
@@ -400,7 +410,7 @@ export const StudentAnnualUpgradeView: React.FC = () => {
             </button>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-khmer pt-2 border-t border-emerald-200/80">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs font-khmer pt-2 border-t border-emerald-200/80">
             <div className="p-2.5 bg-white rounded-xl border border-emerald-200">
               <div className="text-slate-500 text-[11px]">សិស្សឡើងថ្នាក់សរុប</div>
               <div className="font-extrabold text-lg text-emerald-700 font-mono">
@@ -411,6 +421,12 @@ export const StudentAnnualUpgradeView: React.FC = () => {
               <div className="text-slate-500 text-[11px]">សិស្សបញ្ចប់ការសិក្សា</div>
               <div className="font-extrabold text-lg text-indigo-700 font-mono">
                 {promotionSummaryResult.totalGraduatedStudents} នាក់
+              </div>
+            </div>
+            <div className="p-2.5 bg-white rounded-xl border border-emerald-200">
+              <div className="text-slate-500 text-[11px]">សិស្សត្រួតថ្នាក់</div>
+              <div className="font-extrabold text-lg text-rose-700 font-mono">
+                {promotionSummaryResult.totalRepeatingStudents || 0} នាក់
               </div>
             </div>
             <div className="p-2.5 bg-white rounded-xl border border-emerald-200">
@@ -453,17 +469,9 @@ export const StudentAnnualUpgradeView: React.FC = () => {
                   <span className="w-2 h-2 rounded-full bg-slate-400" />
                   <span>ឆ្នាំសិក្សាប្រភព (Source Year - ឆ្នាំចាស់)</span>
                 </label>
-                <select
-                  value={sourceYear}
-                  onChange={(e) => setSourceYear(e.target.value)}
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono font-bold text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20"
-                >
-                  {availableAcademicYears.map((yr) => (
-                    <option key={yr} value={yr}>
-                      {yr} {yr === settings.academicYear ? '(បច្ចុប្បន្ន)' : ''}
-                    </option>
-                  ))}
-                </select>
+                <div className="w-full p-2.5 bg-slate-100 border border-slate-200 rounded-xl font-mono font-bold text-xs text-slate-900">
+                  {sourceYear} (បច្ចុប្បន្ន / Active)
+                </div>
                 <div className="text-[11px] text-slate-500">
                   សិស្សថ្នាក់ទី១, ទី២, ទី៣... ក្នុងឆ្នាំនេះ នឹងត្រូវផ្ទេរទៅឆ្នាំថ្មី
                 </div>
@@ -495,9 +503,28 @@ export const StudentAnnualUpgradeView: React.FC = () => {
                     <option value="ADD_NEW">+ បន្ថែមឆ្នាំសិក្សាថ្មី...</option>
                   </select>
                 </div>
-                <div className="text-[11px] text-indigo-700 font-medium">
-                  សិស្សនឹងត្រូវឡើងថ្នាក់មួយកម្រិតក្នុងឆ្នាំនេះ
-                </div>
+                {targetYearInvalid ? (
+                  <div className="text-[11px] text-rose-700 font-bold">
+                    {targetYearHasData
+                      ? `⚠️ ឆ្នាំ ${targetYear} មានទិន្នន័យរួចហើយ — មិនអាចឡើងថ្នាក់ជាន់គ្នាបានទេ`
+                      : '⚠️ ឆ្នាំថ្មីត្រូវតែខុសពីឆ្នាំចាស់'}
+                  </div>
+                ) : (
+                  <div className="text-[11px] text-indigo-700 font-medium">
+                    សិស្សនឹងត្រូវឡើងថ្នាក់មួយកម្រិតក្នុងឆ្នាំនេះ
+                  </div>
+                )}
+                <label className="flex items-center gap-2 pt-1 text-[11px] text-slate-700">
+                  <span>ថ្នាក់ចុងក្រោយ (បញ្ចប់ការសិក្សា)៖ ថ្នាក់ទី</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={12}
+                    value={finalGrade}
+                    onChange={(e) => setFinalGrade(Math.max(1, Math.min(12, Number(e.target.value) || 6)))}
+                    className="w-14 p-1 border border-slate-200 rounded-lg font-mono font-bold text-center"
+                  />
+                </label>
               </div>
 
               {/* Starting Fee Month */}
@@ -536,13 +563,8 @@ export const StudentAnnualUpgradeView: React.FC = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-[11px]">
                 <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-800">
-                  <input
-                    type="checkbox"
-                    checked={keepOldYearArchived}
-                    onChange={(e) => setKeepOldYearArchived(e.target.checked)}
-                    className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 border-slate-300"
-                  />
-                  <span>រក្សាទុកទិន្នន័យឆ្នាំចាស់ ({sourceYear}) ជាប័ណ្ណសារដាច់ដោយឡែក (ណែនាំ)</span>
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>ទិន្នន័យឆ្នាំចាស់ ({sourceYear}) ត្រូវបានរក្សាទុកជាប័ណ្ណសារដាច់ដោយឡែកជានិច្ច</span>
                 </label>
 
                 <label className="flex items-center gap-2 cursor-pointer text-slate-700">
@@ -591,7 +613,7 @@ export const StudentAnnualUpgradeView: React.FC = () => {
                 </span>
                 {totalExcludedStudents > 0 && (
                   <span className="px-2.5 py-1 rounded-xl bg-rose-100 text-rose-800 font-bold">
-                    លើកលែង/ត្រួត៖ {totalExcludedStudents} នាក់
+                    ត្រួតថ្នាក់/ឈប់៖ {totalExcludedStudents} នាក់
                   </span>
                 )}
               </div>
@@ -734,7 +756,7 @@ export const StudentAnnualUpgradeView: React.FC = () => {
                                 <div className="font-bold text-slate-800 flex items-center gap-2">
                                   <span>បញ្ជីសិស្សក្នុងថ្នាក់ {row.sourceClassName}</span>
                                   <span className="text-[11px] text-slate-500 font-normal">
-                                    (ដោះធីកលើសិស្សណាដែលត្រួតថ្នាក់ ឬឈប់រៀន)
+                                    (ដោះធីក = ត្រួតថ្នាក់ នៅថ្នាក់ដដែលក្នុងឆ្នាំថ្មី · សិស្សស្ថានភាព Stop មិនត្រូវផ្ទេរទេ)
                                   </span>
                                 </div>
 
@@ -822,7 +844,7 @@ export const StudentAnnualUpgradeView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsConfirmModalOpen(true)}
-                disabled={totalPromotingStudents === 0 && totalGraduatingStudents === 0}
+                disabled={(totalPromotingStudents === 0 && totalGraduatingStudents === 0) || targetYearInvalid}
                 className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-extrabold rounded-xl font-khmer text-sm transition-all shadow-md active:scale-98 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2 shrink-0"
               >
                 <GraduationCap className="w-5 h-5 text-slate-950" />

@@ -267,6 +267,7 @@ export interface BatchAnnualPromotionResult {
   targetYear: string;
   totalPromotedStudents: number;
   totalGraduatedStudents: number;
+  totalRepeatingStudents?: number;
   classesCreatedCount: number;
   details: Array<{
     sourceClassName: string;

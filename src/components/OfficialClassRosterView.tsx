@@ -1232,7 +1232,9 @@ export const OfficialClassRosterView: React.FC = () => {
                   directorName: tempDirectorName,
                   schoolNameKhmer: tempSchoolNameKhmer,
                   schoolNameEnglish: tempSchoolNameEnglish,
-                  academicYear: tempAcademicYear,
+                  // academicYear is NOT written globally here: it is only the printed header text.
+                  // The active academic year changes only via the Annual Promotion / Year Archives screen,
+                  // so each year's data stays separate.
                 });
 
                 setIsSettingsModalOpen(false);
