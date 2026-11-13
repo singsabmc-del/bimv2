@@ -751,6 +751,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setActiveToast(null);
   };
 
+  // Local on-screen notification (no Telegram send). Used by academic-year switching/promotion.
+  const showNotification = (message: string, kind: 'success' | 'error' | 'warning' = 'success') => {
+    const titles = {
+      success: '✅ ជោគជ័យ (Success)',
+      warning: '⚠️ សូមពិនិត្យ (Warning)',
+      error: '❌ មិនជោគជ័យ (Error)',
+    } as const;
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    setActiveToast({
+      id: `toast-${Date.now()}`,
+      title: titles[kind],
+      message,
+      timestamp: new Date().toLocaleString('en-GB'),
+      type: 'system',
+    });
+    toastTimeoutRef.current = setTimeout(() => setActiveToast(null), kind === 'success' ? 5000 : 8000);
+  };
+
   // Classes Data (Safe storage with legacy fallback to prevent loss on redeployment)
   const [classData, setClassData] = useState<{ [classId: string]: ClassFeeData }>(() => {
     return getStoredItemWithFallback(`${STORAGE_PREFIX}_CLASSES`, 'CLASSES', INITIAL_CLASS_FEE_DATA);
@@ -1088,8 +1106,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [availableAcademicYears]);
 
   useEffect(() => {
-    localStorage.setItem(`${STORAGE_PREFIX}_ACADEMIC_YEAR_ARCHIVES`, JSON.stringify(academicYearArchives));
-    localStorage.setItem('BIM_PERMANENT_ACADEMIC_YEAR_ARCHIVES', JSON.stringify(academicYearArchives));
+    // Archives can grow large (one full snapshot per academic year). A localStorage quota error must
+    // never crash the app — the archives are also persisted to IndexedDB + server via syncStateToServer.
+    try {
+      const serialized = JSON.stringify(academicYearArchives);
+      localStorage.setItem(`${STORAGE_PREFIX}_ACADEMIC_YEAR_ARCHIVES`, serialized);
+      localStorage.setItem('BIM_PERMANENT_ACADEMIC_YEAR_ARCHIVES', serialized);
+    } catch (err) {
+      console.warn('Academic year archives too large for localStorage; relying on IndexedDB/server copy.', err);
+    }
   }, [academicYearArchives]);
 
   useEffect(() => {
@@ -1152,6 +1177,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (serverData.promotionHistory && Array.isArray(serverData.promotionHistory)) {
             setPromotionHistory(serverData.promotionHistory);
           }
+          if (serverData.academicYearArchives && typeof serverData.academicYearArchives === 'object') {
+            setAcademicYearArchives(serverData.academicYearArchives);
+          }
+          if (Array.isArray(serverData.availableAcademicYears) && serverData.availableAcademicYears.length > 0) {
+            setAvailableAcademicYears(serverData.availableAcademicYears);
+          }
           if (serverData.busRoutes && Array.isArray(serverData.busRoutes)) {
             setBusRoutes(serverData.busRoutes);
           }
@@ -1199,6 +1230,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       uniformSalesHistory,
       uniformTypes,
       promotionHistory,
+      academicYearArchives,
+      availableAcademicYears,
       busRoutes,
       busEnrollments,
       busPayments,
@@ -1207,6 +1240,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   }, [
     isHydrated,
+    academicYearArchives,
+    availableAcademicYears,
     currentUser,
     users,
     classData,
@@ -1386,6 +1421,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         uniformSalesHistory,
         uniformTypes,
         promotionHistory,
+        academicYearArchives,
+        availableAcademicYears,
         busRoutes,
         busEnrollments,
         busPayments,
@@ -1494,6 +1531,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (d.uniformSalesHistory) setUniformSalesHistory(d.uniformSalesHistory);
       if (d.uniformTypes) setUniformTypes(d.uniformTypes);
       if (d.promotionHistory) setPromotionHistory(d.promotionHistory);
+      if (d.academicYearArchives) setAcademicYearArchives(d.academicYearArchives);
+      if (Array.isArray(d.availableAcademicYears) && d.availableAcademicYears.length > 0)
+        setAvailableAcademicYears(d.availableAcademicYears);
       if (d.busRoutes) setBusRoutes(d.busRoutes);
       if (d.busEnrollments) setBusEnrollments(d.busEnrollments);
       if (d.busPayments) setBusPayments(d.busPayments);
@@ -2905,48 +2945,58 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   };
 
+  // Snapshot of the currently-active academic year (used before leaving it so years never mix)
+  const buildActiveYearSnapshot = (year: string, note: string): AcademicYearArchive => ({
+    academicYear: year,
+    archivedDate: new Date().toISOString(),
+    archivedBy: currentUser.khmerName,
+    totalStudents: Object.values(classData).reduce((sum, c) => sum + (c.students?.length || 0), 0),
+    totalClasses: Object.keys(classData).length,
+    classesData: JSON.parse(JSON.stringify(classData)),
+    classOrder: [...classOrder],
+    note,
+  });
+
   // Switch Active Academic Year (with automatic snapshot of current year to ensure isolation)
+  // Only years that already have their own data (an archive) can be opened. A brand-new year is
+  // created exclusively through the annual promotion, so one year's roster is never silently
+  // copied/relabelled as another year's.
   const switchAcademicYear = (targetYear: string): { success: boolean; message: string } => {
     const currentYear = settings.academicYear || '2026-2027';
     if (currentYear === targetYear) {
       return { success: true, message: `កំពុងស្ថិតក្នុងឆ្នាំសិក្សា ${targetYear} រួចហើយ` };
     }
 
+    const targetArchive = academicYearArchives[targetYear];
+    if (!targetArchive) {
+      const msg = t(
+        `ឆ្នាំសិក្សា ${targetYear} មិនទាន់មានទិន្នន័យទេ។ សូមប្រើប្រាស់ "ឡើងថ្នាក់ទូទាំងសាលា" ដើម្បីបង្កើតឆ្នាំសិក្សាថ្មី។`,
+        `Academic year ${targetYear} has no data yet. Use the annual promotion to create a new year.`
+      );
+      showNotification(msg, 'warning');
+      return { success: false, message: msg };
+    }
+
     // 1. Snapshot current year's data into archive before leaving
-    const totalStudentsInCurrent = Object.values(classData).reduce((sum, c) => sum + (c.students?.length || 0), 0);
-    const currentSnapshot: AcademicYearArchive = {
-      academicYear: currentYear,
-      archivedDate: new Date().toISOString(),
-      archivedBy: currentUser.khmerName,
-      totalStudents: totalStudentsInCurrent,
-      totalClasses: Object.keys(classData).length,
-      classesData: JSON.parse(JSON.stringify(classData)),
-      classOrder: [...classOrder],
-      note: `ទិន្នន័យឆ្នាំសិក្សា ${currentYear} ត្រូវបានរក្សាទុកដោយស្វ័យប្រវត្ត`,
-    };
+    const currentSnapshot = buildActiveYearSnapshot(
+      currentYear,
+      `ទិន្នន័យឆ្នាំសិក្សា ${currentYear} ត្រូវបានរក្សាទុកដោយស្វ័យប្រវត្ត`
+    );
+    setAcademicYearArchives((prev) => ({ ...prev, [currentYear]: currentSnapshot }));
 
-    const updatedArchives = {
-      ...academicYearArchives,
-      [currentYear]: currentSnapshot,
-    };
-    setAcademicYearArchives(updatedArchives);
-
-    // 2. Check if targetYear already has archived data
-    if (updatedArchives[targetYear]) {
-      const targetArchive = updatedArchives[targetYear];
-      setClassData(JSON.parse(JSON.stringify(targetArchive.classesData)));
-      if (targetArchive.classOrder && Array.isArray(targetArchive.classOrder)) {
-        setClassOrder([...targetArchive.classOrder]);
-      }
+    // 2. Load the target year's own isolated data
+    setClassData(JSON.parse(JSON.stringify(targetArchive.classesData)));
+    if (targetArchive.classOrder && Array.isArray(targetArchive.classOrder)) {
+      setClassOrder([...targetArchive.classOrder]);
+    } else {
+      setClassOrder(Object.keys(targetArchive.classesData));
     }
 
     // 3. Update settings.academicYear
     updateSettings({ academicYear: targetYear });
 
-    // 4. Ensure targetYear is in availableAcademicYears
-    if (!availableAcademicYears.includes(targetYear)) {
-      setAvailableAcademicYears((prev) => [...prev, targetYear].sort());
-    }
+    // 4. Ensure both years are in availableAcademicYears
+    setAvailableAcademicYears((prev) => Array.from(new Set([...prev, currentYear, targetYear])).sort());
 
     showNotification(
       t(`បានប្តូរទៅកាន់ឆ្នាំសិក្សា ${targetYear} ដោយជោគជ័យ!`, `Successfully switched to Academic Year ${targetYear}!`),
@@ -2956,21 +3006,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { success: true, message: `បានប្តូរទៅឆ្នាំសិក្សា ${targetYear}` };
   };
 
-  // Restore an Academic Year Archive back into active state
+  // Restore (open) an Academic Year Archive. Goes through switchAcademicYear so the year being
+  // left is snapshotted first — otherwise its latest edits would be overwritten and lost.
   const restoreAcademicYearArchive = (year: string): { success: boolean; message: string } => {
-    const archive = academicYearArchives[year];
-    if (!archive) {
+    if (!academicYearArchives[year]) {
       return { success: false, message: `រកមិនឃើញទិន្នន័យឆ្នាំសិក្សា ${year} ទេ` };
     }
-
-    setClassData(JSON.parse(JSON.stringify(archive.classesData)));
-    if (archive.classOrder && Array.isArray(archive.classOrder)) {
-      setClassOrder([...archive.classOrder]);
-    }
-    updateSettings({ academicYear: year });
-
-    showNotification(t(`បានទាញយកទិន្នន័យឆ្នាំសិក្សា ${year} មកប្រើប្រាស់វិញ!`, `Restored data for Academic Year ${year}!`), 'success');
-    return { success: true, message: `បានទាញយកឆ្នាំ ${year} ជោគជ័យ` };
+    return switchAcademicYear(year);
   };
 
   // Delete an Academic Year Archive
@@ -3005,11 +3047,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Batch Annual School-Wide Promotion (ការឡើងថ្នាក់សិស្សប្រចាំឆ្នាំ និងទិន្នន័យដាច់ដោយឡែក)
+  //
+  // Rules:
+  //  • Source year must be the active year (its roster is what's on screen / in classData).
+  //  • The target year must not already have data — prevents promoting twice and overwriting a year.
+  //  • The old year is always snapshotted into its own archive (never mixed with the new year).
+  //  • Ticked students move up; un-ticked students REPEAT (stay in the same grade in the new year);
+  //    students marked "Stop" (left school) are not carried over. Nobody is silently lost.
   const batchPromoteAcademicYear = async (
     options: BatchAnnualPromotionOptions
   ): Promise<BatchAnnualPromotionResult> => {
-    if (!permissions.canEdit) {
-      showNotification(t('អ្នកគ្មានសិទ្ធិឡើងថ្នាក់សិស្សទេ!', 'Permission Denied: Cannot promote students.'), 'error');
+    const fail = (error: string): BatchAnnualPromotionResult => {
+      showNotification(error, 'error');
       return {
         success: false,
         sourceYear: options.sourceAcademicYear,
@@ -3018,76 +3067,165 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         totalGraduatedStudents: 0,
         classesCreatedCount: 0,
         details: [],
-        error: 'Permission denied',
+        error,
       };
+    };
+
+    if (!permissions.canEdit) {
+      return fail(t('អ្នកគ្មានសិទ្ធិឡើងថ្នាក់សិស្សទេ!', 'Permission Denied: Cannot promote students.'));
     }
 
     const {
       sourceAcademicYear,
       targetAcademicYear,
       mappings,
-      keepOldYearArchived,
       defaultFeeMonth,
       sendTelegramAlert: shouldSendTg,
     } = options;
 
-    // 1. Snapshot old academic year to guarantee total isolation
-    const totalStudentsInSource = Object.values(classData).reduce((sum, c) => sum + (c.students?.length || 0), 0);
-    const sourceArchive: AcademicYearArchive = {
-      academicYear: sourceAcademicYear,
-      archivedDate: new Date().toISOString(),
-      archivedBy: currentUser.khmerName,
-      totalStudents: totalStudentsInSource,
-      totalClasses: Object.keys(classData).length,
-      classesData: JSON.parse(JSON.stringify(classData)),
-      classOrder: [...classOrder],
-      note: `ទិន្នន័យប្រវត្តិដើមឆ្នាំសិក្សា ${sourceAcademicYear} (រក្សាទុកដាច់ដោយឡែក ១០០% មុនពេលឡើងថ្នាក់)`,
-    };
-
-    if (keepOldYearArchived !== false) {
-      setAcademicYearArchives((prev) => ({
-        ...prev,
-        [sourceAcademicYear]: sourceArchive,
-      }));
+    const activeYear = settings.academicYear || '2026-2027';
+    if (sourceAcademicYear !== activeYear) {
+      return fail(
+        t(
+          `ឆ្នាំប្រភពត្រូវតែជាឆ្នាំសិក្សាសកម្ម (${activeYear})។ សូមប្តូរទៅឆ្នាំ ${sourceAcademicYear} ជាមុនសិន។`,
+          `Source year must be the active year (${activeYear}). Switch to ${sourceAcademicYear} first.`
+        )
+      );
     }
+    if (!targetAcademicYear || targetAcademicYear === sourceAcademicYear) {
+      return fail(t('ឆ្នាំសិក្សាថ្មីត្រូវតែខុសពីឆ្នាំចាស់!', 'Target year must differ from the source year.'));
+    }
+    if (academicYearArchives[targetAcademicYear]) {
+      return fail(
+        t(
+          `ឆ្នាំសិក្សា ${targetAcademicYear} មានទិន្នន័យរួចហើយ (បានឡើងថ្នាក់រួច)។ មិនអាចឡើងថ្នាក់ជាន់គ្នាបានទេ ដើម្បីការពារទិន្នន័យ។`,
+          `Academic year ${targetAcademicYear} already has data (already promoted). Promotion blocked to protect data.`
+        )
+      );
+    }
+
+    // 1. Snapshot old academic year — ALWAYS kept, so the two years stay 100% separate
+    const sourceArchive = buildActiveYearSnapshot(
+      sourceAcademicYear,
+      `ទិន្នន័យប្រវត្តិដើមឆ្នាំសិក្សា ${sourceAcademicYear} (រក្សាទុកដាច់ដោយឡែក ១០០% មុនពេលឡើងថ្នាក់)`
+    );
+    setAcademicYearArchives((prev) => ({ ...prev, [sourceAcademicYear]: sourceArchive }));
 
     // 2. Build new year's classData structure
     const newClassDataMap: { [classId: string]: ClassFeeData } = {};
     const newClassOrderList: string[] = [];
+    const classIdByName: { [name: string]: string } = {};
     const newPromotionRecords: PromotionRecord[] = [];
     let totalPromoted = 0;
     let totalGraduated = 0;
-    let classesCreated = 0;
-    const details: Array<{
-      sourceClassName: string;
-      targetClassName: string;
-      action: string;
-      studentCount: number;
-    }> = [];
+    let totalRepeating = 0;
+    let recordSeq = 0;
+    const details: BatchAnnualPromotionResult['details'] = [];
 
     const nowStr = new Date().toISOString().slice(0, 10);
+    const stamp = Date.now();
     const feeMonth = defaultFeeMonth || 'October';
     const targetYearStart = targetAcademicYear.split('-')[0] || '2027';
+    const newPeriod = `01.10.${targetYearStart} _ 31.10.${targetYearStart}`;
+    const isStopped = (s: StudentFeeRecord) => (s.feesGroup || '').toLowerCase().includes('stop');
 
-    // Process each class mapping
+    // Get (or create) a class in the new year. Classes are matched by name, so two old classes
+    // promoted into the same new class name are merged instead of producing duplicates.
+    const ensureTargetClass = (name: string, preferredId: string, sourceCls: ClassFeeData): ClassFeeData => {
+      const key = name.trim();
+      const existingId = classIdByName[key];
+      if (existingId) return newClassDataMap[existingId];
+
+      let id = preferredId || `cls_${key.replace(/\s+/g, '_')}`;
+      while (newClassDataMap[id]) id = `${id}_${newClassOrderList.length + 1}`;
+
+      classIdByName[key] = id;
+      newClassOrderList.push(id);
+      newClassDataMap[id] = {
+        classId: id,
+        className: key,
+        period: newPeriod,
+        branchId: sourceCls.branchId || currentBranchId,
+        homeroomTeacher: sourceCls.homeroomTeacher || '',
+        teacherPhone: sourceCls.teacherPhone || '',
+        targetCollectionRate: 0,
+        totalExpectedCash: 0,
+        totalCollectedCash: 0,
+        students: [],
+        summaryRows: [],
+      };
+      return newClassDataMap[id];
+    };
+
+    // Copy students into a new-year class with a fresh fee ledger (old payments stay in the archive)
+    const carryStudents = (
+      students: StudentFeeRecord[],
+      sourceCls: ClassFeeData,
+      targetCls: ClassFeeData,
+      kind: 'promote' | 'repeat'
+    ) => {
+      let maxId = targetCls.students.reduce((m, s) => Math.max(m, s.id), 0);
+      const carried = students.map((st) => {
+        maxId += 1;
+        recordSeq += 1;
+        newPromotionRecords.push({
+          id: `prom-${stamp}-${recordSeq}`,
+          studentId: st.id,
+          studentCode: st.studentCode,
+          studentName: st.name,
+          fromClassId: sourceCls.classId,
+          fromClassName: sourceCls.className,
+          toClassId: targetCls.classId,
+          toClassName: kind === 'repeat' ? `${targetCls.className} (ត្រួតថ្នាក់ / Repeat)` : targetCls.className,
+          promotedDate: nowStr,
+          academicYear: targetAcademicYear,
+          promotedBy: currentUser.khmerName,
+          feeGroupAssigned: feeMonth,
+        });
+        return {
+          ...st,
+          id: maxId,
+          note: 'Old' as const, // returning student
+          feesGroup: feeMonth,
+          startDate: `${targetYearStart}-10-01`,
+          paymentDate: 'Unpaid-1month',
+          paidBy: '$ -' as const,
+          cash: 0,
+          feeHistory: [], // Fresh fee ledger for the new academic year
+          admissionData: {
+            ...(st.admissionData || {}),
+            previousGrade: sourceCls.className,
+            presentGrade: targetCls.className,
+            previousYear: sourceAcademicYear,
+            presentYear: targetAcademicYear,
+            schoolName: settings.schoolNameEnglish || 'BIM School',
+          },
+        } as StudentFeeRecord;
+      });
+      targetCls.students = [...targetCls.students, ...carried];
+    };
+
     mappings.forEach((mapping) => {
       const sourceCls = classData[mapping.sourceClassId];
       if (!sourceCls) return;
 
-      if (mapping.action === 'graduate') {
-        // Students graduating (e.g. Grade 6 completing elementary school)
-        const graduatingStudents = sourceCls.students.filter(
-          (s) => mapping.selectedStudentIds.includes(s.id) && !mapping.excludedStudentIds.includes(s.id)
-        );
-        totalGraduated += graduatingStudents.length;
+      const activeStudents = sourceCls.students.filter((s) => !isStopped(s));
+      const isTicked = (s: StudentFeeRecord) =>
+        mapping.selectedStudentIds.includes(s.id) && !mapping.excludedStudentIds.includes(s.id);
 
-        graduatingStudents.forEach((st) => {
+      const moving = mapping.action === 'retain' ? [] : activeStudents.filter(isTicked);
+      const repeating = mapping.action === 'retain' ? activeStudents : activeStudents.filter((s) => !isTicked(s));
+
+      if (mapping.action === 'graduate') {
+        totalGraduated += moving.length;
+        moving.forEach((st) => {
+          recordSeq += 1;
           newPromotionRecords.push({
-            id: `prom-grad-${Date.now()}-${st.id}`,
+            id: `prom-grad-${stamp}-${recordSeq}`,
             studentId: st.id,
             studentCode: st.studentCode,
             studentName: st.name,
-            fromClassId: mapping.sourceClassId,
+            fromClassId: sourceCls.classId,
             fromClassName: sourceCls.className,
             toClassId: 'GRADUATED',
             toClassName: 'បញ្ចប់ការសិក្សា (Graduated)',
@@ -3097,116 +3235,50 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             feeGroupAssigned: 'Graduated',
           });
         });
-
         details.push({
           sourceClassName: sourceCls.className,
           targetClassName: 'បញ្ចប់ការសិក្សា (Graduated)',
           action: 'graduate',
-          studentCount: graduatingStudents.length,
+          studentCount: moving.length,
         });
-        return;
-      }
-
-      if (mapping.action === 'retain') {
-        return;
-      }
-
-      // Action: 'promote' or 'custom'
-      const eligibleStudents = sourceCls.students.filter(
-        (s) => mapping.selectedStudentIds.includes(s.id) && !mapping.excludedStudentIds.includes(s.id)
-      );
-
-      if (eligibleStudents.length === 0) return;
-
-      const targetId = mapping.targetClassId || `cls_${mapping.targetClassName.replace(/\s+/g, '_')}`;
-      const targetName = mapping.targetClassName;
-      const newPeriod = `01.10.${targetYearStart} _ 31.10.${targetYearStart}`;
-
-      // Initialize target class in new map if not yet created
-      if (!newClassDataMap[targetId]) {
-        classesCreated++;
-        newClassOrderList.push(targetId);
-        newClassDataMap[targetId] = {
-          classId: targetId,
-          className: targetName,
-          period: newPeriod,
-          branchId: sourceCls.branchId || currentBranchId,
-          homeroomTeacher: sourceCls.homeroomTeacher || '',
-          teacherPhone: sourceCls.teacherPhone || '',
-          targetCollectionRate: 0,
-          totalExpectedCash: 0,
-          totalCollectedCash: 0,
-          students: [],
-          summaryRows: [],
-        };
-      }
-
-      const targetClass = newClassDataMap[targetId];
-      let currentMaxId = targetClass.students.length > 0 ? Math.max(...targetClass.students.map((s) => s.id)) : 0;
-
-      // Transform promoted students with fresh new year record
-      const promotedStudents: StudentFeeRecord[] = eligibleStudents.map((st) => {
-        currentMaxId += 1;
-        totalPromoted += 1;
-
-        newPromotionRecords.push({
-          id: `prom-${Date.now()}-${st.id}`,
-          studentId: st.id,
-          studentCode: st.studentCode,
-          studentName: st.name,
-          fromClassId: mapping.sourceClassId,
-          fromClassName: sourceCls.className,
-          toClassId: targetId,
-          toClassName: targetName,
-          promotedDate: nowStr,
-          academicYear: targetAcademicYear,
-          promotedBy: currentUser.khmerName,
-          feeGroupAssigned: feeMonth,
+      } else if (moving.length > 0) {
+        const targetName = (mapping.targetClassName || '').trim() || sourceCls.className;
+        const targetCls = ensureTargetClass(targetName, mapping.targetClassId, sourceCls);
+        carryStudents(moving, sourceCls, targetCls, 'promote');
+        totalPromoted += moving.length;
+        details.push({
+          sourceClassName: sourceCls.className,
+          targetClassName: targetCls.className,
+          action: 'promote',
+          studentCount: moving.length,
         });
+      }
 
-        const updatedAdmissionData = {
-          ...(st.admissionData || {}),
-          previousGrade: sourceCls.className,
-          presentGrade: targetName,
-          previousYear: sourceAcademicYear,
-          presentYear: targetAcademicYear,
-          schoolName: settings.schoolNameEnglish || 'BIM School',
-        };
-
-        return {
-          ...st,
-          id: currentMaxId,
-          note: 'Old', // returning promoted student
-          feesGroup: feeMonth,
-          startDate: `${targetYearStart}-10-01`,
-          paymentDate: 'Unpaid-1month',
-          paidBy: '$ -',
-          cash: 0,
-          feeHistory: [], // Fresh fee ledger for the new academic year
-          admissionData: updatedAdmissionData,
-        };
-      });
-
-      targetClass.students = [...targetClass.students, ...promotedStudents];
-      const summary = recomputeClassSummary(targetClass.students);
-      targetClass.summaryRows = summary.summaryRows;
-      targetClass.totalCollectedCash = summary.totalCollected;
-      targetClass.totalExpectedCash = summary.totalExpected;
-      targetClass.targetCollectionRate = summary.rate;
-
-      details.push({
-        sourceClassName: sourceCls.className,
-        targetClassName: targetName,
-        action: 'promote',
-        studentCount: eligibleStudents.length,
-      });
+      if (repeating.length > 0) {
+        const sameCls = ensureTargetClass(sourceCls.className, sourceCls.classId, sourceCls);
+        carryStudents(repeating, sourceCls, sameCls, 'repeat');
+        totalRepeating += repeating.length;
+        details.push({
+          sourceClassName: sourceCls.className,
+          targetClassName: `${sameCls.className} (ត្រួតថ្នាក់)`,
+          action: 'retain',
+          studentCount: repeating.length,
+        });
+      }
     });
 
-    // 3. Set the new year's classData as active
+    // Recompute fee summaries once per new class
+    Object.values(newClassDataMap).forEach((cls) => {
+      const summary = recomputeClassSummary(cls.students);
+      cls.summaryRows = summary.summaryRows;
+      cls.totalCollectedCash = summary.totalCollected;
+      cls.totalExpectedCash = summary.totalExpected;
+      cls.targetCollectionRate = summary.rate;
+    });
+
+    // 3. Set the new year's classData as active (fully separate object from the archive)
     setClassData(newClassDataMap);
-    if (newClassOrderList.length > 0) {
-      setClassOrder(newClassOrderList);
-    }
+    setClassOrder(newClassOrderList);
 
     // 4. Update promotion history
     setPromotionHistory((prev) => [...newPromotionRecords, ...prev]);
@@ -3214,17 +3286,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // 5. Update settings to new academic year
     updateSettings({ academicYear: targetAcademicYear });
 
-    // 6. Ensure targetAcademicYear is in availableAcademicYears
-    if (!availableAcademicYears.includes(targetAcademicYear)) {
-      setAvailableAcademicYears((prev) => [...prev, targetAcademicYear].sort());
-    }
+    // 6. Ensure both years are in availableAcademicYears
+    setAvailableAcademicYears((prev) =>
+      Array.from(new Set([...prev, sourceAcademicYear, targetAcademicYear])).sort()
+    );
 
     // 7. Telegram Alert
     if (shouldSendTg !== false) {
       const summaryText = details.map((d) => `• ${d.sourceClassName} ➔ ${d.targetClassName}: ${d.studentCount} នាក់`).join('\n');
       sendTelegramAlert(
         `🎓 ឡើងថ្នាក់សិស្សប្រចាំឆ្នាំជោគជ័យ (${sourceAcademicYear} ➔ ${targetAcademicYear})`,
-        `ឆ្នាំសិក្សាថ្មី៖ ${targetAcademicYear}\nចំនួនសិស្សឡើងថ្នាក់៖ ${totalPromoted} នាក់\nចំនួនសិស្សបញ្ចប់ការសិក្សា៖ ${totalGraduated} នាក់\nទិន្នន័យឆ្នាំចាស់ (${sourceAcademicYear}) ត្រូវបានរក្សាទុកដាច់ដោយឡែក ១០០%។\n\nព័ត៌មានលម្អិត៖\n${summaryText}\n\nប្រតិបត្តិករ៖ ${currentUser.khmerName}`,
+        `ឆ្នាំសិក្សាថ្មី៖ ${targetAcademicYear}\nចំនួនសិស្សឡើងថ្នាក់៖ ${totalPromoted} នាក់\nចំនួនសិស្សត្រួតថ្នាក់៖ ${totalRepeating} នាក់\nចំនួនសិស្សបញ្ចប់ការសិក្សា៖ ${totalGraduated} នាក់\nទិន្នន័យឆ្នាំចាស់ (${sourceAcademicYear}) ត្រូវបានរក្សាទុកដាច់ដោយឡែក ១០០%។\n\nព័ត៌មានលម្អិត៖\n${summaryText}\n\nប្រតិបត្តិករ៖ ${currentUser.khmerName}`,
         'system',
         `${totalPromoted} នាក់`,
         targetAcademicYear
@@ -3233,8 +3305,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     showNotification(
       t(
-        `បានឡើងថ្នាក់សិស្សចំនួន ${totalPromoted} នាក់ ទៅកាន់ឆ្នាំសិក្សាថ្មី ${targetAcademicYear} ដោយជោគជ័យ! ទិន្នន័យឆ្នាំ ${sourceAcademicYear} ត្រូវបានរក្សាទុកដាច់ដោយឡែក។`,
-        `Successfully promoted ${totalPromoted} students to ${targetAcademicYear}! Previous data for ${sourceAcademicYear} remains archived.`
+        `បានឡើងថ្នាក់សិស្សចំនួន ${totalPromoted} នាក់ (ត្រួតថ្នាក់ ${totalRepeating} នាក់) ទៅកាន់ឆ្នាំសិក្សាថ្មី ${targetAcademicYear} ដោយជោគជ័យ! ទិន្នន័យឆ្នាំ ${sourceAcademicYear} ត្រូវបានរក្សាទុកដាច់ដោយឡែក។`,
+        `Promoted ${totalPromoted} students (${totalRepeating} repeating) to ${targetAcademicYear}! Data for ${sourceAcademicYear} is archived separately.`
       ),
       'success'
     );
@@ -3245,7 +3317,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       targetYear: targetAcademicYear,
       totalPromotedStudents: totalPromoted,
       totalGraduatedStudents: totalGraduated,
-      classesCreatedCount: classesCreated,
+      totalRepeatingStudents: totalRepeating,
+      classesCreatedCount: newClassOrderList.length,
       details,
     };
   };
@@ -4756,6 +4829,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       uniformSalesHistory,
       uniformTypes,
       promotionHistory,
+      academicYearArchives,
+      availableAcademicYears,
       busRoutes,
       busEnrollments,
       busAttendance,
@@ -4789,6 +4864,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (parsed.uniformSalesHistory) setUniformSalesHistory(parsed.uniformSalesHistory);
       if (parsed.uniformTypes) setUniformTypes(parsed.uniformTypes);
       if (parsed.promotionHistory) setPromotionHistory(parsed.promotionHistory);
+      if (parsed.academicYearArchives && typeof parsed.academicYearArchives === 'object')
+        setAcademicYearArchives(parsed.academicYearArchives);
+      if (Array.isArray(parsed.availableAcademicYears) && parsed.availableAcademicYears.length > 0)
+        setAvailableAcademicYears(parsed.availableAcademicYears);
       if (parsed.busRoutes && Array.isArray(parsed.busRoutes)) setBusRoutes(parsed.busRoutes);
       if (parsed.busEnrollments && Array.isArray(parsed.busEnrollments)) setBusEnrollments(parsed.busEnrollments);
       if (parsed.busAttendance && Array.isArray(parsed.busAttendance)) setBusAttendance(parsed.busAttendance);
