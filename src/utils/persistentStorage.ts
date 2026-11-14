@@ -312,6 +312,11 @@ export async function restoreStateOnStartup(): Promise<any | null> {
 
   // If server data is strictly newer (e.g. updated from another device)
   if (serverData) {
+    // Safety net: never silently discard this computer's own data — keep a copy in IndexedDB
+    // (key BIM_PRE_SERVER_RESTORE_<time>) so it can be recovered if the server copy was older in content.
+    if (bestLocalData) {
+      saveToIndexedDB(`BIM_PRE_SERVER_RESTORE_${Date.now()}`, bestLocalData).catch(() => {});
+    }
     return serverData;
   }
 

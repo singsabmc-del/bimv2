@@ -1,5 +1,4 @@
 import express from 'express';
-import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
@@ -12,7 +11,10 @@ dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const DATA_DIR = path.join(__dirname, 'data');
+// On Vercel the deployment filesystem is read-only; only /tmp is writable (and temporary).
+// Supabase is the real store there — the local file is just a cache.
+const IS_VERCEL = !!process.env.VERCEL;
+const DATA_DIR = IS_VERCEL ? '/tmp/bim-data' : path.join(__dirname, 'data');
 const STORE_FILE = path.join(DATA_DIR, 'school-store.json');
 
 // Supabase & Postgres Configuration
@@ -132,9 +134,10 @@ if (!fs.existsSync(DATA_DIR)) {
   } catch {}
 }
 
-async function startServer() {
+// Builds the Express app with every /api route. Used by the local/AI Studio server (startServer)
+// and by the Vercel serverless function (api/index.ts).
+export async function createApp() {
   const app = express();
-  const PORT = 3000;
 
   // Initialize Supabase tables in background
   initSupabaseSchema().catch(() => {});
@@ -1297,6 +1300,13 @@ Return a single clean JSON object matching this schema without markdown fences. 
     }
   });
 
+  return app;
+}
+
+async function startServer() {
+  const app = await createApp();
+  const PORT = 3000;
+
   // Vite middleware in dev or static serving in production
   if (process.env.NODE_ENV === 'production') {
     app.use(express.static(path.join(__dirname, 'dist')));
@@ -1304,6 +1314,7 @@ Return a single clean JSON object matching this schema without markdown fences. 
       res.sendFile(path.join(__dirname, 'dist', 'index.html'));
     });
   } else {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
@@ -1316,7 +1327,10 @@ Return a single clean JSON object matching this schema without markdown fences. 
   });
 }
 
-startServer().catch((err) => {
-  console.error('Failed to start server:', err);
-  process.exit(1);
-});
+// On Vercel the app is served by api/index.ts (serverless) — never start a listening server there.
+if (!IS_VERCEL) {
+  startServer().catch((err) => {
+    console.error('Failed to start server:', err);
+    process.exit(1);
+  });
+}
