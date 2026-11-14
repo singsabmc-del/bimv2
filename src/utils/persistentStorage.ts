@@ -208,14 +208,23 @@ export function syncStateToServer(stateBundle: any): void {
     saveToIndexedDB(PRIMARY_KEY, bundleWithTimestamp).catch(() => {});
 
     // Server-side write (if backend running)
+    // Report whether the data actually reached Supabase, so the app can warn the user.
+    const report = (ok: boolean, error?: string) => {
+      try {
+        window.dispatchEvent(new CustomEvent('bim-supabase-sync', { detail: { ok, error, at: Date.now() } }));
+      } catch {}
+    };
     try {
-      await fetch('/api/state', {
+      const res = await fetch('/api/state', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(bundleWithTimestamp),
       });
-    } catch {
-      // Ignore network errors on static hosting
+      const json: any = await res.json().catch(() => ({}));
+      if (res.ok && json.savedToSupabase) report(true);
+      else report(false, json.supabaseError || json.error || `HTTP ${res.status}`);
+    } catch (err: any) {
+      report(false, err?.message || 'Server unreachable');
     }
   }, 600);
 }
@@ -303,6 +312,11 @@ export async function restoreStateOnStartup(): Promise<any | null> {
 
   // If server data is strictly newer (e.g. updated from another device)
   if (serverData) {
+    // Safety net: never silently discard this computer's own data — keep a copy in IndexedDB
+    // (key BIM_PRE_SERVER_RESTORE_<time>) so it can be recovered if the server copy was older in content.
+    if (bestLocalData) {
+      saveToIndexedDB(`BIM_PRE_SERVER_RESTORE_${Date.now()}`, bestLocalData).catch(() => {});
+    }
     return serverData;
   }
 
