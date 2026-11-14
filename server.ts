@@ -26,7 +26,8 @@ const SUPABASE_URL = (envUrl && !envUrl.includes('your-project') && envUrl.start
   ? envUrl.trim()
   : REAL_SUPABASE_URL;
 
-const envServiceKey = process.env.BIM_SUPABASE_SERVICE_ROLE_KEY;
+// Prefer the new-style secret key (sb_secret_…); fall back to the legacy service_role JWT.
+const envServiceKey = process.env.BIM_SUPABASE_SECRET_KEY || process.env.BIM_SUPABASE_SERVICE_ROLE_KEY;
 const SUPABASE_SERVICE_ROLE_KEY = (envServiceKey && !envServiceKey.includes('your-service-role-key') && envServiceKey.length > 20)
   ? envServiceKey.trim()
   : '';
