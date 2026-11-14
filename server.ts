@@ -19,7 +19,6 @@ const STORE_FILE = path.join(DATA_DIR, 'school-store.json');
 
 // Supabase & Postgres Configuration
 const REAL_SUPABASE_URL = 'https://fsiccthpfzmyaowwjzsw.supabase.co';
-const REAL_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZzaWNjdGhwZnpteWFvd3dqenN3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM3NzExMzMsImV4cCI6MjEwOTM0NzEzM30.NeTUZ8VTaVnA5kAtrZv2Y-s6iMbcTmWwm4SdHt3wNrI';
 
 const envUrl = process.env.BIM_SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_URL = (envUrl && !envUrl.includes('your-project') && envUrl.startsWith('http'))
@@ -36,11 +35,6 @@ const SUPABASE_SERVICE_ROLE_KEY = (envServiceKey && !envServiceKey.includes('you
 if (!SUPABASE_SERVICE_ROLE_KEY) {
   console.warn('⚠️ BIM_SUPABASE_SERVICE_ROLE_KEY is not set — Supabase saving is disabled (local file only).');
 }
-
-const envAnonKey = process.env.BIM_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
-const SUPABASE_ANON_KEY = (envAnonKey && !envAnonKey.includes('your-anon-key') && envAnonKey.length > 20)
-  ? envAnonKey.trim()
-  : REAL_SUPABASE_ANON_KEY;
 
 const RAW_POSTGRES_URL = process.env.BIM_POSTGRES_URL || process.env.DATABASE_URL || '';
 // Strip query parameters so pg uses explicit ssl: { rejectUnauthorized: false }
@@ -200,17 +194,30 @@ export async function createApp() {
     let isConnected = pgStatus === 'connected';
     let storageType = isConnected ? 'supabase_postgres' : 'local_fallback';
 
-    if (!isConnected) {
+    // Verify via a real read with the server's secret key (legacy anon key is disabled)
+    let restHasData = false;
+    let restUpdatedAt: string | null = null;
+    if (!isConnected && supabaseAdmin) {
       try {
-        const restPing = await fetch(`${SUPABASE_URL}/auth/v1/health`, {
-          headers: { apikey: SUPABASE_ANON_KEY },
-        });
-        if (restPing.ok || restPing.status === 200 || restPing.status === 401) {
+        const { data, error } = await supabaseAdmin
+          .from('bim_school_state')
+          .select('updated_at')
+          .eq('id', 'latest')
+          .maybeSingle();
+        if (!error) {
           isConnected = true;
           storageType = 'supabase_rest';
           errorMessage = null;
+          restHasData = !!data;
+          restUpdatedAt = data?.updated_at || null;
+        } else {
+          errorMessage = error.message;
         }
-      } catch {}
+      } catch (e: any) {
+        errorMessage = e?.message || 'Supabase REST check failed';
+      }
+    } else if (!isConnected && !supabaseAdmin) {
+      errorMessage = 'BIM_SUPABASE_SECRET_KEY is not configured on the server';
     }
 
     const latency = Math.round(performance.now() - start);
@@ -223,9 +230,9 @@ export async function createApp() {
       latencyMs: latency,
       pgStatus,
       pgVersion,
-      tableExists,
-      hasStoredData: rowCount > 0,
-      lastSavedAt,
+      tableExists: tableExists || restHasData,
+      hasStoredData: rowCount > 0 || restHasData,
+      lastSavedAt: lastSavedAt || restUpdatedAt,
       storageType,
       error: errorMessage,
     });
