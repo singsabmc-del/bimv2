@@ -129,20 +129,8 @@ export async function saveStateToSupabase(stateBundle: any): Promise<{ success: 
     }
   } catch {}
 
-  // 2. Direct client fallback via Supabase client
-  try {
-    const { error } = await supabase.from('bim_school_state').upsert({
-      id: 'latest',
-      data: stateBundle,
-      updated_at: new Date().toISOString(),
-    });
-    if (!error) {
-      return { success: true };
-    }
-    return { success: false, error: error.message };
-  } catch (err: any) {
-    return { success: false, error: err.message || 'Network error saving to Supabase' };
-  }
+  // No direct browser → table fallback: the table is locked (RLS) so only the server can write it.
+  return { success: false, error: 'Server could not save to Supabase' };
 }
 
 /**
@@ -157,18 +145,6 @@ export async function loadStateFromSupabase(): Promise<any | null> {
       if (json && json.success && json.data) {
         return json.data;
       }
-    }
-  } catch {}
-
-  // 2. Direct client fallback via Supabase client
-  try {
-    const { data, error } = await supabase
-      .from('bim_school_state')
-      .select('data')
-      .eq('id', 'latest')
-      .single();
-    if (!error && data?.data) {
-      return data.data;
     }
   } catch {}
 

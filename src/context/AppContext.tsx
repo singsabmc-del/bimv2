@@ -71,7 +71,6 @@ import {
   checkDuplicateMaterialItem,
   checkDuplicateBusEnrollment,
 } from '../utils/duplicatePrevention';
-import { supabase } from '../lib/supabase';
 
 // Month generator helper for clean month records
 const createDefaultMaterialsReport = (month: string, year: number): DailyMaterialsReport => {
@@ -1183,6 +1182,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (Array.isArray(serverData.availableAcademicYears) && serverData.availableAcademicYears.length > 0) {
             setAvailableAcademicYears(serverData.availableAcademicYears);
           }
+          if (Array.isArray(serverData.academicMonths) && serverData.academicMonths.length > 0) {
+            setAcademicMonths(serverData.academicMonths);
+          }
           if (serverData.busRoutes && Array.isArray(serverData.busRoutes)) {
             setBusRoutes(serverData.busRoutes);
           }
@@ -1212,6 +1214,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   }, []);
 
+  // Warn the user when changes are NOT reaching Supabase (instead of failing silently).
+  // Throttled to one warning every 5 minutes; announces once when saving recovers.
+  const supabaseSyncFailingRef = useRef(false);
+  const lastSyncWarningAtRef = useRef(0);
+  useEffect(() => {
+    const onSync = (e: Event) => {
+      const { ok, error } = ((e as CustomEvent).detail || {}) as { ok: boolean; error?: string };
+      if (ok) {
+        if (supabaseSyncFailingRef.current) {
+          supabaseSyncFailingRef.current = false;
+          showNotification('ទិន្នន័យត្រូវបានរក្សាទុកទៅ Supabase វិញហើយ។ (Supabase saving restored)', 'success');
+        }
+        return;
+      }
+      supabaseSyncFailingRef.current = true;
+      const now = Date.now();
+      if (now - lastSyncWarningAtRef.current < 5 * 60 * 1000) return;
+      lastSyncWarningAtRef.current = now;
+      showNotification(
+        `⚠️ ទិន្នន័យមិនទាន់បានរក្សាទុកទៅ Supabase ទេ (នៅតែក្នុងកុំព្យូទ័រនេះ)។ សូមកុំលុប browser data ហើយទាក់ទងអ្នកគ្រប់គ្រងប្រព័ន្ធ។ មូលហេតុ៖ ${error || 'unknown'}`,
+        'error'
+      );
+    };
+    window.addEventListener('bim-supabase-sync', onSync);
+    return () => window.removeEventListener('bim-supabase-sync', onSync);
+  }, []);
+
   // Multi-tier background sync to IndexedDB and server persistence (debounced)
   // CRITICAL: only sync after hydration completes so initial fallback doesn't overwrite existing durable data!
   useEffect(() => {
@@ -1232,6 +1261,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       promotionHistory,
       academicYearArchives,
       availableAcademicYears,
+      academicMonths,
       busRoutes,
       busEnrollments,
       busPayments,
@@ -1242,6 +1272,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     isHydrated,
     academicYearArchives,
     availableAcademicYears,
+    academicMonths,
     currentUser,
     users,
     classData,
@@ -1423,6 +1454,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         promotionHistory,
         academicYearArchives,
         availableAcademicYears,
+        academicMonths,
         busRoutes,
         busEnrollments,
         busPayments,
@@ -1456,34 +1488,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         serverErrorMsg = err?.message || 'Server proxy unreachable';
       }
 
-      // 2. Path B: Direct client-side Supabase REST fallback
-      // Since anon key has full table rights, direct client call guarantees persistence even if server proxy times out
-      try {
-        const { error } = await supabase.from('bim_school_state').upsert({
-          id: 'latest',
-          data: bundle,
-          updated_at: new Date().toISOString(),
-        });
-
-        if (!error) {
-          return {
-            success: true,
-            message: 'ទិន្នន័យត្រូវបានរក្សាទុកក្នុង Supabase Cloud Database ដោយជោគជ័យ!',
-          };
-        }
-
-        return {
-          success: false,
-          message: error.message
-            ? `បរាជ័យក្នុងការរក្សាទុកទៅ Supabase: ${error.message}`
-            : (serverErrorMsg || 'បរាជ័យក្នុងការរក្សាទុកទៅ Supabase'),
-        };
-      } catch (clientErr: any) {
-        return {
-          success: false,
-          message: clientErr.message || serverErrorMsg || 'បរាជ័យក្នុងការរក្សាទុកទៅ Supabase',
-        };
-      }
+      // No direct browser → table fallback: the table is locked (RLS) so only the server can write it.
+      return {
+        success: false,
+        message: `បរាជ័យក្នុងការរក្សាទុកទៅ Supabase: ${serverErrorMsg || 'Server មិនអាចរក្សាទុកបាន'}`,
+      };
     } catch (err: any) {
       return { success: false, message: err.message || 'Error connecting to Supabase' };
     }
@@ -1504,20 +1513,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       } catch {}
 
-      // 2. Path B: Direct client fallback
-      if (!d) {
-        try {
-          const { data, error } = await supabase
-            .from('bim_school_state')
-            .select('data')
-            .eq('id', 'latest')
-            .single();
-          if (!error && data && data.data) {
-            d = data.data;
-          }
-        } catch {}
-      }
-
       if (!d) {
         return { success: false, message: 'ពុំមានទិន្នន័យរក្សាទុកក្នុង Supabase នៅឡើយទេ ឬមិនអាចទាញយកបាន' };
       }
@@ -1534,6 +1529,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (d.academicYearArchives) setAcademicYearArchives(d.academicYearArchives);
       if (Array.isArray(d.availableAcademicYears) && d.availableAcademicYears.length > 0)
         setAvailableAcademicYears(d.availableAcademicYears);
+      if (Array.isArray(d.academicMonths) && d.academicMonths.length > 0) setAcademicMonths(d.academicMonths);
       if (d.busRoutes) setBusRoutes(d.busRoutes);
       if (d.busEnrollments) setBusEnrollments(d.busEnrollments);
       if (d.busPayments) setBusPayments(d.busPayments);
@@ -4831,6 +4827,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       promotionHistory,
       academicYearArchives,
       availableAcademicYears,
+      academicMonths,
       busRoutes,
       busEnrollments,
       busAttendance,
@@ -4868,6 +4865,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setAcademicYearArchives(parsed.academicYearArchives);
       if (Array.isArray(parsed.availableAcademicYears) && parsed.availableAcademicYears.length > 0)
         setAvailableAcademicYears(parsed.availableAcademicYears);
+      if (Array.isArray(parsed.academicMonths) && parsed.academicMonths.length > 0)
+        setAcademicMonths(parsed.academicMonths);
       if (parsed.busRoutes && Array.isArray(parsed.busRoutes)) setBusRoutes(parsed.busRoutes);
       if (parsed.busEnrollments && Array.isArray(parsed.busEnrollments)) setBusEnrollments(parsed.busEnrollments);
       if (parsed.busAttendance && Array.isArray(parsed.busAttendance)) setBusAttendance(parsed.busAttendance);

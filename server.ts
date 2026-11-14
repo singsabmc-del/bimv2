@@ -17,7 +17,6 @@ const STORE_FILE = path.join(DATA_DIR, 'school-store.json');
 
 // Supabase & Postgres Configuration
 const REAL_SUPABASE_URL = 'https://fsiccthpfzmyaowwjzsw.supabase.co';
-const REAL_SUPABASE_SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZzaWNjdGhwZnpteWFvd3dqenN3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5Mzc3MTEzMywiZXhwIjoyMTA5MzQ3MTMzfQ.qUE-BNWWix4xcqkZm6pKXCmtQc_LZvnBTyvwsmJzopo';
 const REAL_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZzaWNjdGhwZnpteWFvd3dqenN3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM3NzExMzMsImV4cCI6MjEwOTM0NzEzM30.NeTUZ8VTaVnA5kAtrZv2Y-s6iMbcTmWwm4SdHt3wNrI';
 
 const envUrl = process.env.BIM_SUPABASE_URL || process.env.VITE_SUPABASE_URL;
@@ -28,7 +27,12 @@ const SUPABASE_URL = (envUrl && !envUrl.includes('your-project') && envUrl.start
 const envServiceKey = process.env.BIM_SUPABASE_SERVICE_ROLE_KEY;
 const SUPABASE_SERVICE_ROLE_KEY = (envServiceKey && !envServiceKey.includes('your-service-role-key') && envServiceKey.length > 20)
   ? envServiceKey.trim()
-  : REAL_SUPABASE_SERVICE_ROLE_KEY;
+  : '';
+// SECURITY: the service_role key bypasses Row Level Security. It must ONLY come from the hosting
+// environment (BIM_SUPABASE_SERVICE_ROLE_KEY) and must never be committed to the repository.
+if (!SUPABASE_SERVICE_ROLE_KEY) {
+  console.warn('⚠️ BIM_SUPABASE_SERVICE_ROLE_KEY is not set — Supabase saving is disabled (local file only).');
+}
 
 const envAnonKey = process.env.BIM_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 const SUPABASE_ANON_KEY = (envAnonKey && !envAnonKey.includes('your-anon-key') && envAnonKey.length > 20)
@@ -54,9 +58,9 @@ function isValidPostgresHost(connStr: string): boolean {
 }
 
 // Supabase REST client
-const supabaseAdmin = createSupabaseClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-  auth: { persistSession: false },
-});
+const supabaseAdmin: any = SUPABASE_SERVICE_ROLE_KEY
+  ? createSupabaseClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
+  : null;
 
 // PostgreSQL Pool (only enabled if connection string is provided with a valid hostname)
 const { Pool } = pg;
@@ -98,6 +102,12 @@ async function initSupabaseSchema() {
           meta JSONB,
           data JSONB
         );
+      `);
+      // Block public (anon key) access: with RLS enabled and no policies, only the server
+      // (service_role / direct Postgres) can read or write school data.
+      await client.query(`
+        ALTER TABLE bim_school_state ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE bim_school_backups ENABLE ROW LEVEL SECURITY;
       `);
       pgInitialized = true;
       console.log('✅ Supabase PostgreSQL connected and tables verified/created');
@@ -237,7 +247,7 @@ async function startServer() {
     }
 
     // 2. Try Supabase REST Client with timeout
-    try {
+    if (supabaseAdmin) try {
       const restPromise = supabaseAdmin.from('bim_school_state').select('data, updated_at').eq('id', 'latest').single();
       const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000));
       const { data, error }: any = await Promise.race([restPromise, timeoutPromise]);
@@ -291,7 +301,7 @@ async function startServer() {
       } catch (err: any) {
         supabaseError = err?.message;
         // Try REST upsert as secondary Supabase pathway
-        try {
+        if (supabaseAdmin) try {
           const { error } = await supabaseAdmin.from('bim_school_state').upsert({
             id: 'latest',
             data: payload,
@@ -305,7 +315,9 @@ async function startServer() {
       }
     } else {
       // Save directly via Supabase REST API with generous network timeout
-      try {
+      if (!supabaseAdmin) {
+        supabaseError = 'Supabase is not configured on the server (BIM_SUPABASE_SERVICE_ROLE_KEY missing)';
+      } else try {
         const restPromise = supabaseAdmin.from('bim_school_state').upsert({
           id: 'latest',
           data: payload,
