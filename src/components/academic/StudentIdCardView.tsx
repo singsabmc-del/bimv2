@@ -79,16 +79,25 @@ export const StudentIdCard: React.FC<{
       ? `ថ្ងៃទី ${toKh(today.getDate())} ខែ${KH_MONTHS[today.getMonth()]} ឆ្នាំ ${toKh(today.getFullYear())}`
       : today.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }));
 
-  const Row: React.FC<{ k: string; v?: string; strong?: boolean }> = ({ k, v, strong }) => (
-    <div className="flex min-w-0 gap-1 leading-[1.4]">
-      <span className="shrink-0 text-slate-600">{k} :</span>
-      <span className={`truncate ${strong ? 'font-muol !leading-[1.4] text-[8pt] text-[#0b2a6f]' : 'font-semibold text-slate-900'}`}>{v || '-'}</span>
+  // Long names: Muol is wide, so switch to bold Battambang and shrink to keep the full name visible
+  const nameLen = (name || '').length;
+  const nameClass =
+    nameLen <= 14
+      ? 'font-muol !leading-[1.45] text-[8.5pt]'
+      : nameLen <= 20
+      ? 'font-muol !leading-[1.45] text-[7.6pt]'
+      : 'font-khmer font-bold text-[7.6pt]';
+
+  const Row: React.FC<{ k: string; v?: string; strong?: boolean; className?: string }> = ({ k, v, strong, className = '' }) => (
+    <div className={`flex min-w-0 items-baseline gap-1 leading-[1.42] ${className}`}>
+      <span className="shrink-0 text-[6.8pt] text-slate-600">{k} :</span>
+      <span className={`truncate ${strong ? `${nameClass} text-[#0b2a6f]` : 'text-[7.3pt] font-semibold text-slate-900'}`}>{v || '-'}</span>
     </div>
   );
 
   return (
     <div
-      className="relative flex h-[85.6mm] w-[54mm] shrink-0 flex-col overflow-hidden rounded-[3mm] border-[1.2mm] border-[#123a8f] bg-white font-khmer text-[7pt] text-slate-900 shadow-lg print:shadow-none"
+      className="relative flex h-[85.6mm] w-[54mm] shrink-0 flex-col overflow-hidden rounded-[3mm] border-[1.2mm] border-[#123a8f] bg-white font-khmer text-[7.2pt] text-slate-900 shadow-lg print:shadow-none"
       style={{ background: 'linear-gradient(160deg,#eaf2ff 0%,#ffffff 38%,#ffffff 70%,#dbe8ff 100%)' }}
     >
       {/* corner kbach + wave */}
@@ -101,8 +110,8 @@ export const StudentIdCard: React.FC<{
           {settings.schoolLogo ? <img src={settings.schoolLogo} alt="" className="h-full w-full object-cover" /> : <span className="text-lg">🎓</span>}
         </div>
         <div className="flex-1 text-center">
-          <div className="font-muol !leading-[1.65] text-[7.3pt] text-[#0b2a6f]">ព្រះរាជាណាចក្រកម្ពុជា</div>
-          <div className="font-muol !leading-[1.65] text-[6.4pt] text-[#0b2a6f]">ជាតិ សាសនា ព្រះមហាក្សត្រ</div>
+          <div className="font-muol !leading-[1.6] text-[7.5pt] text-[#0b2a6f]">ព្រះរាជាណាចក្រកម្ពុជា</div>
+          <div className="font-muol !leading-[1.6] text-[6.8pt] text-[#0b2a6f]">ជាតិ សាសនា ព្រះមហាក្សត្រ</div>
           <KhmerOrnament color="#0b2a6f" className="-my-0.5 scale-75" />
         </div>
       </div>
@@ -114,11 +123,11 @@ export const StudentIdCard: React.FC<{
       </div>
 
       <div className="relative mt-0.5 space-y-0 px-2.5">
-        <div className="flex min-w-0 justify-between gap-1">
-          <Row k={t.name} v={name} strong />
+        <Row k={t.name} v={name} strong />
+        <div className="grid min-w-0 grid-cols-[1fr_auto] gap-1">
+          <Row k={t.dob} v={formatDob(student.dob || ad?.dob, lang)} />
           <Row k={t.gender} v={student.gender === 'Female' ? t.f : t.m} />
         </div>
-        <Row k={t.dob} v={formatDob(student.dob || ad?.dob, lang)} />
         <Row k={t.cls} v={cls.className} />
         <div className="grid min-w-0 grid-cols-[1.15fr_1fr] gap-1">
           <Row k={t.father} v={o.father ?? ad?.father?.name ?? student.guardianName} />
@@ -131,23 +140,23 @@ export const StudentIdCard: React.FC<{
       </div>
 
       <div className="relative mt-auto flex items-end gap-2 px-2 pb-1.5">
-        <div className="h-[22mm] w-[17.5mm] shrink-0 overflow-hidden rounded-[1.5mm] border-[0.6mm] border-[#123a8f] bg-slate-100">
+        <div className="h-[21mm] w-[17mm] shrink-0 overflow-hidden rounded-[1.5mm] border-[0.6mm] border-[#123a8f] bg-slate-100">
           {photo ? (
             <img src={photo} alt="" className="h-full w-full object-cover" />
           ) : (
-            <div className="flex h-full items-center justify-center text-[6pt] text-slate-400">រូបថត ៤x៦</div>
+            <div className="flex h-full items-center justify-center text-[6.5pt] text-slate-400">រូបថត ៤x៦</div>
           )}
         </div>
-        <div className="flex h-[22mm] min-w-0 flex-1 flex-col items-center text-center text-[6.2pt] leading-tight text-[#0b2a6f]">
+        <div className="flex h-[21mm] min-w-0 flex-1 flex-col items-center text-center text-[6.8pt] leading-tight text-[#0b2a6f]">
           <div className="font-semibold">{issue}</div>
-          <div className="font-muol !leading-[1.5] text-[7pt] text-[#0b2a6f]">{t.director}</div>
+          <div className="font-muol !leading-[1.5] text-[7.5pt] text-[#0b2a6f]">{t.director}</div>
           {/* ── Stamp area (ចន្លោះបោះត្រា): white background, overlaps the photo corner slightly ── */}
           <div className="relative -ml-[6mm] w-[calc(100%+6mm)] flex-1">
             {settings.principalStampUrl ? (
               <img src={settings.principalStampUrl} alt="" className="absolute inset-0 m-auto h-[15mm] w-[15mm] object-contain" />
             ) : (
               <div
-                className={`absolute left-1/2 top-1/2 flex h-[14mm] w-[14mm] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-dashed border-[#c0151b]/45 text-[5pt] text-[#c0151b]/60 ${stampGuide ? '' : 'print:hidden'}`}
+                className={`absolute left-1/2 top-1/2 flex h-[14mm] w-[14mm] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-dashed border-[#c0151b]/45 text-[5.5pt] text-[#c0151b]/60 ${stampGuide ? '' : 'print:hidden'}`}
               >
                 កន្លែងបោះត្រា
               </div>
