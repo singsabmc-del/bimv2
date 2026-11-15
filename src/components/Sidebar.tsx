@@ -32,6 +32,11 @@ import {
   CheckCircle2,
   ShieldCheck,
   Database,
+  ClipboardList,
+  NotebookPen,
+  BookMarked,
+  Trophy,
+  IdCard,
 } from 'lucide-react';
 
 export type NavTab =
@@ -43,6 +48,12 @@ export type NavTab =
   | 'student_admission'
   | 'student_upgrade'
   | 'student_info'
+  // 2b. Academic & Results
+  | 'academic_scores'
+  | 'academic_tracking'
+  | 'academic_booklet'
+  | 'academic_honor'
+  | 'student_idcard'
   // 3. Teacher Management
   | 'teacher_list'
   | 'teacher_info'
@@ -96,6 +107,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   // Collapsible section state to keep sidebar neat
   const [collapsedSections, setCollapsedSections] = useState<{ [key: string]: boolean }>({
     student: false,
+    academic: false,
     teacher: false,
     revenue: false,
     reports: false,
@@ -174,6 +186,50 @@ export const Sidebar: React.FC<SidebarProps> = ({
           labelKhmer: 'ព័ត៌មាន & ប្រវត្តិរូបសិស្ស',
           icon: UserCheck,
           activeMatch: ['student_info', 'student_portal'],
+        },
+      ],
+    },
+    // Section 2b: Academic & Results (scores, study books, honor roll, ID cards)
+    {
+      id: 'academic',
+      title: 'Academic & Results',
+      titleKhmer: 'ការសិក្សា & លទ្ធផល',
+      color: 'emerald',
+      items: [
+        {
+          id: 'academic_scores' as NavTab,
+          label: 'Student Scores',
+          labelKhmer: 'គ្រប់គ្រងពិន្ទុសិស្ស',
+          icon: ClipboardList,
+          activeMatch: ['academic_scores'],
+        },
+        {
+          id: 'academic_tracking' as NavTab,
+          label: 'Study Tracking Book',
+          labelKhmer: 'សៀវភៅតាមដានការសិក្សា',
+          icon: NotebookPen,
+          activeMatch: ['academic_tracking'],
+        },
+        {
+          id: 'academic_booklet' as NavTab,
+          label: 'Report Booklet',
+          labelKhmer: 'សៀវភៅសិក្ខាគារិក',
+          icon: BookMarked,
+          activeMatch: ['academic_booklet'],
+        },
+        {
+          id: 'academic_honor' as NavTab,
+          label: 'Honor Roll',
+          labelKhmer: 'តារាងកិត្តិយស',
+          icon: Trophy,
+          activeMatch: ['academic_honor'],
+        },
+        {
+          id: 'student_idcard' as NavTab,
+          label: 'Student ID Cards',
+          labelKhmer: 'កាតសិស្ស (ID Cards)',
+          icon: IdCard,
+          activeMatch: ['student_idcard'],
         },
       ],
     },

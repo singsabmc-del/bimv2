@@ -29,6 +29,11 @@ import { StudentAnnualUpgradeView } from './components/StudentAnnualUpgradeView'
 import { InvoiceVerificationModal } from './components/InvoiceVerificationModal';
 import { AutoBackupModal } from './components/AutoBackupModal';
 import { CloudSyncPromptToast } from './components/CloudSyncPromptToast';
+import { ScoreSheetView } from './components/academic/ScoreSheetView';
+import { StudyTrackingBookView } from './components/academic/StudyTrackingBookView';
+import { ReportBookletView } from './components/academic/ReportBookletView';
+import { HonorRollView } from './components/academic/HonorRollView';
+import { StudentIdCardView } from './components/academic/StudentIdCardView';
 import {
   Send,
   CheckCircle2,
@@ -146,6 +151,13 @@ function MainApp() {
           {(activeTab === 'student_info' || activeTab === 'student_portal') && (
             <StudentPortalView />
           )}
+
+          {/* Section 2b: Academic & Results */}
+          {activeTab === 'academic_scores' && <ScoreSheetView />}
+          {activeTab === 'academic_tracking' && <StudyTrackingBookView />}
+          {activeTab === 'academic_booklet' && <ReportBookletView />}
+          {activeTab === 'academic_honor' && <HonorRollView />}
+          {activeTab === 'student_idcard' && <StudentIdCardView />}
 
           {/* Section 3: Teacher Management */}
           {activeTab === 'teacher_list' && (

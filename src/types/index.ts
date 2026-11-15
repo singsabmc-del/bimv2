@@ -212,6 +212,27 @@ export interface ClassFeeData {
   homeroomTeacher?: string;
   teacherPhone?: string;
   branchId?: string;
+  // ── Academic (scores) — kept per class, so each academic year's archive keeps its own scores ──
+  subjectIds?: string[]; // subjects taught/scored in this class (ids from SubjectItem)
+  scores?: ClassScoreBook; // { periodKey: { studentId: { subjectId: score(0-100) } } }
+  bookletNotes?: { [studentId: string]: StudentBookletNote };
+}
+
+// periodKey: "m-2026-10" (monthly exam, Oct 2026) | "sem-1" | "sem-2" (semester exams)
+export interface ClassScoreBook {
+  [periodKey: string]: { [studentId: string]: { [subjectId: string]: number | null } };
+}
+
+export interface StudentBookletNote {
+  evalSem1?: string; // គ-វាយតម្លៃលើការសិក្សា ឆមាសទី១
+  evalSem2?: string;
+  evalYear?: string;
+  promotedTo?: string; // ត្រូវបានឡើងថ្នាក់ទី
+  retestSubjects?: string; // ត្រូវបានប្រឡងឡើងថ្នាក់ៈ មុខវិជ្ជា
+  repeatGrade?: string; // ត្រូវរៀនត្រួតថ្នាក់ទី
+  praise?: string; // ការសរសើរ
+  improve?: string; // កែលម្អ
+  directorComment?: string; // មតិរបស់នាយកសាលា
 }
 
 export interface PromotionRecord {
@@ -467,6 +488,11 @@ export interface SchoolSettings {
   academicYear: string;
   telegramConfig: TelegramConfig;
   autoBackupConfig?: AutoBackupConfig;
+  // ── Official Khmer document header (scores, booklets, honor roll, ID cards) ──
+  eduOfficeName?: string; // e.g. ការិយាល័យ អ.យ.ក នៃរដ្ឋបាលស្រុក ...
+  semester1Months?: number[]; // months (1-12) averaged into semester 1, default [10,11,12,1,2]
+  semester2Months?: number[]; // default [3,4,5,6,7]
+  principalStampUrl?: string; // stamp + signature image (data URL)
 }
 
 export const MONTH_NAMES = [

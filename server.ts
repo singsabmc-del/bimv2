@@ -54,15 +54,44 @@ function isValidPostgresHost(connStr: string): boolean {
   }
 }
 
+// Vercel PREVIEW deployments share the production Supabase project. They must never write to it:
+// previews read the real data (for realistic testing) but every write is refused.
+const IS_PREVIEW = process.env.VERCEL_ENV === 'preview';
+const READ_ONLY_ERROR = { message: 'Preview deployment is read-only — production data is protected' };
+const makeReadOnly = (client: any) =>
+  new Proxy(client, {
+    get(target, prop) {
+      if (prop === 'from') {
+        return (table: string) => {
+          const builder = target.from(table);
+          return new Proxy(builder, {
+            get(b, bp) {
+              if (bp === 'upsert' || bp === 'insert' || bp === 'update' || bp === 'delete') {
+                return () => Promise.resolve({ data: null, error: READ_ONLY_ERROR });
+              }
+              const v = (b as any)[bp];
+              return typeof v === 'function' ? v.bind(b) : v;
+            },
+          });
+        };
+      }
+      if (prop === 'rpc' || prop === 'storage') return undefined;
+      const v = target[prop];
+      return typeof v === 'function' ? v.bind(target) : v;
+    },
+  });
+
 // Supabase REST client
-const supabaseAdmin: any = SUPABASE_SERVICE_ROLE_KEY
+const supabaseAdminRaw: any = SUPABASE_SERVICE_ROLE_KEY
   ? createSupabaseClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
   : null;
+const supabaseAdmin: any = supabaseAdminRaw && IS_PREVIEW ? makeReadOnly(supabaseAdminRaw) : supabaseAdminRaw;
 
 // PostgreSQL Pool (only enabled if connection string is provided with a valid hostname)
 const { Pool } = pg;
 let pgPool: pg.Pool | null = null;
-if (POSTGRES_URL && isValidPostgresHost(POSTGRES_URL)) {
+// Direct Postgres can write, so it is disabled on preview deployments (REST read-only is used instead)
+if (!IS_PREVIEW && POSTGRES_URL && isValidPostgresHost(POSTGRES_URL)) {
   try {
     pgPool = new Pool({
       connectionString: POSTGRES_URL,
