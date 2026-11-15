@@ -81,8 +81,8 @@ const L = {
     address: 'អាសយដ្ឋាន',
     year: 'ឆ្នាំសិក្សា',
     director: 'នាយកសាលា',
-    m: 'ប',
-    f: 'ស',
+    m: 'ប្រុស',
+    f: 'ស្រី',
   },
   en: {
     title: 'STUDENT ID CARD',
@@ -95,8 +95,8 @@ const L = {
     address: 'Address',
     year: 'Academic Year',
     director: 'Director',
-    m: 'M',
-    f: 'F',
+    m: 'Male',
+    f: 'Female',
   },
 };
 
