@@ -58,12 +58,13 @@ export interface CardOverrides {
   issueText?: string;
 }
 
-export const StudentIdCard: React.FC<{ student: StudentFeeRecord; cls: ClassFeeData; lang: Lang; o?: CardOverrides }> = ({
-  student,
-  cls,
-  lang,
-  o = {},
-}) => {
+export const StudentIdCard: React.FC<{
+  student: StudentFeeRecord;
+  cls: ClassFeeData;
+  lang: Lang;
+  o?: CardOverrides;
+  stampGuide?: boolean; // print a faint dashed circle where the official stamp goes
+}> = ({ student, cls, lang, o = {}, stampGuide = false }) => {
   const { settings } = useApp();
   const t = L[lang];
   const ad = student.admissionData;
@@ -92,8 +93,8 @@ export const StudentIdCard: React.FC<{ student: StudentFeeRecord; cls: ClassFeeD
     >
       {/* corner kbach + wave */}
       <div className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full border-[6px] border-[#c9a227]/40" />
-      <div className="pointer-events-none absolute -bottom-10 -left-6 h-24 w-[70mm] rotate-[-8deg] bg-gradient-to-r from-[#123a8f] to-[#2f6fde] opacity-90" />
-      <div className="pointer-events-none absolute -bottom-12 -left-6 h-24 w-[70mm] rotate-[-8deg] border-t-2 border-[#c9a227]" />
+      <div className="pointer-events-none absolute -bottom-[20.5mm] -left-6 h-24 w-[70mm] rotate-[4deg] bg-gradient-to-r from-[#123a8f] to-[#2f6fde]" />
+      <div className="pointer-events-none absolute -bottom-[21.5mm] -left-6 h-24 w-[70mm] rotate-[4deg] border-t-2 border-[#c9a227]" />
 
       <div className="relative flex items-center gap-1.5 px-2 pt-1.5">
         <div className="flex h-[10mm] w-[10mm] shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[#c9a227] bg-white">
@@ -137,12 +138,21 @@ export const StudentIdCard: React.FC<{ student: StudentFeeRecord; cls: ClassFeeD
             <div className="flex h-full items-center justify-center text-[6pt] text-slate-400">រូបថត ៤x៦</div>
           )}
         </div>
-        <div className="flex-1 pb-1 text-center text-[6.3pt] leading-tight text-white">
-          <div className="rounded bg-white/85 px-1 font-semibold text-[#0b2a6f]">{issue}</div>
-          <div className="relative h-[6mm]">
-            {settings.principalStampUrl && <img src={settings.principalStampUrl} alt="" className="absolute inset-0 m-auto h-[9mm] object-contain" />}
+        <div className="flex h-[22mm] min-w-0 flex-1 flex-col items-center text-center text-[6.2pt] leading-tight text-[#0b2a6f]">
+          <div className="font-semibold">{issue}</div>
+          {/* ── Stamp area (ចន្លោះបោះត្រា): white background, overlaps the photo corner slightly ── */}
+          <div className="relative -ml-[6mm] w-[calc(100%+6mm)] flex-1">
+            {settings.principalStampUrl ? (
+              <img src={settings.principalStampUrl} alt="" className="absolute inset-0 m-auto h-[15mm] w-[15mm] object-contain" />
+            ) : (
+              <div
+                className={`absolute left-1/2 top-1/2 flex h-[14mm] w-[14mm] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-dashed border-[#c0151b]/45 text-[5pt] text-[#c0151b]/60 ${stampGuide ? '' : 'print:hidden'}`}
+              >
+                កន្លែងបោះត្រា
+              </div>
+            )}
           </div>
-          <div className="font-muol !leading-[1.4] text-[7pt]">{t.director}</div>
+          <div className="font-muol !leading-[1.5] text-[7pt] text-[#0b2a6f]">{t.director}</div>
         </div>
       </div>
     </div>
@@ -157,6 +167,7 @@ export const StudentIdCardView: React.FC = () => {
   const [selected, setSelected] = useState<string>(''); // `${classId}::${studentId}`
   const [o, setO] = useState<CardOverrides>({});
   const [printClass, setPrintClass] = useState(false);
+  const [stampGuide, setStampGuide] = useState(false);
 
   const pool = useMemo(() => {
     const list: { cls: ClassFeeData; st: StudentFeeRecord }[] = [];
@@ -282,6 +293,10 @@ export const StudentIdCardView: React.FC = () => {
             {field('father', 'ឪពុកឈ្មោះ', current?.st.admissionData?.father?.name || current?.st.guardianName)}
             {field('mother', 'ម្តាយឈ្មោះ', current?.st.admissionData?.mother?.name)}
             <div className="col-span-2">{field('address', 'អាសយដ្ឋាន (Address)', current?.st.address)}</div>
+            <label className="col-span-2 flex items-center gap-2 rounded-lg bg-rose-50 px-2 py-1.5 text-xs text-rose-800">
+              <input type="checkbox" checked={stampGuide} onChange={(e) => setStampGuide(e.target.checked)} />
+              បោះពុម្ពរង្វង់ចំណុចៗ សម្គាល់កន្លែងបោះត្រា (ពេលបោះត្រាដោយដៃ)
+            </label>
             <p className="col-span-2 text-[11px] text-slate-500">រូបថតយកពីព័ត៌មានសិស្ស។ ឡូហ្គោ និងត្រានាយកកំណត់នៅ «តារាងកិត្តិយស» ឬការកំណត់ប្រព័ន្ធ។</p>
           </div>
         </div>
@@ -290,14 +305,14 @@ export const StudentIdCardView: React.FC = () => {
           <div className="hidden print:grid print:grid-cols-3 print:gap-[6mm]">
             {printList.map(({ cls, st }) => (
               <div key={`${cls.classId}::${st.id}`} className="break-inside-avoid">
-                <StudentIdCard student={st} cls={cls} lang={lang} o={printClass ? {} : o} />
+                <StudentIdCard student={st} cls={cls} lang={lang} o={printClass ? {} : o} stampGuide={stampGuide} />
               </div>
             ))}
           </div>
           <div className="print:hidden">
             {current ? (
               <div className="origin-center scale-[1.35] py-16">
-                <StudentIdCard student={current.st} cls={current.cls} lang={lang} o={o} />
+                <StudentIdCard student={current.st} cls={current.cls} lang={lang} o={o} stampGuide={stampGuide} />
               </div>
             ) : (
               <div className="text-slate-500">មិនមានសិស្ស</div>
