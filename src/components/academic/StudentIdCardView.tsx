@@ -151,15 +151,18 @@ export const StudentIdCard: React.FC<{
           {/* ── Stamp area (ចន្លោះបោះត្រា): white background, overlaps the photo corner slightly ── */}
           <div className="relative -ml-[6mm] w-[calc(100%+6mm)] flex-1">
             {settings.principalStampUrl ? (
-              <img src={settings.principalStampUrl} alt="" className="absolute inset-0 m-auto h-[15mm] w-[15mm] object-contain" />
+              <img src={settings.principalStampUrl} alt="" className="absolute left-1/2 top-1/2 z-10 h-[14mm] w-[14mm] -translate-x-1/2 -translate-y-1/2 object-contain" />
             ) : (
               <div
-                className={`absolute left-1/2 top-1/2 flex h-[14mm] w-[14mm] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-dashed border-[#c0151b]/45 text-[5.5pt] text-[#c0151b]/60 ${stampGuide ? '' : 'print:hidden'}`}
+                className={`absolute left-1/2 top-1/2 flex h-[12mm] w-[12mm] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-dashed border-[#c0151b]/45 text-[5.5pt] text-[#c0151b]/60 ${stampGuide ? '' : 'print:hidden'}`}
               >
                 កន្លែងបោះត្រា
               </div>
             )}
           </div>
+          {settings.directorName && (
+            <div className="relative max-w-full truncate font-muol !leading-[1.55] text-[7.2pt] text-[#0b2a6f]">{settings.directorName}</div>
+          )}
         </div>
       </div>
     </div>
