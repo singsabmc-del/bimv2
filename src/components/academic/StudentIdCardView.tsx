@@ -55,7 +55,10 @@ export const FitText: React.FC<{
     </span>
   );
 };
-const base = 'block min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap';
+// overflow-hidden is needed for horizontal fitting, but it also clips Khmer vowels/subscripts
+// above and below the line. Vertical padding enlarges the clip box; the equal negative margin
+// keeps the layout unchanged.
+const base = 'block min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap py-[0.5em] -my-[0.5em]';
 
 const formatDob = (dob: string | undefined, lang: Lang) => {
   if (!dob) return '-';

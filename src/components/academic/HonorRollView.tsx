@@ -153,7 +153,7 @@ export const HonorRollView: React.FC = () => {
             className="-ml-[4mm] flex h-[9mm] flex-1 items-center justify-center rounded-r-full pl-[5mm] pr-3 font-khmer font-bold text-white shadow"
             style={{ background: 'linear-gradient(180deg,#f9a63a 0%,#f08a12 100%)', fontSize: small ? '13px' : '16px' }}
           >
-            <span className="truncate">{item.st.name}</span>
+            <span className="-my-[0.5em] truncate py-[0.5em]">{item.st.name}</span>
           </div>
         </div>
       </div>
