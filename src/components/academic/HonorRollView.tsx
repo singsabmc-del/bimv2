@@ -14,7 +14,8 @@ import {
   to10,
   toKh,
 } from '../../utils/academic';
-import { KbachCorner, KhmerOrnament, PanelCard, printWithOrientation } from './KhmerDoc';
+import { KhmerOrnament, PanelCard, printWithOrientation } from './KhmerDoc';
+import { KbachFrame, KbachFrameSwatch, KBACH_FRAMES } from './KbachFrames';
 
 /** Downscale an uploaded image to keep the synced data small. */
 const readImage = (file: File, max = 420): Promise<string> =>
@@ -46,6 +47,7 @@ export const HonorRollView: React.FC = () => {
   const [classId, setClassId] = useState(orderedClassList[0]?.classId || '');
   const [periodKey, setPeriodKey] = useState(periods.some((p) => p.key === nowKey) ? nowKey : periods[0].key);
   const [topN, setTopN] = useState(5);
+  const frameId = settings.honorFrame || 'royal-blue';
   const today = new Date();
   const [lunarDate, setLunarDate] = useState('ថ្ងៃ.........ខែ.............ឆ្នាំ.............ព.ស. ២៥.....');
   const [solarDate, setSolarDate] = useState(
@@ -100,14 +102,14 @@ export const HonorRollView: React.FC = () => {
     const photo = studentPhoto(item.st);
     return (
       <div className="flex flex-col items-center">
-        <div className={`font-muol ${big ? 'text-2xl' : 'text-xl'} leading-none text-[#c0151b]`}>{toKh(item.r.rank!)}</div>
+        <div className={`font-muol ${big ? 'text-2xl' : 'text-xl'} leading-none text-[var(--title)]`}>{toKh(item.r.rank!)}</div>
         <div
-          className={`mt-1 overflow-hidden border-[3px] border-[#1d4ed8] bg-slate-100 shadow-md ${big ? 'h-[34mm] w-[27mm]' : 'h-[30mm] w-[24mm]'}`}
+          className={`mt-1 overflow-hidden border-[3px] border-[var(--ink)] bg-slate-100 shadow-md ${big ? 'h-[34mm] w-[27mm]' : 'h-[30mm] w-[24mm]'}`}
           style={{ outline: '1.5px solid #c9a227', outlineOffset: '2px' }}
         >
           {photo ? <img src={photo} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-[10px] text-slate-400">រូបថត</div>}
         </div>
-        <div className="mt-2 min-w-[42mm] rounded-full border-2 border-[#1d4ed8] bg-white px-4 py-0.5 text-center font-muol text-[12px] text-[#0b2a6f] shadow-sm">
+        <div className="mt-2 min-w-[42mm] rounded-full border-2 border-[var(--ink)] bg-white px-4 py-0.5 text-center font-muol text-[12px] text-[var(--ink)] shadow-sm">
           {item.st.name}
         </div>
         <div className="text-[10px] text-slate-600">មធ្យមភាគ {toKh(fmt(to10(item.r.average), 2))}</div>
@@ -149,6 +151,14 @@ export const HonorRollView: React.FC = () => {
               </select>
             </label>
             {!ranked.length && <p className="rounded-lg bg-amber-50 p-2 text-xs text-amber-800">មិនទាន់មានពិន្ទុសម្រាប់ខែនេះទេ។ សូមបញ្ចូលពិន្ទុនៅ «គ្រប់គ្រងពិន្ទុសិស្ស»។</p>}
+          </div>
+        </PanelCard>
+
+        <PanelCard title="ស៊ុមក្បាច់ខ្មែរ (Kbach Frame)">
+          <div className="grid grid-cols-3 gap-1">
+            {KBACH_FRAMES.map((f) => (
+              <KbachFrameSwatch key={f.id} frameId={f.id} active={frameId === f.id} onClick={() => updateSettings({ honorFrame: f.id })} />
+            ))}
           </div>
         </PanelCard>
 
@@ -205,18 +215,9 @@ export const HonorRollView: React.FC = () => {
 
       {/* ── Certificate ── */}
       <div className="overflow-x-auto rounded-2xl bg-slate-100 p-4 print:overflow-visible print:bg-white print:p-0">
-        <div className="mx-auto w-[210mm] bg-[#0b2a6f] p-[5mm] shadow-xl [zoom:0.62] xl:[zoom:0.8] print:shadow-none print:[zoom:1]" style={{ minHeight: '287mm' }}>
-          <div className="relative h-full border-[3px] border-[#c9a227] p-[2mm]" style={{ minHeight: '277mm' }}>
-            <div
-              className="relative flex h-full flex-col border border-[#c9a227] px-[12mm] py-[10mm]"
-              style={{ minHeight: '271mm', background: 'radial-gradient(circle at 50% 35%, #fffdf5 0%, #fbf3dc 60%, #f3e3b8 100%)' }}
-            >
-              <KbachCorner className="absolute left-1 top-1 h-16 w-16" />
-              <KbachCorner className="absolute right-1 top-1 h-16 w-16 -scale-x-100" />
-              <KbachCorner className="absolute bottom-1 left-1 h-16 w-16 -scale-y-100" />
-              <KbachCorner className="absolute bottom-1 right-1 h-16 w-16 -scale-100" />
-
-              <div className="flex items-start justify-between gap-4 text-[#0b2a6f]">
+        <div className="mx-auto w-[210mm] shadow-xl [zoom:0.62] xl:[zoom:0.8] print:shadow-none print:[zoom:1]">
+          <KbachFrame frameId={frameId}>
+              <div className="flex items-start justify-between gap-4 text-[var(--ink)]">
                 <div className="flex flex-col items-center text-center">
                   <div className="font-muol text-[11px]">{settings.ministryDeptName || 'មន្ទីរអប់រំ យុវជន និងកីឡា'}</div>
                   {settings.eduOfficeName && <div className="font-muol text-[10.5px]">{settings.eduOfficeName}</div>}
@@ -226,15 +227,15 @@ export const HonorRollView: React.FC = () => {
                 <div className="flex flex-col items-center text-center">
                   <div className="font-muol text-[14px]">ព្រះរាជាណាចក្រកម្ពុជា</div>
                   <div className="font-muol text-[12px]">ជាតិ សាសនា ព្រះមហាក្សត្រ</div>
-                  <KhmerOrnament color="#0b2a6f" />
+                  <KhmerOrnament color="var(--ink)" />
                 </div>
               </div>
 
               <div className="mt-4 text-center">
-                <div className="font-muol text-[26px] leading-tight text-[#c0151b]" style={{ textShadow: '0 1px 0 #f3d27a' }}>
+                <div className="font-muol text-[26px] leading-tight text-[var(--title)]" style={{ textShadow: '0 1px 0 rgba(243,210,122,0.8)' }}>
                   {title}
                 </div>
-                <div className="font-muol text-[14px] text-[#0b2a6f]">ឆ្នាំសិក្សា {toKh(settings.academicYear)}</div>
+                <div className="font-muol text-[14px] text-[var(--ink)]">ឆ្នាំសិក្សា {toKh(settings.academicYear)}</div>
                 <KhmerOrnament className="mt-1" color="#b8860b" />
               </div>
 
@@ -248,7 +249,7 @@ export const HonorRollView: React.FC = () => {
                 ))}
               </div>
 
-              <div className="mt-4 grid grid-cols-2 gap-6 text-center text-[11.5px] text-[#0b2a6f]">
+              <div className="mt-4 grid grid-cols-2 gap-6 text-center text-[11.5px] text-[var(--ink)]">
                 <div className="flex flex-col items-center justify-end">
                   <div className="font-muol text-[12px]">គ្រូបន្ទុកថ្នាក់</div>
                   <div className="relative h-14 w-36">
@@ -266,8 +267,7 @@ export const HonorRollView: React.FC = () => {
                   <div className="font-muol text-[12px]">{settings.directorName}</div>
                 </div>
               </div>
-            </div>
-          </div>
+          </KbachFrame>
         </div>
       </div>
     </div>

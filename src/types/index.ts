@@ -493,6 +493,7 @@ export interface SchoolSettings {
   semester1Months?: number[]; // months (1-12) averaged into semester 1, default [10,11,12,1,2]
   semester2Months?: number[]; // default [3,4,5,6,7]
   principalStampUrl?: string; // stamp + signature image (data URL)
+  honorFrame?: string; // kbach frame style for the honor roll (KbachFrameId)
 }
 
 export const MONTH_NAMES = [
