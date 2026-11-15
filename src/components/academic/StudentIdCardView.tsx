@@ -134,9 +134,7 @@ export const StudentIdCard: React.FC<{
           <Row k={t.mother} v={o.mother ?? ad?.mother?.name} />
         </div>
         <Row k={t.address} v={o.address ?? student.address} />
-        <div className="text-center font-muol !leading-[1.7] text-[7.8pt] text-[#c0151b]">
-          {t.year}: {year}
-        </div>
+        <Row k={t.year} v={year} />
       </div>
 
       <div className="relative mt-auto flex items-end gap-2 px-2 pb-1.5">
