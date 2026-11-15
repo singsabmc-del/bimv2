@@ -93,8 +93,8 @@ export const StudentIdCard: React.FC<{
     >
       {/* corner kbach + wave */}
       <div className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full border-[6px] border-[#c9a227]/40" />
-      <div className="pointer-events-none absolute -bottom-[20.5mm] -left-6 h-24 w-[70mm] rotate-[4deg] bg-gradient-to-r from-[#123a8f] to-[#2f6fde]" />
-      <div className="pointer-events-none absolute -bottom-[21.5mm] -left-6 h-24 w-[70mm] rotate-[4deg] border-t-2 border-[#c9a227]" />
+      <div className="pointer-events-none absolute -bottom-[22.5mm] -left-6 h-24 w-[70mm] rotate-[4deg] bg-gradient-to-r from-[#123a8f] to-[#2f6fde]" />
+      <div className="pointer-events-none absolute -bottom-[23.5mm] -left-6 h-24 w-[70mm] rotate-[4deg] border-t-2 border-[#c9a227]" />
 
       <div className="relative flex items-center gap-1.5 px-2 pt-1.5">
         <div className="flex h-[10mm] w-[10mm] shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[#c9a227] bg-white">
@@ -140,6 +140,7 @@ export const StudentIdCard: React.FC<{
         </div>
         <div className="flex h-[22mm] min-w-0 flex-1 flex-col items-center text-center text-[6.2pt] leading-tight text-[#0b2a6f]">
           <div className="font-semibold">{issue}</div>
+          <div className="font-muol !leading-[1.5] text-[7pt] text-[#0b2a6f]">{t.director}</div>
           {/* ── Stamp area (ចន្លោះបោះត្រា): white background, overlaps the photo corner slightly ── */}
           <div className="relative -ml-[6mm] w-[calc(100%+6mm)] flex-1">
             {settings.principalStampUrl ? (
@@ -152,7 +153,6 @@ export const StudentIdCard: React.FC<{
               </div>
             )}
           </div>
-          <div className="font-muol !leading-[1.5] text-[7pt] text-[#0b2a6f]">{t.director}</div>
         </div>
       </div>
     </div>
