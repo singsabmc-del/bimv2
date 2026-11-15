@@ -124,6 +124,11 @@ export const StudentIdCard: React.FC<{
   const school = o.schoolName || (lang === 'en' ? settings.schoolNameEnglish : settings.schoolNameKhmer);
   const year = o.year || (lang === 'kh' ? toKh(settings.academicYear) : settings.academicYear);
   const photo = studentPhoto(student);
+  // "ថ្នាក់ទី ១A (Grade 1A)" → KH "១A" (label already says ថ្នាក់ទី), EN "Grade 1A"
+  const classValue =
+    lang === 'kh'
+      ? cls.className.split(' (')[0].replace(/^ថ្នាក់ទី\s*/, '').trim() || cls.className
+      : cls.className.match(/\s\(([^)]*)\)/)?.[1]?.split(' - ')[0] || cls.className;
   const today = new Date();
   const issue =
     o.issueText ||
@@ -180,11 +185,11 @@ export const StudentIdCard: React.FC<{
 
       <div className="relative mt-0.5 space-y-0 px-2.5">
         <Row k={t.name} v={name} strong />
-        <div className="grid min-w-0 grid-cols-[1fr_auto] gap-1">
-          <Row k={t.dob} v={formatDob(student.dob || ad?.dob, lang)} />
+        <Row k={t.dob} v={formatDob(student.dob || ad?.dob, lang)} />
+        <div className="grid min-w-0 grid-cols-[1fr_auto] gap-1.5">
+          <Row k={t.cls} v={classValue} />
           <Row k={t.gender} v={student.gender === 'Female' ? t.f : t.m} />
         </div>
-        <Row k={t.cls} v={cls.className} />
         <div className="grid min-w-0 grid-cols-[1.15fr_1fr] gap-1">
           <Row k={t.father} v={o.father ?? ad?.father?.name ?? student.guardianName} />
           <Row k={t.mother} v={o.mother ?? ad?.mother?.name} />
