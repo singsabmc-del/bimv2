@@ -15,7 +15,7 @@ import {
   toKh,
 } from '../../utils/academic';
 import { KhmerOrnament, PanelCard, printWithOrientation } from './KhmerDoc';
-import { KbachFrame, KbachFrameSwatch, KBACH_FRAMES } from './KbachFrames';
+import { KbachFrame, KbachFrameSwatch, KBACH_FRAMES, getFrame } from './KbachFrames';
 
 /** Downscale an uploaded image to keep the synced data small. */
 const readImage = (file: File, max = 420): Promise<string> =>
@@ -47,7 +47,8 @@ export const HonorRollView: React.FC = () => {
   const [classId, setClassId] = useState(orderedClassList[0]?.classId || '');
   const [periodKey, setPeriodKey] = useState(periods.some((p) => p.key === nowKey) ? nowKey : periods[0].key);
   const [topN, setTopN] = useState(5);
-  const frameId = settings.honorFrame || 'royal-blue';
+  const frameId = settings.honorFrame || 'vine-gold';
+  const ribbonLayout = getFrame(frameId).layout === 'ribbon';
   const today = new Date();
   const [lunarDate, setLunarDate] = useState('ថ្ងៃ.........ខែ.............ឆ្នាំ.............ព.ស. ២៥.....');
   const [solarDate, setSolarDate] = useState(
@@ -114,6 +115,113 @@ export const HonorRollView: React.FC = () => {
         </div>
         <div className="text-[10px] text-slate-600">មធ្យមភាគ {toKh(fmt(to10(item.r.average), 2))}</div>
       </div>
+    );
+  };
+
+  // ── Ribbon layout (white page, gold vine frame): photo with gold rounded frame, medal + orange name ribbon ──
+  const Medal: React.FC<{ rank: number; size?: number }> = ({ rank, size = 13 }) => (
+    <div className="relative z-10 shrink-0" style={{ width: `${size}mm`, height: `${size + 4}mm` }}>
+      <svg viewBox="0 0 40 52" className="absolute inset-0 h-full w-full" aria-hidden="true">
+        <path d="M10 30 L4 50 L12 45 L16 52 L20 32 Z" fill="#c8141c" />
+        <path d="M30 30 L36 50 L28 45 L24 52 L20 32 Z" fill="#e0262e" />
+        <circle cx="20" cy="20" r="18.5" fill="#ffffff" stroke="#e0161e" strokeWidth="3" />
+        <circle cx="20" cy="20" r="14.5" fill="none" stroke="#f3c9a0" strokeWidth="1" />
+      </svg>
+      <div className="absolute left-0 right-0 top-0 flex items-center justify-center font-muol text-[#e0161e]" style={{ height: `${size}mm`, fontSize: `${size * 1.25}px` }}>
+        {toKh(rank)}
+      </div>
+    </div>
+  );
+
+  const RibbonCard: React.FC<{ item: (typeof ranked)[number]; small?: boolean }> = ({ item, small }) => {
+    const photo = studentPhoto(item.st);
+    const w = small ? 30 : 38;
+    const h = small ? 34 : 42;
+    return (
+      <div className="flex flex-col items-center">
+        <div
+          className="rounded-[14px] p-[3px] shadow-md"
+          style={{ width: `${w}mm`, height: `${h}mm`, background: 'linear-gradient(160deg,#8a5a12 0%,#f3d27a 35%,#fff1b8 50%,#c99a3b 70%,#7a4e0e 100%)' }}
+        >
+          <div className="h-full w-full overflow-hidden rounded-[11px] bg-white">
+            {photo ? <img src={photo} alt="" className="h-full w-full object-cover" /> : null}
+          </div>
+        </div>
+        <div className="relative -mt-[3mm] flex items-center" style={{ width: `${w + 16}mm` }}>
+          <Medal rank={item.r.rank!} size={small ? 10 : 12} />
+          <div
+            className="-ml-[4mm] flex h-[9mm] flex-1 items-center justify-center rounded-r-full pl-[5mm] pr-3 font-khmer font-bold text-white shadow"
+            style={{ background: 'linear-gradient(180deg,#f9a63a 0%,#f08a12 100%)', fontSize: small ? '13px' : '16px' }}
+          >
+            <span className="truncate">{item.st.name}</span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const shortClass = (cls?.className || '').split(' (')[0];
+  const periodText = isMonth ? `ប្រចាំ${periodLabel(periodKey)}` : `ប្រចាំ${periodLabel(periodKey).replace('ប្រឡង', '')}`;
+  const RibbonContent = () => {
+    const [first, second, third, ...rest] = ranked;
+    return (
+      <>
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-col items-center text-center">
+            {settings.schoolLogo ? (
+              <img src={settings.schoolLogo} alt="" className="h-[18mm] w-[18mm] object-contain" />
+            ) : (
+              <div className="flex h-[16mm] w-[16mm] items-center justify-center rounded-full border-2 border-[var(--title)] text-2xl">🎓</div>
+            )}
+            <div className="font-muol text-[13px] leading-tight text-[var(--title)]">{settings.schoolNameKhmer}</div>
+            {settings.schoolNameEnglish && <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--title)]">{settings.schoolNameEnglish}</div>}
+          </div>
+          <div className="flex flex-col items-center pt-1 text-center text-[var(--ink)]">
+            <div className="font-muol text-[15px]">ព្រះរាជាណាចក្រកម្ពុជា</div>
+            <div className="font-muol text-[13px]">ជាតិ សាសនា ព្រះមហាក្សត្រ</div>
+            <KhmerOrnament color="#b8862b" />
+          </div>
+        </div>
+
+        <div className="mt-2 text-center">
+          <div className="font-muol text-[46px] leading-[1.5] text-[var(--title)]" style={{ textShadow: '2px 2px 0 #fff, 3px 3px 2px rgba(138,75,15,0.25)' }}>
+            តារាងកិត្តិយស
+          </div>
+          <div className="font-muol text-[19px] text-[#c2410c]">សិស្សពូកែ{shortClass}</div>
+          <div className="font-muol text-[19px] text-[#c2410c]">
+            {periodText} ឆ្នាំសិក្សា{toKh(settings.academicYear)}
+          </div>
+        </div>
+
+        <div className="relative mt-6 flex-1">
+          <div className="grid grid-cols-3 items-start">
+            <div className="flex justify-center pt-[38mm]">{second && <RibbonCard item={second} />}</div>
+            <div className="flex justify-center">{first && <RibbonCard item={first} />}</div>
+            <div className="flex justify-center pt-[38mm]">{third && <RibbonCard item={third} />}</div>
+          </div>
+          {rest.length > 0 && (
+            <div className="mt-6 grid grid-cols-3 gap-y-5">
+              {rest.map((item) => (
+                <div key={item.st.id} className="flex justify-center">
+                  <RibbonCard item={item} small />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="mt-4 flex justify-end">
+          <div className="flex flex-col items-center text-center text-[13px] text-[#1f3b70]">
+            <div>{lunarDate}</div>
+            <div>{solarDate}</div>
+            <div className="font-muol text-[14px] text-[#1e40af]">នាយកសាលា</div>
+            <div className="relative h-16 w-40">
+              {settings.principalStampUrl && <img src={settings.principalStampUrl} alt="" className="absolute inset-0 m-auto h-20 object-contain" />}
+            </div>
+            <div className="font-muol text-[13px] text-[#1e40af]">{settings.directorName}</div>
+          </div>
+        </div>
+      </>
     );
   };
 
@@ -217,6 +325,10 @@ export const HonorRollView: React.FC = () => {
       <div className="overflow-x-auto rounded-2xl bg-slate-100 p-4 print:overflow-visible print:bg-white print:p-0">
         <div className="mx-auto w-[210mm] shadow-xl [zoom:0.62] xl:[zoom:0.8] print:shadow-none print:[zoom:1]">
           <KbachFrame frameId={frameId}>
+            {ribbonLayout ? (
+              <RibbonContent />
+            ) : (
+            <>
               <div className="flex items-start justify-between gap-4 text-[var(--ink)]">
                 <div className="flex flex-col items-center text-center">
                   <div className="font-muol text-[11px]">{settings.ministryDeptName || 'មន្ទីរអប់រំ យុវជន និងកីឡា'}</div>
@@ -267,6 +379,8 @@ export const HonorRollView: React.FC = () => {
                   <div className="font-muol text-[12px]">{settings.directorName}</div>
                 </div>
               </div>
+            </>
+            )}
           </KbachFrame>
         </div>
       </div>
