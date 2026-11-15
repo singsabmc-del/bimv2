@@ -138,7 +138,7 @@ export const StudentIdCard: React.FC<{
 
   // Values shrink automatically to fit; the name uses Muol and falls back to bold Battambang when very long
   const Row: React.FC<{ k: string; v?: string; strong?: boolean; className?: string }> = ({ k, v, strong, className = '' }) => (
-    <div className={`flex min-w-0 items-baseline gap-1 leading-[1.42] ${className}`}>
+    <div className={`flex min-w-0 items-baseline gap-1 leading-[1.36] ${className}`}>
       <span className="shrink-0 text-[6.8pt] text-slate-600">{k} :</span>
       {strong ? (
         <FitText
@@ -166,7 +166,7 @@ export const StudentIdCard: React.FC<{
       <div className="pointer-events-none absolute -bottom-[22.5mm] -left-6 h-24 w-[70mm] rotate-[4deg] bg-gradient-to-r from-[#123a8f] to-[#2f6fde]" />
       <div className="pointer-events-none absolute -bottom-[23.5mm] -left-6 h-24 w-[70mm] rotate-[4deg] border-t-2 border-[#c9a227]" />
 
-      <div className="relative flex items-center gap-1.5 px-2 pt-1.5">
+      <div className="relative flex items-center gap-1.5 px-2 pt-1">
         <div className="flex h-[10mm] w-[10mm] shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[#c9a227] bg-white">
           {settings.schoolLogo ? <img src={settings.schoolLogo} alt="" className="h-full w-full object-cover" /> : <span className="text-lg">🎓</span>}
         </div>
@@ -178,8 +178,8 @@ export const StudentIdCard: React.FC<{
       </div>
 
       <div className="relative mx-2 mt-0.5 border-t border-[#123a8f]/50 pt-0.5 text-center">
-        <div className={`${lang === 'kh' ? 'font-muol !leading-[1.7] text-[10pt]' : 'text-[10pt] font-black leading-tight tracking-wide'} text-[#0f7a3a]`}>{t.title}</div>
-        <FitText text={school} maxPt={7.8} minPt={6} className="w-full text-center font-muol !leading-[1.65] text-[#c0151b]" />
+        <div className={`${lang === 'kh' ? 'font-muol !leading-[1.55] text-[10pt]' : 'text-[10pt] font-black leading-tight tracking-wide'} text-[#0f7a3a]`}>{t.title}</div>
+        <FitText text={school} maxPt={7.8} minPt={6} className="w-full text-center font-muol !leading-[1.5] text-[#c0151b]" />
         <div className="text-[7.8pt] font-bold leading-tight text-[#c0151b]">ID: {o.cardId || student.studentCode}</div>
       </div>
 
@@ -190,23 +190,22 @@ export const StudentIdCard: React.FC<{
           <Row k={t.cls} v={classValue} />
           <Row k={t.gender} v={student.gender === 'Female' ? t.f : t.m} />
         </div>
-        <div className="grid min-w-0 grid-cols-[1.15fr_1fr] gap-1">
-          <Row k={t.father} v={o.father ?? ad?.father?.name ?? student.guardianName} />
-          <Row k={t.mother} v={o.mother ?? ad?.mother?.name} />
-        </div>
+        {/* Father and mother each get a full row so long names keep a readable size */}
+        <Row k={t.father} v={o.father ?? ad?.father?.name ?? student.guardianName} />
+        <Row k={t.mother} v={o.mother ?? ad?.mother?.name} />
         <Row k={t.address} v={o.address ?? student.address} />
         <Row k={t.year} v={year} />
       </div>
 
       <div className="relative mt-auto flex items-end gap-2 px-2 pb-1.5">
-        <div className="h-[21mm] w-[17mm] shrink-0 overflow-hidden rounded-[1.5mm] border-[0.6mm] border-[#123a8f] bg-slate-100">
+        <div className="h-[20mm] w-[16mm] shrink-0 overflow-hidden rounded-[1.5mm] border-[0.6mm] border-[#123a8f] bg-slate-100">
           {photo ? (
             <img src={photo} alt="" className="h-full w-full object-cover" />
           ) : (
             <div className="flex h-full items-center justify-center text-[6.5pt] text-slate-400">រូបថត ៤x៦</div>
           )}
         </div>
-        <div className="flex h-[21mm] min-w-0 flex-1 flex-col items-center text-center text-[6.8pt] leading-tight text-[#0b2a6f]">
+        <div className="flex h-[20mm] min-w-0 flex-1 flex-col items-center text-center text-[6.8pt] leading-tight text-[#0b2a6f]">
           <div className="font-semibold">{issue}</div>
           <div className="font-muol !leading-[1.5] text-[7.5pt] text-[#0b2a6f]">{t.director}</div>
           {/* ── Stamp area (ចន្លោះបោះត្រា): white background, overlaps the photo corner slightly ── */}
