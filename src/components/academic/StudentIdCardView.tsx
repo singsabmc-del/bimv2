@@ -171,14 +171,14 @@ export const StudentIdCard: React.FC<{
           {settings.schoolLogo ? <img src={settings.schoolLogo} alt="" className="h-full w-full object-cover" /> : <span className="text-lg">🎓</span>}
         </div>
         <div className="flex-1 text-center">
-          <div className="font-muol !leading-[1.6] text-[7.5pt] text-[#0b2a6f]">ព្រះរាជាណាចក្រកម្ពុជា</div>
-          <div className="font-muol !leading-[1.6] text-[6.8pt] text-[#0b2a6f]">ជាតិ សាសនា ព្រះមហាក្សត្រ</div>
+          <div className="font-muol !leading-[1.45] text-[7.5pt] text-[#0b2a6f]">ព្រះរាជាណាចក្រកម្ពុជា</div>
+          <div className="font-muol !leading-[1.45] text-[6.8pt] text-[#0b2a6f]">ជាតិ សាសនា ព្រះមហាក្សត្រ</div>
           <KhmerOrnament color="#0b2a6f" className="-my-0.5 scale-75" />
         </div>
       </div>
 
       <div className="relative mx-2 mt-0.5 border-t border-[#123a8f]/50 pt-0.5 text-center">
-        <div className={`${lang === 'kh' ? 'font-muol !leading-[1.55] text-[10pt]' : 'text-[10pt] font-black leading-tight tracking-wide'} text-[#0f7a3a]`}>{t.title}</div>
+        <div className={`${lang === 'kh' ? 'font-muol !leading-[1.75] text-[10pt]' : 'text-[10pt] font-black leading-tight tracking-wide'} text-[#0f7a3a]`}>{t.title}</div>
         <FitText text={school} maxPt={7.8} minPt={6} className="w-full text-center font-muol !leading-[1.5] text-[#c0151b]" />
         <div className="text-[7.8pt] font-bold leading-tight text-[#c0151b]">ID: {o.cardId || student.studentCode}</div>
       </div>
