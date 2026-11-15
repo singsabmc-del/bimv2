@@ -1,5 +1,5 @@
 // ស្ទូឌីយោកាតសិស្សផ្លូវការ — Khmer / English student ID card, print one card or a whole class (A4, 3×3).
-import React, { useMemo, useState } from 'react';
+import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { IdCard, Printer, Users, Search } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { activeStudents, KH_MONTHS, studentPhoto, toKh } from '../../utils/academic';
@@ -7,6 +7,55 @@ import { KhmerOrnament, printWithOrientation } from './KhmerDoc';
 import { ClassFeeData, StudentFeeRecord } from '../../types';
 
 type Lang = 'kh' | 'en';
+
+/**
+ * Auto-shrinking single-line text: measures the real rendered width and lowers the font size
+ * (0.2pt steps) until the text fits its space. If the primary font still does not fit at its
+ * minimum, it switches to a narrower fallback font (e.g. Muol → bold Battambang) and fits again.
+ */
+export const FitText: React.FC<{
+  text: string;
+  maxPt: number;
+  minPt: number;
+  className?: string;
+  fallbackClassName?: string;
+  fallbackMaxPt?: number;
+  fallbackMinPt?: number;
+}> = ({ text, maxPt, minPt, className = '', fallbackClassName, fallbackMaxPt, fallbackMinPt }) => {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [fit, setFit] = useState<{ pt: number; fallback: boolean }>({ pt: maxPt, fallback: false });
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const overflows = () => el.scrollWidth > el.clientWidth + 0.5;
+    const shrink = (from: number, to: number) => {
+      let size = from;
+      el.style.fontSize = `${size}pt`;
+      while (overflows() && size > to) {
+        size = Math.max(to, Math.round((size - 0.2) * 10) / 10);
+        el.style.fontSize = `${size}pt`;
+      }
+      return size;
+    };
+    el.className = `${base} ${className}`;
+    let size = shrink(maxPt, minPt);
+    let fallback = false;
+    if (overflows() && fallbackClassName) {
+      el.className = `${base} ${fallbackClassName}`;
+      size = shrink(fallbackMaxPt ?? maxPt, fallbackMinPt ?? minPt);
+      fallback = true;
+    }
+    setFit({ pt: size, fallback });
+  }, [text, maxPt, minPt, className, fallbackClassName, fallbackMaxPt, fallbackMinPt]);
+
+  return (
+    <span ref={ref} className={`${base} ${fit.fallback && fallbackClassName ? fallbackClassName : className}`} style={{ fontSize: `${fit.pt}pt` }}>
+      {text}
+    </span>
+  );
+};
+const base = 'block min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap';
 
 const formatDob = (dob: string | undefined, lang: Lang) => {
   if (!dob) return '-';
@@ -79,19 +128,23 @@ export const StudentIdCard: React.FC<{
       ? `ថ្ងៃទី ${toKh(today.getDate())} ខែ${KH_MONTHS[today.getMonth()]} ឆ្នាំ ${toKh(today.getFullYear())}`
       : today.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }));
 
-  // Long names: Muol is wide, so switch to bold Battambang and shrink to keep the full name visible
-  const nameLen = (name || '').length;
-  const nameClass =
-    nameLen <= 14
-      ? 'font-muol !leading-[1.45] text-[8.5pt]'
-      : nameLen <= 20
-      ? 'font-muol !leading-[1.45] text-[7.6pt]'
-      : 'font-khmer font-bold text-[7.6pt]';
-
+  // Values shrink automatically to fit; the name uses Muol and falls back to bold Battambang when very long
   const Row: React.FC<{ k: string; v?: string; strong?: boolean; className?: string }> = ({ k, v, strong, className = '' }) => (
     <div className={`flex min-w-0 items-baseline gap-1 leading-[1.42] ${className}`}>
       <span className="shrink-0 text-[6.8pt] text-slate-600">{k} :</span>
-      <span className={`truncate ${strong ? `${nameClass} text-[#0b2a6f]` : 'text-[7.3pt] font-semibold text-slate-900'}`}>{v || '-'}</span>
+      {strong ? (
+        <FitText
+          text={v || '-'}
+          maxPt={8.5}
+          minPt={6.8}
+          className="font-muol !leading-[1.45] text-[#0b2a6f]"
+          fallbackClassName="font-khmer font-bold text-[#0b2a6f]"
+          fallbackMaxPt={7.8}
+          fallbackMinPt={6}
+        />
+      ) : (
+        <FitText text={v || '-'} maxPt={7.3} minPt={5.8} className="font-semibold text-slate-900" />
+      )}
     </div>
   );
 
@@ -118,7 +171,7 @@ export const StudentIdCard: React.FC<{
 
       <div className="relative mx-2 mt-0.5 border-t border-[#123a8f]/50 pt-0.5 text-center">
         <div className={`${lang === 'kh' ? 'font-muol !leading-[1.7] text-[10pt]' : 'text-[10pt] font-black leading-tight tracking-wide'} text-[#0f7a3a]`}>{t.title}</div>
-        <div className="font-muol !leading-[1.65] text-[7.8pt] text-[#c0151b]">{school}</div>
+        <FitText text={school} maxPt={7.8} minPt={6} className="w-full text-center font-muol !leading-[1.65] text-[#c0151b]" />
         <div className="text-[7.8pt] font-bold leading-tight text-[#c0151b]">ID: {o.cardId || student.studentCode}</div>
       </div>
 
@@ -161,7 +214,7 @@ export const StudentIdCard: React.FC<{
             )}
           </div>
           {settings.directorName && (
-            <div className="relative max-w-full truncate font-muol !leading-[1.55] text-[7.2pt] text-[#0b2a6f]">{settings.directorName}</div>
+            <FitText text={settings.directorName} maxPt={7.2} minPt={5.8} className="relative w-full flex-none text-center font-muol !leading-[1.55] text-[#0b2a6f]" />
           )}
         </div>
       </div>
@@ -312,7 +365,7 @@ export const StudentIdCardView: React.FC = () => {
         </div>
 
         <div className="flex min-h-[420px] items-center justify-center rounded-2xl bg-gradient-to-br from-slate-100 to-blue-50 p-6 print:block print:bg-white print:p-0">
-          <div className="hidden print:grid print:grid-cols-3 print:gap-[6mm]">
+          <div aria-hidden="true" className="pointer-events-none fixed -left-[10000px] top-0 grid grid-cols-3 gap-[6mm] print:pointer-events-auto print:static print:left-auto">
             {printList.map(({ cls, st }) => (
               <div key={`${cls.classId}::${st.id}`} className="break-inside-avoid">
                 <StudentIdCard student={st} cls={cls} lang={lang} o={printClass ? {} : o} stampGuide={stampGuide} />
