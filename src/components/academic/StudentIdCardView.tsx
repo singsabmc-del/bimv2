@@ -79,9 +79,9 @@ export const StudentIdCard: React.FC<{ student: StudentFeeRecord; cls: ClassFeeD
       : today.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }));
 
   const Row: React.FC<{ k: string; v?: string; strong?: boolean }> = ({ k, v, strong }) => (
-    <div className="flex gap-1 leading-[1.55]">
+    <div className="flex min-w-0 gap-1 leading-[1.4]">
       <span className="shrink-0 text-slate-600">{k} :</span>
-      <span className={`truncate ${strong ? 'font-muol text-[8.5pt] text-[#0b2a6f]' : 'font-semibold text-slate-900'}`}>{v || '-'}</span>
+      <span className={`truncate ${strong ? 'font-muol !leading-[1.4] text-[8pt] text-[#0b2a6f]' : 'font-semibold text-slate-900'}`}>{v || '-'}</span>
     </div>
   );
 
@@ -95,42 +95,42 @@ export const StudentIdCard: React.FC<{ student: StudentFeeRecord; cls: ClassFeeD
       <div className="pointer-events-none absolute -bottom-10 -left-6 h-24 w-[70mm] rotate-[-8deg] bg-gradient-to-r from-[#123a8f] to-[#2f6fde] opacity-90" />
       <div className="pointer-events-none absolute -bottom-12 -left-6 h-24 w-[70mm] rotate-[-8deg] border-t-2 border-[#c9a227]" />
 
-      <div className="relative flex items-center gap-1.5 px-2 pt-2">
-        <div className="flex h-[11mm] w-[11mm] shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[#c9a227] bg-white">
+      <div className="relative flex items-center gap-1.5 px-2 pt-1.5">
+        <div className="flex h-[10mm] w-[10mm] shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[#c9a227] bg-white">
           {settings.schoolLogo ? <img src={settings.schoolLogo} alt="" className="h-full w-full object-cover" /> : <span className="text-lg">🎓</span>}
         </div>
         <div className="flex-1 text-center">
-          <div className="font-muol text-[7.5pt] leading-tight text-[#0b2a6f]">ព្រះរាជាណាចក្រកម្ពុជា</div>
-          <div className="font-muol text-[6.5pt] leading-tight text-[#0b2a6f]">ជាតិ សាសនា ព្រះមហាក្សត្រ</div>
-          <KhmerOrnament color="#0b2a6f" className="scale-75" />
+          <div className="font-muol !leading-[1.45] text-[7.3pt] text-[#0b2a6f]">ព្រះរាជាណាចក្រកម្ពុជា</div>
+          <div className="font-muol !leading-[1.45] text-[6.4pt] text-[#0b2a6f]">ជាតិ សាសនា ព្រះមហាក្សត្រ</div>
+          <KhmerOrnament color="#0b2a6f" className="-my-0.5 scale-75" />
         </div>
       </div>
 
-      <div className="relative mx-2 mt-1 border-t border-[#123a8f]/50 pt-1 text-center">
-        <div className={`${lang === 'kh' ? 'font-muol text-[10pt]' : 'text-[10pt] font-black tracking-wide'} leading-tight text-[#0f7a3a]`}>{t.title}</div>
-        <div className="font-muol text-[8pt] leading-tight text-[#c0151b]">{school}</div>
-        <div className="mt-0.5 text-[8pt] font-bold text-[#c0151b]">ID: {o.cardId || student.studentCode}</div>
+      <div className="relative mx-2 mt-0.5 border-t border-[#123a8f]/50 pt-0.5 text-center">
+        <div className={`${lang === 'kh' ? 'font-muol !leading-[1.5] text-[10pt]' : 'text-[10pt] font-black leading-tight tracking-wide'} text-[#0f7a3a]`}>{t.title}</div>
+        <div className="font-muol !leading-[1.45] text-[7.8pt] text-[#c0151b]">{school}</div>
+        <div className="text-[7.8pt] font-bold leading-tight text-[#c0151b]">ID: {o.cardId || student.studentCode}</div>
       </div>
 
-      <div className="relative mt-1 space-y-0 px-2.5">
-        <div className="flex justify-between gap-1">
+      <div className="relative mt-0.5 space-y-0 px-2.5">
+        <div className="flex min-w-0 justify-between gap-1">
           <Row k={t.name} v={name} strong />
           <Row k={t.gender} v={student.gender === 'Female' ? t.f : t.m} />
         </div>
         <Row k={t.dob} v={formatDob(student.dob || ad?.dob, lang)} />
         <Row k={t.cls} v={cls.className} />
-        <div className="grid grid-cols-2 gap-1">
+        <div className="grid min-w-0 grid-cols-[1.15fr_1fr] gap-1">
           <Row k={t.father} v={o.father ?? ad?.father?.name ?? student.guardianName} />
           <Row k={t.mother} v={o.mother ?? ad?.mother?.name} />
         </div>
         <Row k={t.address} v={o.address ?? student.address} />
-        <div className="pt-0.5 text-center font-muol text-[8pt] text-[#c0151b]">
+        <div className="text-center font-muol !leading-[1.5] text-[7.8pt] text-[#c0151b]">
           {t.year}: {year}
         </div>
       </div>
 
-      <div className="relative mt-auto flex items-end gap-2 px-2 pb-2">
-        <div className="h-[24mm] w-[19mm] shrink-0 overflow-hidden rounded-[1.5mm] border-[0.6mm] border-[#123a8f] bg-slate-100">
+      <div className="relative mt-auto flex items-end gap-2 px-2 pb-1.5">
+        <div className="h-[22mm] w-[17.5mm] shrink-0 overflow-hidden rounded-[1.5mm] border-[0.6mm] border-[#123a8f] bg-slate-100">
           {photo ? (
             <img src={photo} alt="" className="h-full w-full object-cover" />
           ) : (
@@ -139,10 +139,10 @@ export const StudentIdCard: React.FC<{ student: StudentFeeRecord; cls: ClassFeeD
         </div>
         <div className="flex-1 pb-1 text-center text-[6.3pt] leading-tight text-white">
           <div className="rounded bg-white/85 px-1 font-semibold text-[#0b2a6f]">{issue}</div>
-          <div className="relative mt-0.5 h-[7mm]">
+          <div className="relative h-[6mm]">
             {settings.principalStampUrl && <img src={settings.principalStampUrl} alt="" className="absolute inset-0 m-auto h-[9mm] object-contain" />}
           </div>
-          <div className="font-muol text-[7pt]">{t.director}</div>
+          <div className="font-muol !leading-[1.4] text-[7pt]">{t.director}</div>
         </div>
       </div>
     </div>
