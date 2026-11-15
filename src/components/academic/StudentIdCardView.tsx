@@ -138,7 +138,7 @@ export const StudentIdCard: React.FC<{ student: StudentFeeRecord; cls: ClassFeeD
           )}
         </div>
         <div className="flex-1 pb-1 text-center text-[6.3pt] leading-tight text-white">
-          <div>{issue}</div>
+          <div className="rounded bg-white/85 px-1 font-semibold text-[#0b2a6f]">{issue}</div>
           <div className="relative mt-0.5 h-[7mm]">
             {settings.principalStampUrl && <img src={settings.principalStampUrl} alt="" className="absolute inset-0 m-auto h-[9mm] object-contain" />}
           </div>

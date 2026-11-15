@@ -62,7 +62,7 @@ const BookletSpread: React.FC<{
   ];
 
   return (
-    <div className="mx-auto grid w-full max-w-[297mm] grid-cols-2 gap-6 break-after-page bg-white p-5 text-slate-950 shadow-sm print:gap-[10mm] print:p-0 print:shadow-none">
+    <div className="mx-auto grid w-full min-w-[270mm] max-w-[297mm] grid-cols-2 gap-6 break-after-page bg-white p-5 text-slate-950 shadow-sm print:gap-[10mm] print:p-0 print:shadow-none">
       {/* ───── Left page ───── */}
       <div className="flex flex-col border border-slate-800 p-4 text-[11.5px]">
         <div className="flex flex-wrap items-end justify-between gap-2">

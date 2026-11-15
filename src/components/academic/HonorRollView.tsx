@@ -49,7 +49,7 @@ export const HonorRollView: React.FC = () => {
   const today = new Date();
   const [lunarDate, setLunarDate] = useState('ថ្ងៃ.........ខែ.............ឆ្នាំ.............ព.ស. ២៥.....');
   const [solarDate, setSolarDate] = useState(
-    `${settings.address ? settings.address.split(',')[0] + ', ' : ''}ថ្ងៃទី${toKh(today.getDate())} ខែ${KH_MONTHS[today.getMonth()]} ឆ្នាំ${toKh(today.getFullYear())}`
+    `ធ្វើនៅ.................... ថ្ងៃទី${toKh(today.getDate())} ខែ${KH_MONTHS[today.getMonth()]} ឆ្នាំ${toKh(today.getFullYear())}`
   );
   const [teacherSigs, setTeacherSigs] = useState<{ [classId: string]: string }>(() => {
     try {
@@ -65,7 +65,8 @@ export const HonorRollView: React.FC = () => {
   const results = computePeriodResults(students, subIds, cls?.scores?.[periodKey]);
   const ranked = students
     .map((st) => ({ st, r: results[String(st.id)] }))
-    .filter((x) => x.r?.rank)
+    // Only passing students (average ≥ 50/100, i.e. ≥ 5/10) can appear on the honor roll
+    .filter((x) => x.r?.rank && (x.r.average ?? 0) >= 50)
     .sort((a, b) => (a.r.rank! - b.r.rank!))
     .slice(0, topN);
 
@@ -204,7 +205,7 @@ export const HonorRollView: React.FC = () => {
 
       {/* ── Certificate ── */}
       <div className="overflow-x-auto rounded-2xl bg-slate-100 p-4 print:overflow-visible print:bg-white print:p-0">
-        <div className="mx-auto w-[210mm] bg-[#0b2a6f] p-[5mm] shadow-xl print:shadow-none" style={{ minHeight: '287mm' }}>
+        <div className="mx-auto w-[210mm] bg-[#0b2a6f] p-[5mm] shadow-xl [zoom:0.62] xl:[zoom:0.8] print:shadow-none print:[zoom:1]" style={{ minHeight: '287mm' }}>
           <div className="relative h-full border-[3px] border-[#c9a227] p-[2mm]" style={{ minHeight: '277mm' }}>
             <div
               className="relative flex h-full flex-col border border-[#c9a227] px-[12mm] py-[10mm]"
