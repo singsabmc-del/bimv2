@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useMemo } from 'react';
+import { INITIAL_SUBJECTS } from '../data/initialSubjects';
 import {
+  SubjectItem,
   ClassFeeData,
   DailyMaterialsReport,
   CanteenReport,
@@ -261,6 +263,10 @@ interface AppContextType {
     }
   ) => { success: boolean; count: number; targetClassName: string; error?: string };
   promotionHistory: PromotionRecord[];
+  // Academic: subjects (shared with Teacher Management) + per-class score books
+  subjects: SubjectItem[];
+  setSubjects: (subjects: SubjectItem[]) => void;
+  updateClassAcademic: (classId: string, updater: (cls: ClassFeeData) => Partial<ClassFeeData>) => void;
   // Annual Academic Year Isolation & Upgrading (ការឡើងថ្នាក់សិស្សប្រចាំឆ្នាំ និងទិន្នន័យដាច់ដោយឡែក)
   availableAcademicYears: string[];
   activeAcademicYear: string;
@@ -903,6 +909,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   // Student Promotion History (Durable audit log of promoted students)
+  // Subjects (moved from TeacherManagementView's local-only storage so they sync to Supabase)
+  const [subjects, setSubjects] = useState<SubjectItem[]>(() => {
+    try {
+      const stored = localStorage.getItem('BIM_RANGSEI_SUBJECTS');
+      const parsed = stored ? JSON.parse(stored) : null;
+      return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_SUBJECTS;
+    } catch {
+      return INITIAL_SUBJECTS;
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem('BIM_RANGSEI_SUBJECTS', JSON.stringify(subjects));
+    } catch {}
+  }, [subjects]);
+
+  // Patch academic fields (subjectIds / scores / bookletNotes) of one class in the active year
+  const updateClassAcademic = (classId: string, updater: (cls: ClassFeeData) => Partial<ClassFeeData>) => {
+    setClassData((prev) => {
+      const cls = prev[classId];
+      if (!cls) return prev;
+      return { ...prev, [classId]: { ...cls, ...updater(cls) } };
+    });
+  };
+
   const [promotionHistory, setPromotionHistory] = useState<PromotionRecord[]>(() => {
     return getStoredItemWithFallback<PromotionRecord[]>(`${STORAGE_PREFIX}_PROMOTIONS`, 'PROMOTIONS', []);
   });
@@ -1185,6 +1216,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (Array.isArray(serverData.academicMonths) && serverData.academicMonths.length > 0) {
             setAcademicMonths(serverData.academicMonths);
           }
+          if (Array.isArray(serverData.subjects) && serverData.subjects.length > 0) {
+            setSubjects(serverData.subjects);
+          }
           if (serverData.busRoutes && Array.isArray(serverData.busRoutes)) {
             setBusRoutes(serverData.busRoutes);
           }
@@ -1262,6 +1296,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       academicYearArchives,
       availableAcademicYears,
       academicMonths,
+      subjects,
       busRoutes,
       busEnrollments,
       busPayments,
@@ -1273,6 +1308,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     academicYearArchives,
     availableAcademicYears,
     academicMonths,
+    subjects,
     currentUser,
     users,
     classData,
@@ -1455,6 +1491,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         academicYearArchives,
         availableAcademicYears,
         academicMonths,
+        subjects,
         busRoutes,
         busEnrollments,
         busPayments,
@@ -1530,6 +1567,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (Array.isArray(d.availableAcademicYears) && d.availableAcademicYears.length > 0)
         setAvailableAcademicYears(d.availableAcademicYears);
       if (Array.isArray(d.academicMonths) && d.academicMonths.length > 0) setAcademicMonths(d.academicMonths);
+      if (Array.isArray(d.subjects) && d.subjects.length > 0) setSubjects(d.subjects);
       if (d.busRoutes) setBusRoutes(d.busRoutes);
       if (d.busEnrollments) setBusEnrollments(d.busEnrollments);
       if (d.busPayments) setBusPayments(d.busPayments);
@@ -4828,6 +4866,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       academicYearArchives,
       availableAcademicYears,
       academicMonths,
+      subjects,
       busRoutes,
       busEnrollments,
       busAttendance,
@@ -4867,6 +4906,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setAvailableAcademicYears(parsed.availableAcademicYears);
       if (Array.isArray(parsed.academicMonths) && parsed.academicMonths.length > 0)
         setAcademicMonths(parsed.academicMonths);
+      if (Array.isArray(parsed.subjects) && parsed.subjects.length > 0) setSubjects(parsed.subjects);
       if (parsed.busRoutes && Array.isArray(parsed.busRoutes)) setBusRoutes(parsed.busRoutes);
       if (parsed.busEnrollments && Array.isArray(parsed.busEnrollments)) setBusEnrollments(parsed.busEnrollments);
       if (parsed.busAttendance && Array.isArray(parsed.busAttendance)) setBusAttendance(parsed.busAttendance);
@@ -5118,6 +5158,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         sortAcademicMonths,
         promoteStudents,
         promotionHistory,
+        subjects,
+        setSubjects,
+        updateClassAcademic,
         availableAcademicYears,
         activeAcademicYear: settings.academicYear || '2026-2027',
         academicYearArchives,
