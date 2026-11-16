@@ -328,7 +328,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   );
 
   return (
-    <header className="sticky top-0 z-30 bg-white border-b border-slate-200 shadow-2xs w-full max-w-full overflow-x-clip print:hidden">
+    <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200/70 w-full max-w-full overflow-x-clip print:hidden">
       {/* Mobile Search Overlay Bar */}
       {isMobileSearchOpen ? (
         <div className="px-3 h-16 flex items-center gap-2 max-w-full min-w-0 bg-white relative" ref={dropdownRef}>
@@ -362,7 +362,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
         </div>
       ) : (
         /* Normal Header Bar */
-        <div className="px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2 sm:gap-4 max-w-full min-w-0">
+        <div className="px-3 sm:px-6 lg:px-8 h-[68px] flex items-center justify-between gap-2 sm:gap-4 max-w-full min-w-0">
           {/* Left: Mobile hamburger & Breadcrumb */}
           <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-shrink">
             <button
@@ -387,7 +387,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
           {/* Center: Desktop Global Search */}
           <div className="hidden sm:block flex-1 max-w-md relative" ref={dropdownRef}>
             <div className="relative">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
               <input
                 ref={searchInputRef}
                 type="text"
@@ -398,10 +398,10 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
                   setSearchQuery(e.target.value);
                   setIsSearchOpen(true);
                 }}
-                className="w-full pl-9 pr-12 py-1.5 border border-slate-200 rounded-lg text-xs font-khmer placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-900 bg-slate-50 focus:bg-white transition-colors"
+                className="w-full pl-10 pr-14 py-2.5 border border-slate-200 rounded-2xl text-[13px] font-khmer placeholder:text-slate-400 shadow-[0_1px_2px_rgb(15_23_42/0.04)] focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400 bg-white transition"
               />
-              <div className="absolute right-2 top-2 hidden sm:flex items-center gap-0.5 pointer-events-none">
-                <kbd className="px-1.5 py-0.5 text-[10px] font-mono font-semibold bg-white border border-slate-200 text-slate-500 rounded">
+              <div className="absolute right-2.5 top-2.5 hidden sm:flex items-center gap-0.5 pointer-events-none">
+                <kbd className="px-1.5 py-0.5 text-[10px] font-mono font-semibold bg-slate-50 border border-slate-200 text-slate-500 rounded-md">
                   ⌘K
                 </kbd>
               </div>
@@ -738,10 +738,10 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
             <button
               onClick={() => setActiveTab('pos')}
               title={t('បើកលក់ POS រហ័ស (F2)', 'Quick Open POS (F2)')}
-              className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer ${
+              className={`hidden md:flex items-center gap-1.5 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
                 activeTab === 'pos'
-                  ? 'bg-emerald-700 text-white ring-2 ring-emerald-300'
-                  : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                  ? 'bg-teal-800 text-white ring-2 ring-teal-300'
+                  : 'bg-gradient-to-r from-teal-600 to-teal-500 hover:from-teal-700 hover:to-teal-600 text-white shadow-md shadow-teal-600/25'
               }`}
             >
               <ShoppingCart className="w-3.5 h-3.5" />

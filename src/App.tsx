@@ -67,7 +67,7 @@ function MainApp() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex font-sans selection:bg-amber-100 selection:text-amber-900 pb-16 lg:pb-0">
+    <div className="min-h-screen bg-[#f4f7f6] flex font-sans selection:bg-teal-100 selection:text-teal-900 pb-16 lg:pb-0">
       {/* Collapsible / Responsive Left Sidebar */}
       <Sidebar
         activeTab={activeTab}
