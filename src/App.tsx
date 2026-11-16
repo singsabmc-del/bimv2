@@ -67,7 +67,7 @@ function MainApp() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex font-sans selection:bg-amber-100 selection:text-amber-900 pb-16 lg:pb-0">
+    <div className="min-h-screen bg-[#f4f7f6] flex font-sans selection:bg-teal-100 selection:text-teal-900 pb-16 lg:pb-0">
       {/* Collapsible / Responsive Left Sidebar */}
       <Sidebar
         activeTab={activeTab}
@@ -281,8 +281,8 @@ function MainApp() {
             onClick={() => setActiveTab('pos')}
             className={`flex flex-col items-center justify-center py-1 px-3 -mt-3 rounded-2xl shadow-md transition-all ${
               activeTab === 'pos'
-                ? 'bg-emerald-600 text-white shadow-emerald-500/30 ring-2 ring-emerald-300'
-                : 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-500/20'
+                ? 'bg-teal-700 text-white shadow-teal-600/30 ring-2 ring-teal-300'
+                : 'bg-gradient-to-br from-teal-600 to-teal-500 text-white shadow-teal-600/25'
             }`}
           >
             <ShoppingCart className="w-5 h-5 mb-0.5" />

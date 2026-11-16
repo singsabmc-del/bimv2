@@ -1,5 +1,52 @@
 @import "tailwindcss";
 
+/* ── Design tokens (Teal theme, v2) ─────────────────────────────────────────────
+   The app's primary accent was Tailwind "indigo" everywhere. Remapping the indigo
+   scale to teal re-themes every page at once without touching each component. */
+@theme {
+  --color-indigo-50: #effaf7;
+  --color-indigo-100: #d5f2ea;
+  --color-indigo-200: #ade3d5;
+  --color-indigo-300: #79cdbb;
+  --color-indigo-400: #44b09d;
+  --color-indigo-500: #1f9583;
+  --color-indigo-600: #12796b;
+  --color-indigo-700: #0f6258;
+  --color-indigo-800: #0f4f48;
+  --color-indigo-900: #0f423c;
+  --color-indigo-950: #052824;
+
+  --color-brand: #0f766e;
+  --color-brand-dark: #0b5d57;
+  --color-surface: #f4f7f6;
+  --font-display: 'Kantumruy Pro', 'Battambang', sans-serif;
+
+  /* Softer, rounder surfaces everywhere (cards, inputs, buttons) */
+  --radius-xl: 0.875rem;
+  --radius-2xl: 1.125rem;
+  --shadow-2xs: 0 1px 2px rgb(15 23 42 / 0.04), 0 2px 8px -4px rgb(15 23 42 / 0.06);
+  --shadow-xs: 0 1px 2px rgb(15 23 42 / 0.05), 0 4px 12px -6px rgb(15 23 42 / 0.08);
+}
+
+@layer base {
+  html,
+  body {
+    background-color: var(--color-surface);
+  }
+}
+
+/* Card surface used by the redesigned shell and dashboard */
+.ui-card {
+  background: #ffffff;
+  border: 1px solid rgb(226 232 240 / 0.8);
+  border-radius: 1.25rem;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04), 0 4px 16px -8px rgb(15 23 42 / 0.08);
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
 @layer base {
   body {
     font-family: 'Plus Jakarta Sans', 'Battambang', 'Khmer OS Battambang', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;

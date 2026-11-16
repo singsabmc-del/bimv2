@@ -102,7 +102,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setIsOpen,
   onOpenUserModal,
 }) => {
-  const { currentUser, logout, language, setLanguage, t, settings, currentBranch, openInvoiceVerification, openAutoBackupModal } = useApp();
+  const { currentUser, logout, language, setLanguage, t, settings, currentBranch, openInvoiceVerification, openAutoBackupModal, classData } = useApp();
+
+  // Live counts shown as small badges next to some menu items
+  const studentCount = Object.values(classData || {}).reduce((n, c) => n + (c.students?.length || 0), 0);
+  const itemBadge: { [id: string]: number } = {
+    student_list: studentCount,
+  };
 
   // Collapsible section state to keep sidebar neat
   const [collapsedSections, setCollapsedSections] = useState<{ [key: string]: boolean }>({
@@ -374,141 +380,108 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {isOpen && (
         <div
           onClick={() => setIsOpen(false)}
-          className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-xs lg:hidden no-print"
+          className="fixed inset-0 z-40 bg-slate-900/30 backdrop-blur-[2px] lg:hidden no-print"
         />
       )}
 
-      {/* Sidebar Container */}
+      {/* Sidebar Container — light teal design (v2) */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 w-64 bg-slate-900 text-slate-100 flex flex-col justify-between transition-transform duration-300 ease-in-out border-r border-slate-800 lg:translate-x-0 print:hidden ${
+        className={`fixed top-0 bottom-0 left-0 z-50 flex w-64 flex-col justify-between border-r border-slate-200/80 bg-white text-slate-700 transition-transform duration-300 ease-in-out lg:translate-x-0 print:hidden ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        {/* Brand Header */}
-        <div className="p-4 border-b border-slate-800 flex items-center justify-between shrink-0">
+        {/* Brand */}
+        <div className="flex shrink-0 items-center justify-between px-4 pb-3 pt-4">
           <div className="flex items-center gap-2.5 overflow-hidden">
-            <div className="w-9 h-9 rounded-xl bg-amber-500 flex items-center justify-center text-slate-950 font-extrabold shadow-sm shrink-0">
-              <GraduationCap className="w-5 h-5 text-slate-950" />
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-teal-700 text-white shadow-md shadow-teal-600/25">
+              {settings.schoolLogo ? (
+                <img src={settings.schoolLogo} alt="" className="h-full w-full rounded-xl object-cover" />
+              ) : (
+                <GraduationCap className="h-5 w-5" />
+              )}
             </div>
-            <div className="overflow-hidden">
-              <div className="font-bold text-xs tracking-tight text-white truncate">
+            <div className="min-w-0">
+              <div className="font-display truncate text-[15px] font-bold leading-tight text-teal-800">
                 {language === 'km' ? settings.schoolNameKhmer : settings.schoolNameEnglish}
               </div>
-              <div className="flex items-center gap-1 mt-0.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
-                <span className="text-[10px] text-slate-400 truncate">
-                  {language === 'km'
-                    ? currentBranch.nameKhmer.split('(')[0].trim()
-                    : currentBranch.nameEnglish.split('(')[0].trim()}{' '}
-                  ({currentBranch.code})
-                </span>
+              <div className="truncate text-[11px] text-slate-500 font-khmer">
+                {language === 'km' ? 'ប្រព័ន្ធគ្រប់គ្រងសាលា' : 'School Management'}
               </div>
             </div>
           </div>
-
-          <button
-            onClick={() => setIsOpen(false)}
-            className="p-1 text-slate-400 hover:text-white rounded-md lg:hidden"
-          >
-            <X className="w-5 h-5" />
+          <button onClick={() => setIsOpen(false)} className="rounded-md p-1 text-slate-400 hover:text-slate-700 lg:hidden">
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Current Active User Card */}
-        <div className="px-3 py-2 bg-slate-850 border-b border-slate-800 shrink-0">
-          <div
+        {/* Profile card */}
+        <div className="shrink-0 px-3 pb-2">
+          <button
             onClick={onOpenUserModal}
-            className="flex items-center justify-between p-2 rounded-xl bg-slate-800/80 hover:bg-slate-800 cursor-pointer transition-colors group"
+            className="group flex w-full items-center gap-2.5 rounded-2xl border border-slate-200 bg-white p-2.5 text-left shadow-[0_1px_2px_rgb(15_23_42/0.04)] transition hover:border-teal-200 hover:bg-teal-50/40"
           >
-            <div className="flex items-center gap-2 overflow-hidden">
-              <div className="w-7 h-7 rounded-full bg-slate-700 overflow-hidden shrink-0 border border-slate-600">
-                <img
-                  src={currentUser.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${currentUser.name}`}
-                  alt={currentUser.name}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <div className="overflow-hidden">
-                <div className="text-xs font-bold text-slate-200 group-hover:text-amber-400 transition-colors truncate">
-                  {currentUser.khmerName.split('(')[0].trim()}
-                </div>
-                <div className="text-[10px] text-slate-400 font-mono capitalize">
-                  {currentUser.role}
-                </div>
-              </div>
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-teal-600 text-sm font-bold text-white">
+              {currentUser.avatar ? (
+                <img src={currentUser.avatar} alt="" className="h-full w-full object-cover" />
+              ) : (
+                (currentUser.name || 'U').slice(0, 1)
+              )}
             </div>
-            <ChevronRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-slate-300" />
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[13px] font-bold text-slate-900 font-khmer">{currentUser.khmerName.split('(')[0].trim()}</div>
+              <div className="truncate text-[11px] capitalize text-slate-500">{currentUser.role}</div>
+            </div>
+            <ChevronRight className="h-4 w-4 shrink-0 text-slate-300 group-hover:text-teal-600" />
+          </button>
+          <div className="mt-2 flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50/60 px-2.5 py-1.5 text-[11px] text-slate-600">
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
+            <span className="truncate font-khmer">
+              {language === 'km' ? currentBranch.nameKhmer.split('(')[0].trim() : currentBranch.nameEnglish.split('(')[0].trim()}
+            </span>
+            <span className="ml-auto shrink-0 font-mono text-[10px] text-slate-400">{currentBranch.code}</span>
           </div>
         </div>
 
-        {/* Scrollable Navigation List organized strictly by the 5 flowchart modules */}
-        <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3.5 text-xs font-sans">
+        {/* Navigation */}
+        <div className="flex-1 space-y-4 overflow-y-auto px-3 py-2 text-[13px]">
           {sections.map((sec) => {
             const isCollapsed = collapsedSections[sec.id] || false;
             const sectionTitle = language === 'km' ? sec.titleKhmer : sec.title;
-            const sectionBadge =
-              sec.badge && (language === 'km' ? 'ចំណូលសាលា' : sec.badge);
-
             return (
-              <div key={sec.id} className="space-y-1">
-                {/* Section Header */}
+              <div key={sec.id}>
                 <button
                   type="button"
                   onClick={() => toggleSection(sec.id)}
-                  className="w-full flex items-center justify-between px-2 py-1 text-[11px] font-bold tracking-wide uppercase text-slate-400 hover:text-slate-200 transition-colors"
+                  className="group flex w-full items-center justify-between px-2 pb-1 text-[11px] font-semibold text-slate-400 hover:text-slate-600"
                 >
-                  <div className="flex items-center gap-1.5 truncate">
-                    <span className="font-bold text-amber-400">❖</span>
-                    <span className={`text-white font-extrabold truncate ${language === 'km' ? 'font-khmer text-xs' : ''}`}>
-                      {sectionTitle}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    {sectionBadge && (
-                      <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-mono">
-                        {sectionBadge}
-                      </span>
-                    )}
-                    <ChevronDown
-                      className={`w-3.5 h-3.5 text-slate-500 transition-transform ${
-                        isCollapsed ? '-rotate-90' : 'rotate-0'
-                      }`}
-                    />
-                  </div>
+                  <span className={`truncate ${language === 'km' ? 'font-khmer' : 'uppercase tracking-wider'}`}>{sectionTitle}</span>
+                  <ChevronDown className={`h-3.5 w-3.5 text-slate-300 opacity-0 transition group-hover:opacity-100 ${isCollapsed ? '-rotate-90 opacity-100' : ''}`} />
                 </button>
-
-                {/* Sub-items */}
                 {!isCollapsed && (
-                  <div className="space-y-0.5 pt-0.5">
+                  <div className="space-y-0.5">
                     {sec.items.map((item) => {
-                      const isActive =
-                        activeTab === item.id ||
-                        (item.activeMatch && item.activeMatch.includes(activeTab as any));
+                      const isActive = activeTab === item.id || (item.activeMatch && item.activeMatch.includes(activeTab as any));
                       const Icon = item.icon;
                       const itemTitle = language === 'km' ? item.labelKhmer : item.label;
-
+                      const badge = itemBadge[item.id];
                       return (
                         <button
                           key={item.id}
                           onClick={() => handleNavClick(item.id)}
-                          className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl transition-all text-left text-xs ${
-                            isActive
-                              ? 'bg-amber-400 text-slate-950 font-bold shadow-xs'
-                              : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
-                          } ${language === 'km' ? 'font-khmer' : 'font-sans'}`}
+                          className={`flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition ${
+                            isActive ? 'bg-teal-50 font-bold text-teal-800' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                          } ${language === 'km' ? 'font-khmer' : ''}`}
                         >
-                          <div className="flex items-center gap-2.5 overflow-hidden">
-                            <Icon
-                              className={`w-4 h-4 shrink-0 ${
-                                isActive ? 'text-slate-950' : 'text-slate-400'
+                          <Icon className={`h-[18px] w-[18px] shrink-0 ${isActive ? 'text-teal-700' : 'text-slate-400'}`} strokeWidth={1.8} />
+                          <span className="flex-1 truncate leading-tight">{itemTitle}</span>
+                          {badge !== undefined && badge > 0 && (
+                            <span
+                              className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-[10px] ${
+                                isActive ? 'bg-teal-100 text-teal-800' : 'bg-slate-100 text-slate-500'
                               }`}
-                            />
-                            <span className="truncate leading-tight">
-                              {itemTitle}
+                            >
+                              {badge}
                             </span>
-                          </div>
-                          {isActive && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-slate-950 shrink-0" />
                           )}
                         </button>
                       );
@@ -519,86 +492,78 @@ export const Sidebar: React.FC<SidebarProps> = ({
             );
           })}
 
-          {/* System Utility Settings */}
-          <div className="pt-2 border-t border-slate-800 space-y-0.5">
-            <button
-              onClick={() => {
-                openInvoiceVerification();
-                if (window.innerWidth < 1024) setIsOpen(false);
-              }}
-              className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl transition-all text-xs text-emerald-400 hover:bg-slate-800/80 hover:text-emerald-300 font-bold ${
-                language === 'km' ? 'font-khmer' : 'font-sans'
-              }`}
-            >
-              <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span className="truncate">
-                {language === 'km'
-                  ? 'ផ្ទៀងផ្ទាត់វិក្កយបត្រ (QR)'
-                  : 'Verify Invoice (QR Code)'}
-              </span>
-            </button>
-
-            <button
-              onClick={() => {
-                openAutoBackupModal();
-                if (window.innerWidth < 1024) setIsOpen(false);
-              }}
-              className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl transition-all text-xs text-indigo-400 hover:bg-slate-800/80 hover:text-indigo-300 font-bold ${
-                language === 'km' ? 'font-khmer' : 'font-sans'
-              }`}
-            >
-              <Database className="w-4 h-4 text-indigo-400 shrink-0" />
-              <span className="truncate">
-                {language === 'km'
-                  ? 'បម្រុងទុកស្វ័យប្រវត្ត & Sync'
-                  : 'Auto-Backup & Sync'}
-              </span>
-            </button>
-
-            <button
-              onClick={() => handleNavClick('system_settings')}
-              className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl transition-all text-xs ${
-                activeTab === 'system_settings'
-                  ? 'bg-amber-500 text-slate-950 font-bold shadow-xs'
-                  : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
-              } ${language === 'km' ? 'font-khmer' : 'font-sans'}`}
-            >
-              <div className="flex items-center gap-2.5 truncate">
-                <Settings className={`w-4 h-4 shrink-0 ${activeTab === 'system_settings' ? 'text-slate-950' : 'text-amber-400'}`} />
-                <span className="truncate">
-                  {language === 'km'
-                    ? 'ការកំណត់ & Telegram Backup'
-                    : 'Settings & Telegram Backup'}
-                </span>
-              </div>
-              <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono ${activeTab === 'system_settings' ? 'bg-slate-950/20 text-slate-950 font-bold' : 'bg-slate-800 text-slate-400'}`}>
-                ⚙
-              </span>
-            </button>
+          {/* System */}
+          <div>
+            <div className={`px-2 pb-1 text-[11px] font-semibold text-slate-400 ${language === 'km' ? 'font-khmer' : 'uppercase tracking-wider'}`}>
+              {language === 'km' ? 'ប្រព័ន្ធ' : 'System'}
+            </div>
+            <div className="space-y-0.5">
+              {(
+                [
+                  {
+                    key: 'qr',
+                    icon: ShieldCheck,
+                    label: language === 'km' ? 'ផ្ទៀងផ្ទាត់វិក្កយបត្រ (QR)' : 'Verify Invoice (QR)',
+                    onClick: () => {
+                      openInvoiceVerification();
+                      if (window.innerWidth < 1024) setIsOpen(false);
+                    },
+                    active: false,
+                  },
+                  {
+                    key: 'backup',
+                    icon: Database,
+                    label: language === 'km' ? 'បម្រុងទុក & Sync' : 'Backup & Sync',
+                    onClick: () => {
+                      openAutoBackupModal();
+                      if (window.innerWidth < 1024) setIsOpen(false);
+                    },
+                    active: false,
+                  },
+                  {
+                    key: 'settings',
+                    icon: Settings,
+                    label: language === 'km' ? 'ការកំណត់ & Telegram' : 'Settings & Telegram',
+                    onClick: () => handleNavClick('system_settings'),
+                    active: activeTab === 'system_settings',
+                  },
+                ] as const
+              ).map(({ key, icon: Icon, label, onClick, active }) => (
+                <button
+                  key={key}
+                  onClick={onClick}
+                  className={`flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition ${
+                    active ? 'bg-teal-50 font-bold text-teal-800' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                  } ${language === 'km' ? 'font-khmer' : ''}`}
+                >
+                  <Icon className={`h-[18px] w-[18px] shrink-0 ${active ? 'text-teal-700' : 'text-slate-400'}`} strokeWidth={1.8} />
+                  <span className="truncate">{label}</span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* Footer Actions */}
-        <div className="p-3 border-t border-slate-800 bg-slate-950 shrink-0 flex items-center justify-between text-xs text-slate-400">
-          <button
-            onClick={() => setLanguage(language === 'km' ? 'en' : 'km')}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-[11px] text-amber-400 font-bold transition-colors cursor-pointer"
-            title={language === 'km' ? 'Switch to English' : 'ប្តូរជាភាសាខ្មែរ'}
-          >
-            <Languages className="w-3.5 h-3.5 text-amber-400" />
-            <span>{language === 'km' ? 'ភាសាខ្មែរ (KM)' : 'English (EN)'}</span>
-          </button>
-
-          <button
-            onClick={logout}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-rose-950/60 text-slate-300 hover:text-rose-400 text-[11px] transition-colors cursor-pointer"
-            title={language === 'km' ? 'ចាកចេញពីប្រព័ន្ធ' : 'Log out of system'}
-          >
-            <LogOut className="w-3.5 h-3.5 text-rose-400" />
-            <span className={language === 'km' ? 'font-khmer' : 'font-sans'}>
-              {language === 'km' ? 'ចាកចេញ' : 'Logout'}
-            </span>
-          </button>
+        {/* Footer */}
+        <div className="flex shrink-0 items-center justify-between border-t border-slate-100 px-4 py-3 text-[11px] text-slate-400">
+          <span>Version 2.0</span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setLanguage(language === 'km' ? 'en' : 'km')}
+              className="flex items-center gap-1 rounded-lg px-2 py-1 font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-teal-700"
+              title={language === 'km' ? 'Switch to English' : 'ប្តូរជាភាសាខ្មែរ'}
+            >
+              <Languages className="h-3.5 w-3.5" />
+              {language === 'km' ? 'EN / ខ្មែរ' : 'ខ្មែរ / EN'}
+            </button>
+            <button
+              onClick={logout}
+              className="flex items-center gap-1 rounded-lg px-2 py-1 text-slate-500 transition hover:bg-rose-50 hover:text-rose-600"
+              title={language === 'km' ? 'ចាកចេញពីប្រព័ន្ធ' : 'Log out'}
+            >
+              <LogOut className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
       </aside>
     </>

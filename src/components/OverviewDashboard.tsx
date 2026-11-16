@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
+import { collectAllTransactions } from '../utils/transactions';
 import { useApp } from '../context/AppContext';
 import {
   Users,
@@ -40,6 +41,8 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({ setActiveT
     settings,
     currentUser,
     permissions,
+    busEnrollments,
+    busPayments,
     t,
   } = useApp();
 
@@ -110,241 +113,313 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({ setActiveT
   const allStudents = Object.values(classData).flatMap((cls) => cls.students);
   const paidStudentsCount = allStudents.filter((s) => s.cash > 0).length;
 
+  // ───────────── v2 design: daily card, KPI sparklines, 12-month chart ─────────────
+  const todayISO = new Date().toISOString().slice(0, 10);
+  const [selectedDate, setSelectedDate] = useState<string>(todayISO);
+  const shiftDay = (d: number) => {
+    const x = new Date(selectedDate);
+    x.setDate(x.getDate() + d);
+    setSelectedDate(x.toISOString().slice(0, 10));
+  };
+
+  const allTx = useMemo(
+    () =>
+      collectAllTransactions({
+        classData,
+        uniformSalesHistory,
+        materialSalesHistory,
+        busEnrollments,
+        busPayments,
+        canteenHistory,
+        selectedCanteenMonth,
+        settings,
+        currentBranchId,
+      }),
+    [classData, uniformSalesHistory, materialSalesHistory, busEnrollments, busPayments, canteenHistory, selectedCanteenMonth, settings, currentBranchId]
+  );
+
+  const dayTx = allTx.filter((tx) => tx.date === selectedDate);
+  const dayUSD = dayTx.reduce((s, tx) => s + (tx.amountUSD || 0), 0);
+  const isCash = (m: string) => !m || m === 'Cash' || m === '$ -';
+  const dayCashUSD = dayTx.filter((tx) => isCash(tx.paidBy)).reduce((s, tx) => s + (tx.amountUSD || 0), 0);
+  const dayBankUSD = dayUSD - dayCashUSD;
+  const monthKeySel = selectedDate.slice(0, 7);
+  const monthUSD = allTx.filter((tx) => tx.date.startsWith(monthKeySel)).reduce((s, tx) => s + (tx.amountUSD || 0), 0);
+  const outstandingUSD = Math.max(0, totalExpectedTuitionUSD - totalTuitionUSD);
+  const unpaidCount = Math.max(0, allStudents.length - paidStudentsCount);
+
+  // Last 12 months (ending at the selected month), per category
+  const months12 = useMemo(() => {
+    const out: string[] = [];
+    const base = new Date(`${monthKeySel}-01T00:00:00`);
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(base.getFullYear(), base.getMonth() - i, 1);
+      out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    }
+    return out;
+  }, [monthKeySel]);
+  const seriesFor = (cats: string[]) =>
+    months12.map((m) => allTx.filter((tx) => cats.includes(tx.category) && tx.date.startsWith(m)).reduce((s, tx) => s + (tx.amountUSD || 0), 0));
+  const pctChange = (arr: number[]) => {
+    const cur = arr[arr.length - 1];
+    const prev = arr[arr.length - 2];
+    if (!prev) return cur ? 100 : 0;
+    return ((cur - prev) / prev) * 100;
+  };
+  const usd = (n: number) => `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const usd0 = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`;
+
+  const kpis = [
+    { key: 'tuition', label: t('ថ្លៃសិក្សា', 'Tuition'), value: usd(totalTuitionUSD), sub: `${paidStudentsCount}/${allStudents.length} ${t('នាក់បានបង់', 'paid')}`, cats: ['tuition'], icon: Users, tint: 'from-teal-50', bar: '#14b8a6', iconCls: 'text-teal-600', tab: 'student_fees' as NavTab },
+    { key: 'material', label: t('សម្ភារៈ & POS', 'Supplies & POS'), value: `${totalMaterialsKHR.toLocaleString()}៛`, sub: `${totalMaterialsQty} ${t('មុខ', 'pcs')}`, cats: ['material'], icon: ShoppingBag, tint: 'from-amber-50', bar: '#f59e0b', iconCls: 'text-amber-600', tab: 'pos' as NavTab },
+    { key: 'uniform', label: t('ឯកសណ្ឋាន', 'Uniforms'), value: `${totalUniformKHR.toLocaleString()}៛`, sub: `${totalUniformQty} ${t('ឈុត', 'sets')}`, cats: ['uniform'], icon: Shirt, tint: 'from-violet-50', bar: '#8b5cf6', iconCls: 'text-violet-600', tab: 'uniform_sales' as NavTab },
+    { key: 'canteen', label: t('អាហារដ្ឋាន', 'Canteen'), value: `${totalCanteenKHR.toLocaleString()}៛`, sub: `${totalVendorDays} ${t('ថ្ងៃ-តូប', 'stall-days')}`, cats: ['canteen'], icon: Store, tint: 'from-rose-50', bar: '#f43f5e', iconCls: 'text-rose-500', tab: 'canteen_vendors' as NavTab },
+  ];
+
+  const chartCats = [
+    { cats: ['tuition'], label: t('ថ្លៃសិក្សា', 'Tuition'), color: '#14b8a6' },
+    { cats: ['material'], label: t('សម្ភារៈ', 'Supplies'), color: '#f59e0b' },
+    { cats: ['uniform'], label: t('ឯកសណ្ឋាន', 'Uniforms'), color: '#8b5cf6' },
+    { cats: ['bus', 'canteen'], label: t('សេវាផ្សេងៗ', 'Services'), color: '#f43f5e' },
+  ].map((c) => ({ ...c, data: seriesFor(c.cats) }));
+  const monthTotals = months12.map((_, i) => chartCats.reduce((s, c) => s + c.data[i], 0));
+  const chartMax = Math.max(1, ...monthTotals);
+  const KH_MON = ['មករា', 'កុម្ភៈ', 'មីនា', 'មេសា', 'ឧសភា', 'មិថុនា', 'កក្កដា', 'សីហា', 'កញ្ញា', 'តុលា', 'វិច្ឆិកា', 'ធ្នូ'];
+
+  const quickPills: { label: string; tab: NavTab }[] = [
+    { label: t('ថ្លៃសិក្សា', 'Tuition'), tab: 'student_fees' },
+    { label: t('លក់ POS', 'POS'), tab: 'pos' },
+    { label: t('ឯកសណ្ឋាន', 'Uniforms'), tab: 'uniform_sales' },
+    { label: t('ឡានសាលា', 'School Bus'), tab: 'school_bus' },
+    { label: t('អាហារដ្ឋាន', 'Canteen'), tab: 'canteen_vendors' },
+    { label: t('វត្តមាន', 'Attendance'), tab: 'student_attendance' },
+    { label: t('ពិន្ទុសិស្ស', 'Scores'), tab: 'academic_scores' },
+    { label: t('បញ្ជីសិស្ស', 'Students'), tab: 'student_list' },
+    { label: t('របាយការណ៍ប្រចាំថ្ងៃ', 'Daily Report'), tab: 'daily_report' },
+  ];
+
+  const Spark: React.FC<{ data: number[]; color: string }> = ({ data, color }) => {
+    const max = Math.max(1, ...data);
+    return (
+      <svg viewBox="0 0 120 36" className="h-9 w-28" aria-hidden="true">
+        {data.map((v, i) => {
+          const h = v > 0 ? Math.max(3, (v / max) * 32) : 2;
+          return <rect key={i} x={i * 10 + 1} y={36 - h} width="5" height={h} rx="1.5" fill={color} opacity={i === data.length - 1 ? 1 : v > 0 ? 0.45 : 0.18} />;
+        })}
+      </svg>
+    );
+  };
+
   return (
-    <div className="space-y-6">
-      {/* Top Welcome & Institutional Banner (Hidden on mobile view per user request) */}
-      <div className="hidden md:block bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-2xs">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div className="space-y-1.5">
-            <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-amber-700 tracking-wider">
-              <span>{settings.schoolNameEnglish}</span>
-              <span>·</span>
-              <span className="font-khmer">{settings.schoolNameKhmer}</span>
-              <span>·</span>
-              <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 border border-amber-300 font-bold flex items-center gap-1">
-                <span>🏢</span>
-                <span>{currentBranch.nameKhmer}</span>
-                <span className="font-mono text-[10px] bg-white/80 px-1 rounded border border-amber-200">
-                  {currentBranch.code}
+    <div className="space-y-5">
+      {/* ── Hero banner ── */}
+      <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-teal-700 via-teal-600 to-teal-500 px-6 py-7 text-white shadow-lg shadow-teal-700/20 sm:px-8 sm:py-8">
+        <svg className="pointer-events-none absolute inset-x-0 bottom-0 h-28 w-full" viewBox="0 0 1200 120" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M0 70 C200 20 380 110 600 70 C820 30 1000 100 1200 60 V120 H0 Z" fill="#ffffff" opacity="0.07" />
+          <path d="M0 95 C240 60 420 120 660 92 C880 66 1040 110 1200 90 V120 H0 Z" fill="#ffffff" opacity="0.08" />
+        </svg>
+        <div className="pointer-events-none absolute left-[55%] top-8 h-1.5 w-1.5 rounded-full bg-white/50" />
+        <div className="pointer-events-none absolute left-[70%] top-16 h-1 w-1 rounded-full bg-white/60" />
+        {/* school building illustration */}
+        <svg className="pointer-events-none absolute bottom-0 right-6 hidden h-40 w-56 md:block lg:right-12" viewBox="0 0 220 160" aria-hidden="true">
+          <circle cx="182" cy="26" r="12" fill="#fde68a" opacity="0.9" />
+          <rect x="18" y="62" width="62" height="98" rx="6" fill="#ccfbf1" opacity="0.85" />
+          <rect x="88" y="34" width="70" height="126" rx="6" fill="#f0fdfa" />
+          <rect x="166" y="78" width="38" height="82" rx="6" fill="#5eead4" opacity="0.9" />
+          <path d="M88 34 L123 14 L158 34 Z" fill="#99f6e4" />
+          <rect x="121" y="2" width="2" height="16" fill="#f0fdfa" />
+          <path d="M123 3 h14 l-4 4 l4 4 h-14 Z" fill="#f43f5e" />
+          {Array.from({ length: 5 }).map((_, r) =>
+            [0, 1, 2].map((c) => <rect key={`a${r}${c}`} x={98 + c * 18} y={48 + r * 20} width="11" height="11" rx="2" fill="#5eead4" opacity={0.75} />)
+          )}
+          {Array.from({ length: 4 }).map((_, r) =>
+            [0, 1].map((c) => <rect key={`b${r}${c}`} x={28 + c * 22} y={74 + r * 20} width="12" height="11" rx="2" fill="#14b8a6" opacity={0.55} />)
+          )}
+          <rect x="114" y="136" width="18" height="24" rx="3" fill="#14b8a6" />
+        </svg>
+
+        <div className="relative max-w-2xl">
+          <h1 className="font-display text-2xl font-bold leading-snug sm:text-[28px]">
+            {t('សូមស្វាគមន៍', 'Welcome')}, {currentUser.khmerName.split('(')[0].trim()} 👋
+          </h1>
+          <p className="mt-1.5 text-[13px] text-teal-50/90 font-khmer">
+            {t('ខែនេះប្រមូលបាន', 'Collected this month')} <b className="font-mono text-white">{usd(monthUSD)}</b> · {t('សិស្ស', 'Students')}{' '}
+            <b className="text-amber-300">{allStudents.length}</b> · {t('បានបង់', 'Paid')} <b className="text-white">{paidStudentsCount}</b> ·{' '}
+            {t('ថ្នាក់', 'Classes')} <b className="text-white">{orderedClassList.length}</b> · <span className="opacity-80">{currentBranch.nameKhmer.split('(')[0].trim()}</span>
+          </p>
+          <div className="mt-5 flex flex-wrap gap-2.5">
+            <button
+              onClick={() => setActiveTab('student_fees')}
+              className="rounded-2xl bg-white px-5 py-2.5 text-[13px] font-bold text-teal-800 shadow-sm transition hover:bg-teal-50 font-khmer"
+            >
+              + {t('ទទួលប្រាក់ថ្លៃសិក្សា', 'Receive Tuition')}
+            </button>
+            <button
+              onClick={() => setActiveTab('pos')}
+              className="rounded-2xl border border-white/40 bg-white/10 px-5 py-2.5 text-[13px] font-bold text-white backdrop-blur-sm transition hover:bg-white/20 font-khmer"
+            >
+              {t('លក់ POS', 'Open POS')} <span className="ml-1 rounded bg-white/20 px-1 font-mono text-[10px]">F2</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Quick pills ── */}
+      <div className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+        {quickPills.map((p, i) => (
+          <button
+            key={p.tab}
+            onClick={() => setActiveTab(p.tab)}
+            className={`shrink-0 rounded-full border px-4 py-2 text-[13px] font-khmer transition ${
+              i === 0 ? 'border-teal-700 bg-teal-700 font-bold text-white shadow-sm' : 'border-slate-200 bg-white text-slate-600 hover:border-teal-300 hover:text-teal-700'
+            }`}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Daily income card ── */}
+      <div className="ui-card p-5">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <h2 className="font-display text-[15px] font-bold text-slate-900">{t('ចំណូលប្រចាំថ្ងៃ', 'Daily Income')}</h2>
+            {selectedDate === todayISO && <span className="rounded-md bg-teal-50 px-2 py-0.5 text-[11px] font-bold text-teal-700 font-khmer">{t('ថ្ងៃនេះ', 'Today')}</span>}
+          </div>
+          <div className="flex items-center gap-1.5">
+            <button onClick={() => shiftDay(-1)} className="rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-slate-500 hover:text-teal-700">‹</button>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => e.target.value && setSelectedDate(e.target.value)}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 font-mono text-[13px] text-slate-700"
+            />
+            <button onClick={() => shiftDay(1)} className="rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-slate-500 hover:text-teal-700">›</button>
+          </div>
+        </div>
+        <div className="grid gap-3 md:grid-cols-3">
+          <button onClick={() => setActiveTab('daily_report')} className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 text-left transition hover:shadow-md">
+            <div className="flex items-center justify-between text-[12px] text-emerald-700 font-khmer">
+              <span>↗ {t('ចំណូល', 'Income')}</span>
+              <span className="text-emerald-700/70">{dayTx.length} {t('ប្រតិបត្តិការ', 'transactions')}</span>
+            </div>
+            <div className="mt-2 font-mono text-[28px] font-bold leading-none text-emerald-700">{usd(dayUSD)}</div>
+            <div className="mt-2 font-mono text-[11px] text-emerald-700/70">
+              CASH {usd(dayCashUSD)} · BANK {usd(dayBankUSD)}
+            </div>
+          </button>
+          <button onClick={() => setActiveTab('student_fees')} className="rounded-2xl border border-rose-200 bg-rose-50/70 p-4 text-left transition hover:shadow-md">
+            <div className="flex items-center justify-between text-[12px] text-rose-600 font-khmer">
+              <span>↘ {t('ថ្លៃសិក្សាមិនទាន់បង់', 'Outstanding Tuition')}</span>
+              <span className="text-rose-600/70">{unpaidCount} {t('នាក់', 'students')}</span>
+            </div>
+            <div className="mt-2 font-mono text-[28px] font-bold leading-none text-rose-600">{usd(outstandingUSD)}</div>
+            <div className="mt-2 text-[11px] text-rose-600/70 font-khmer">{t('សរុបនៅសល់ត្រូវប្រមូល', 'Remaining to collect')}</div>
+          </button>
+          <div className="rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 p-4 text-white">
+            <div className="text-[12px] text-slate-300 font-khmer">{t('ចំណូលខែនេះ (គ្រប់ប្រភព)', 'This Month (all streams)')}</div>
+            <div className="mt-2 font-mono text-[28px] font-bold leading-none">{usd(monthUSD)}</div>
+            <div className="mt-2 text-[11px] text-slate-400 font-khmer">
+              {t('សរុបចំណូលទាំងអស់', 'Grand total')} {usd(Number(totalIncomeUSD))} · {totalIncomeKHR.toLocaleString()}៛
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── KPI cards with sparklines ── */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {kpis.map((k) => {
+          const data = seriesFor(k.cats);
+          const ch = pctChange(data);
+          const Icon = k.icon;
+          return (
+            <button
+              key={k.key}
+              onClick={() => setActiveTab(k.tab)}
+              className={`ui-card bg-gradient-to-br ${k.tint} to-white p-4 text-left transition hover:-translate-y-0.5 hover:shadow-lg`}
+            >
+              <div className="flex items-start justify-between">
+                <div className="text-[12px] text-slate-500 font-khmer">{k.label}</div>
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white shadow-sm">
+                  <Icon className={`h-[18px] w-[18px] ${k.iconCls}`} />
+                </div>
+              </div>
+              <div className="mt-1 font-mono text-[22px] font-bold text-slate-900">{k.value}</div>
+              <div className="mt-3 flex items-end justify-between">
+                <span
+                  className={`rounded-full px-2 py-0.5 font-mono text-[11px] font-semibold ${
+                    ch >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-600'
+                  }`}
+                >
+                  {ch >= 0 ? '↗' : '↘'}
+                  {Math.abs(ch).toFixed(1)}%
                 </span>
-              </span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 font-khmer">
-              {t('ផ្ទាំងសង្ខេប & គ្រប់គ្រងទូទៅ (Executive Overview)', 'Administrative & Financial Ledger')}
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-500 max-w-2xl font-khmer">
-              {t(
-                'ប្រព័ន្ធគ្រប់គ្រងរបាយការណ៍សាលា រួមមាន៖ ការបង់ថ្លៃសិក្សាសិស្ស ការលក់សម្ភារៈប្រចាំថ្ងៃ ថ្លៃទីតាំងអ្នកលក់អាហារ និងការលក់ឯកសណ្ឋានសិស្ស។',
-                'Comprehensive administrative management system covering student tuition fees, stationery sales, canteen vendor fees, and uniform sales.'
-              )}
-            </p>
-          </div>
-
-          {/* Quick Active User Badge & Permissions info */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-            <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-sm">
-                {currentUser.khmerName.slice(0, 1)}
+                <Spark data={data} color={k.bar} />
               </div>
-              <div>
-                <div className="font-bold text-slate-900 text-xs font-khmer">{currentUser.khmerName}</div>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className="text-[10px] uppercase font-mono font-bold text-amber-700">
-                    Role: {currentUser.role}
-                  </span>
-                  <span className="text-slate-300">·</span>
-                  <span className="text-[10px] text-slate-500">
-                    {permissions.canDelete ? 'Full Access' : permissions.canEdit ? 'Edit Only' : 'Read Only'}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {settings.telegramConfig.enabled && (
-              <div
-                onClick={() => setActiveTab('system_settings')}
-                className="cursor-pointer bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-xl px-3.5 py-3 flex items-center gap-2 text-sky-800 transition-colors"
-                title="Telegram Bot Alert Configured"
-              >
-                <Send className="w-4 h-4 text-sky-600" />
-                <div className="text-[11px] leading-tight font-medium">
-                  <span className="font-bold font-mono">Telegram Alerts</span>
-                  <div className="text-[10px] text-sky-600">Active Channel</div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+              <div className="mt-1 text-[11px] text-slate-400 font-khmer">{k.sub}</div>
+            </button>
+          );
+        })}
       </div>
 
-      {/* Grand Consolidated Revenue Matrix */}
-      <div className="bg-slate-950 text-white rounded-2xl p-6 sm:p-8 shadow-xl relative overflow-hidden">
-        <div className="relative z-10 flex flex-col lg:flex-row lg:items-end justify-between gap-6">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs font-semibold">
-              <TrendingUp className="w-3.5 h-3.5" />
-              <span className="font-khmer">{t('ប្រាក់ចំណូលសរុបគ្រប់ផ្នែក', 'Consolidated Total Revenue')}</span>
-              <span>·</span>
-              <span className="font-mono">1 USD = {exchangeRate.toLocaleString()} KHR</span>
-            </div>
-            <div className="flex flex-wrap items-baseline gap-4">
-              <span className="text-3xl sm:text-5xl font-black font-mono tracking-tight text-white">
-                {totalIncomeKHR.toLocaleString()}៛
+      {/* ── Collection rate + 12-month chart ── */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="ui-card p-5">
+          <h3 className="font-display text-[15px] font-bold text-slate-900">{t('ស្ថានភាពបង់ថ្លៃសិក្សា', 'Tuition Status')}</h3>
+          <div className="mt-4 flex h-3 overflow-hidden rounded-full bg-slate-100">
+            <div className="bg-emerald-500" style={{ width: `${allStudents.length ? (paidStudentsCount / allStudents.length) * 100 : 0}%` }} />
+            <div className="bg-rose-500" style={{ width: `${allStudents.length ? (unpaidCount / allStudents.length) * 100 : 0}%` }} />
+          </div>
+          <div className="mt-4 space-y-3 text-[13px] font-khmer">
+            {[
+              [t('បានបង់', 'Paid'), paidStudentsCount, 'bg-emerald-500'],
+              [t('មិនទាន់បង់', 'Unpaid'), unpaidCount, 'bg-rose-500'],
+              [t('ថ្នាក់រៀន', 'Classes'), orderedClassList.length, 'bg-teal-600'],
+            ].map(([k, v, c]) => (
+              <div key={String(k)} className="flex items-center justify-between">
+                <span className="flex items-center gap-2 text-slate-600">
+                  <span className={`h-2.5 w-2.5 rounded-sm ${c}`} />
+                  {k}
+                </span>
+                <span className="font-mono font-semibold text-slate-900">{v}</span>
+              </div>
+            ))}
+            <div className="flex items-center justify-between border-t border-slate-100 pt-3">
+              <span className="text-slate-600">{t('អត្រាប្រមូល', 'Collection rate')}</span>
+              <span className="font-mono font-bold text-teal-700">
+                {totalExpectedTuitionUSD ? ((totalTuitionUSD / totalExpectedTuitionUSD) * 100).toFixed(1) : '0.0'}%
               </span>
-              <span className="text-lg sm:text-2xl font-bold font-mono text-amber-400">
-                ≈ ${Number(totalIncomeUSD).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-              </span>
             </div>
-            <p className="text-xs text-slate-400 font-khmer">
-              គណនាដោយស្វ័យប្រវត្តិចេញពី៖ ថ្លៃសិក្សា ({totalTuitionKHR.toLocaleString()}៛) + សម្ភារៈ ({totalMaterialsKHR.toLocaleString()}៛) + អាហារដ្ឋាន ({totalCanteenKHR.toLocaleString()}៛) + ឯកសណ្ឋានគ្រប់ប្រភេទ ({totalUniformKHR.toLocaleString()}៛)
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2.5 flex-wrap">
-            <button
-              onClick={() => setActiveTab('daily_report')}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold font-khmer transition-all shadow-xs"
-            >
-              <Receipt className="w-4 h-4 text-amber-400" />
-              <span>{t('របាយការណ៍បង់ប្រាក់ប្រចាំថ្ងៃ', 'Daily Payment Report')}</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('student_portal')}
-              className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold font-khmer transition-all"
-            >
-              <UserCheck className="w-4 h-4 text-slate-600" />
-              <span>{t('ផតថលសិស្ស', 'Student Portal')}</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('system_settings')}
-              className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold font-khmer transition-all shadow-xs"
-            >
-              <Shield className="w-4 h-4" />
-              <span>{t('កំណត់ប្រព័ន្ធ', 'Settings')}</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* 4 Core Administrative Streams */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* 1. Student Fees */}
-        <div
-          onClick={() => setActiveTab('student_fees')}
-          className="group bg-white border border-slate-200 hover:border-slate-300 rounded-xl p-5 cursor-pointer shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between"
-        >
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center">
-                <Users className="w-5 h-5" />
-              </div>
-              <ArrowUpRight className="w-4 h-4 text-slate-300 group-hover:text-blue-600 transition-colors" />
-            </div>
-            <div className="text-xs font-bold text-slate-500 font-khmer">
-              {t('ថ្លៃសិក្សាសិស្ស (Tuition)', 'Student Tuition Fees')}
-            </div>
-            <div className="text-2xl font-bold font-mono text-slate-900 mt-1">
-              ${totalTuitionUSD.toFixed(2)}
-            </div>
-            <div className="text-xs text-slate-400 font-mono mt-0.5">
-              ≈ {totalTuitionKHR.toLocaleString()}៛
-            </div>
-          </div>
-          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-            <span className="font-khmer">{paidStudentsCount}/{allStudents.length} {t('នាក់បានបង់', 'paid')}</span>
-            <span className="text-blue-600 font-bold group-hover:underline font-khmer">
-              {t('ពិនិត្យបញ្ជី →', 'View Class →')}
-            </span>
           </div>
         </div>
 
-        {/* 2. Daily Materials */}
-        <div
-          onClick={() => setActiveTab('daily_materials')}
-          className="group bg-white border border-slate-200 hover:border-slate-300 rounded-xl p-5 cursor-pointer shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between"
-        >
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center">
-                <ShoppingBag className="w-5 h-5" />
+        <div className="ui-card p-5 lg:col-span-2">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <h3 className="font-display text-[15px] font-bold text-slate-900">{t('ចំណូល ១២ ខែចុងក្រោយ', 'Income, last 12 months')}</h3>
+              <p className="text-[11px] text-slate-400 font-khmer">{t('តាមប្រភពចំណូល (USD)', 'By income stream (USD)')}</p>
+            </div>
+            <div className="flex flex-wrap gap-3 text-[11px] text-slate-500 font-khmer">
+              {chartCats.map((c) => (
+                <span key={c.label} className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ background: c.color }} />
+                  {c.label}
+                </span>
+              ))}
+            </div>
+          </div>
+          <div className="mt-4 flex h-48 items-end gap-2">
+            {months12.map((m, i) => (
+              <div key={m} className="group flex h-full flex-1 flex-col items-center justify-end gap-1">
+                <div className="font-mono text-[9px] text-slate-400 opacity-0 transition group-hover:opacity-100">{usd0(monthTotals[i])}</div>
+                <div className="flex w-full max-w-[26px] flex-col-reverse overflow-hidden rounded-md" style={{ height: `${(monthTotals[i] / chartMax) * 100}%`, minHeight: 2 }}>
+                  {chartCats.map((c) => (
+                    <div key={c.label} style={{ height: `${monthTotals[i] ? (c.data[i] / monthTotals[i]) * 100 : 0}%`, background: c.color }} />
+                  ))}
+                </div>
+                <div className="text-[10px] text-slate-400 font-khmer">{KH_MON[Number(m.slice(5)) - 1].slice(0, 3)}</div>
               </div>
-              <ArrowUpRight className="w-4 h-4 text-slate-300 group-hover:text-amber-600 transition-colors" />
-            </div>
-            <div className="text-xs font-bold text-slate-500 font-khmer">
-              {t('សម្ភារៈលក់ប្រចាំថ្ងៃ', 'Daily Materials & Books')}
-            </div>
-            <div className="text-2xl font-bold font-mono text-slate-900 mt-1">
-              {totalMaterialsKHR.toLocaleString()}៛
-            </div>
-            <div className="text-xs text-slate-400 font-mono mt-0.5">
-              ≈ ${(totalMaterialsKHR / exchangeRate).toFixed(2)} USD
-            </div>
-          </div>
-          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-            <span className="font-khmer">{dailyMaterials.items.length} {t('មុខទំនិញ', 'items')} ({totalMaterialsQty} pcs)</span>
-            <span className="text-amber-600 font-bold group-hover:underline font-khmer">
-              {t('ពិនិត្យតារាង →', 'Open Ledger →')}
-            </span>
-          </div>
-        </div>
-
-        {/* 3. Canteen Vendors */}
-        <div
-          onClick={() => setActiveTab('canteen_vendors')}
-          className="group bg-white border border-slate-200 hover:border-slate-300 rounded-xl p-5 cursor-pointer shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between"
-        >
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center">
-                <Store className="w-5 h-5" />
-              </div>
-              <ArrowUpRight className="w-4 h-4 text-slate-300 group-hover:text-emerald-600 transition-colors" />
-            </div>
-            <div className="text-xs font-bold text-slate-500 font-khmer">
-              {t('ថ្លៃទីតាំងអាហារដ្ឋាន (ខែ ' + currentCanteenReport.month + ')', 'Canteen Vendor Fee')}
-            </div>
-            <div className="text-2xl font-bold font-mono text-slate-900 mt-1">
-              {totalCanteenKHR.toLocaleString()}៛
-            </div>
-            <div className="text-xs text-slate-400 font-mono mt-0.5">
-              ≈ ${(totalCanteenKHR / exchangeRate).toFixed(2)} USD
-            </div>
-          </div>
-          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-            <span className="font-khmer">{totalVendorDays} {t('វត្តមានស្តង់', 'vendor days')}</span>
-            <span className="text-emerald-600 font-bold group-hover:underline font-khmer">
-              {t('ប្រវត្តិប្រចាំខែ →', 'Monthly History →')}
-            </span>
-          </div>
-        </div>
-
-        {/* 4. Uniform Sales */}
-        <div
-          onClick={() => setActiveTab('uniform_sales')}
-          className="group bg-white border border-slate-200 hover:border-slate-300 rounded-xl p-5 cursor-pointer shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between"
-        >
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center">
-                <Shirt className="w-5 h-5" />
-              </div>
-              <ArrowUpRight className="w-4 h-4 text-slate-300 group-hover:text-indigo-600 transition-colors" />
-            </div>
-            <div className="text-xs font-bold text-slate-500 font-khmer">
-              {t('ឯកសណ្ឋានសិស្សគ្រប់ប្រភេទ', 'Uniform Sales (All Types)')}
-            </div>
-            <div className="text-2xl font-bold font-mono text-slate-900 mt-1">
-              {totalUniformKHR.toLocaleString()}៛
-            </div>
-            <div className="text-xs text-slate-400 font-mono mt-0.5">
-              ≈ ${(totalUniformKHR / exchangeRate).toFixed(2)} USD
-            </div>
-          </div>
-          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-            <span className="font-khmer">{totalUniformQty} {t('កំប្លេ/ឈុតលក់ចេញ', 'items sold')}</span>
-            <span className="text-indigo-600 font-bold group-hover:underline font-khmer">
-              {t('មើលទំហំ Matrix →', 'View Sizing →')}
-            </span>
+            ))}
           </div>
         </div>
       </div>
