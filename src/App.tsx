@@ -281,8 +281,8 @@ function MainApp() {
             onClick={() => setActiveTab('pos')}
             className={`flex flex-col items-center justify-center py-1 px-3 -mt-3 rounded-2xl shadow-md transition-all ${
               activeTab === 'pos'
-                ? 'bg-emerald-600 text-white shadow-emerald-500/30 ring-2 ring-emerald-300'
-                : 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-500/20'
+                ? 'bg-teal-700 text-white shadow-teal-600/30 ring-2 ring-teal-300'
+                : 'bg-gradient-to-br from-teal-600 to-teal-500 text-white shadow-teal-600/25'
             }`}
           >
             <ShoppingCart className="w-5 h-5 mb-0.5" />
