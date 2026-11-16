@@ -16,6 +16,7 @@ import {
   QrCode,
   Database,
   Settings,
+  ShoppingCart,
 } from 'lucide-react';
 
 import { MONTH_NAMES, MONTH_NAMES_KH } from '../types';
@@ -89,6 +90,12 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   // Keyboard shortcut Cmd+K or Ctrl+K to open search
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // F2 (or Alt+P) = Quick Open POS from any page
+      if (e.key === 'F2' || (e.altKey && !e.ctrlKey && !e.metaKey && (e.key === 'p' || e.key === 'P'))) {
+        e.preventDefault();
+        setActiveTab('pos');
+        return;
+      }
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         setIsSearchOpen(true);
@@ -726,6 +733,21 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
                 </div>
               )}
             </div>
+
+            {/* Quick Open POS (desktop) — also F2 / Alt+P */}
+            <button
+              onClick={() => setActiveTab('pos')}
+              title={t('បើកលក់ POS រហ័ស (F2)', 'Quick Open POS (F2)')}
+              className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer ${
+                activeTab === 'pos'
+                  ? 'bg-emerald-700 text-white ring-2 ring-emerald-300'
+                  : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+              }`}
+            >
+              <ShoppingCart className="w-3.5 h-3.5" />
+              <span className="font-khmer text-xs">{t('លក់ POS', 'POS')}</span>
+              <kbd className="hidden xl:inline rounded bg-white/20 px-1 font-mono text-[10px] font-semibold">F2</kbd>
+            </button>
 
             {/* Quick QR Invoice Verification Button for Staff */}
             <button
