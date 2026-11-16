@@ -173,7 +173,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({ setActiveT
     { key: 'tuition', label: t('ថ្លៃសិក្សា', 'Tuition'), value: usd(totalTuitionUSD), sub: `${paidStudentsCount}/${allStudents.length} ${t('នាក់បានបង់', 'paid')}`, cats: ['tuition'], icon: Users, tint: 'from-teal-50', bar: '#14b8a6', iconCls: 'text-teal-600', tab: 'student_fees' as NavTab },
     { key: 'material', label: t('សម្ភារៈ & POS', 'Supplies & POS'), value: `${totalMaterialsKHR.toLocaleString()}៛`, sub: `${totalMaterialsQty} ${t('មុខ', 'pcs')}`, cats: ['material'], icon: ShoppingBag, tint: 'from-amber-50', bar: '#f59e0b', iconCls: 'text-amber-600', tab: 'pos' as NavTab },
     { key: 'uniform', label: t('ឯកសណ្ឋាន', 'Uniforms'), value: `${totalUniformKHR.toLocaleString()}៛`, sub: `${totalUniformQty} ${t('ឈុត', 'sets')}`, cats: ['uniform'], icon: Shirt, tint: 'from-violet-50', bar: '#8b5cf6', iconCls: 'text-violet-600', tab: 'uniform_sales' as NavTab },
-    { key: 'services', label: t('ឡានសាលា & អាហារដ្ឋាន', 'Bus & Canteen'), value: `${totalCanteenKHR.toLocaleString()}៛`, sub: `${totalVendorDays} ${t('ថ្ងៃ-តូប', 'stall-days')}`, cats: ['bus', 'canteen'], icon: Store, tint: 'from-rose-50', bar: '#f43f5e', iconCls: 'text-rose-500', tab: 'canteen_vendors' as NavTab },
+    { key: 'canteen', label: t('អាហារដ្ឋាន', 'Canteen'), value: `${totalCanteenKHR.toLocaleString()}៛`, sub: `${totalVendorDays} ${t('ថ្ងៃ-តូប', 'stall-days')}`, cats: ['canteen'], icon: Store, tint: 'from-rose-50', bar: '#f43f5e', iconCls: 'text-rose-500', tab: 'canteen_vendors' as NavTab },
   ];
 
   const chartCats = [
