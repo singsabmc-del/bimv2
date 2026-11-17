@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
-import { Sidebar, NavTab } from './components/Sidebar';
+import { Sidebar, NavTab, isNavTab } from './components/Sidebar';
 import { TopHeader } from './components/TopHeader';
 import { OverviewDashboard } from './components/OverviewDashboard';
 import { StudentFeesView } from './components/StudentFeesView';
@@ -46,7 +46,28 @@ import {
 } from 'lucide-react';
 
 function MainApp() {
-  const [activeTab, setActiveTab] = useState<NavTab>('overview');
+  // Current page lives in the URL (#pos, #academic_scores, …) so a refresh stays on the same page
+  // and the browser Back / Forward buttons move between pages.
+  const readTabFromUrl = (): NavTab => {
+    const h = decodeURIComponent(window.location.hash.replace(/^#\/?/, ''));
+    return isNavTab(h) ? h : 'overview';
+  };
+  const [activeTab, setActiveTabState] = useState<NavTab>(readTabFromUrl);
+  const setActiveTab = useCallback((tab: NavTab) => {
+    setActiveTabState(tab);
+    if (window.location.hash.replace(/^#\/?/, '') !== tab) {
+      window.history.pushState(null, '', `#${tab}`);
+    }
+  }, []);
+  useEffect(() => {
+    const sync = () => setActiveTabState(readTabFromUrl());
+    window.addEventListener('popstate', sync);
+    window.addEventListener('hashchange', sync);
+    return () => {
+      window.removeEventListener('popstate', sync);
+      window.removeEventListener('hashchange', sync);
+    };
+  }, []);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isPrintOpen, setIsPrintOpen] = useState(false);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);

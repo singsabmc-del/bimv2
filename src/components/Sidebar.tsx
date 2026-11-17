@@ -39,53 +39,51 @@ import {
   IdCard,
 } from 'lucide-react';
 
-export type NavTab =
-  // 1. Dashboard
-  | 'overview'
-  // 2. Student Management
-  | 'student_list'
-  | 'student_attendance'
-  | 'student_admission'
-  | 'student_upgrade'
-  | 'student_info'
-  // 2b. Academic & Results
-  | 'academic_scores'
-  | 'academic_tracking'
-  | 'academic_booklet'
-  | 'academic_honor'
-  | 'student_idcard'
-  // 3. Teacher Management
-  | 'teacher_list'
-  | 'teacher_info'
-  | 'teaching_schedule'
-  | 'teacher_subject'
-  | 'teacher_attendance'
-  // 4. Daily School Revenue
-  | 'revenue_student'
-  | 'revenue_uniform'
-  | 'revenue_transport'
-  | 'revenue_materials'
-  | 'revenue_stall_fee'
-  // 5. Monthly Report Section
-  | 'report_tuition'
-  | 'report_uniform'
-  | 'report_transport'
-  | 'report_materials'
-  | 'report_stall_fee'
-  // Compatibility & System Aliases
-  | 'student_fees'
-  | 'student_portal'
-  | 'official_roster'
-  | 'pos'
-  | 'daily_materials'
-  | 'material_history'
-  | 'uniform_sales'
-  | 'uniform_history'
-  | 'school_bus'
-  | 'canteen_vendors'
-  | 'daily_report'
-  | 'ai_scanner'
-  | 'system_settings';
+export const NAV_TAB_IDS = [
+  'overview',
+  'student_list',
+  'student_attendance',
+  'student_admission',
+  'student_upgrade',
+  'student_info',
+  'academic_scores',
+  'academic_tracking',
+  'academic_booklet',
+  'academic_honor',
+  'student_idcard',
+  'teacher_list',
+  'teacher_info',
+  'teaching_schedule',
+  'teacher_subject',
+  'teacher_attendance',
+  'revenue_student',
+  'revenue_uniform',
+  'revenue_transport',
+  'revenue_materials',
+  'revenue_stall_fee',
+  'report_tuition',
+  'report_uniform',
+  'report_transport',
+  'report_materials',
+  'report_stall_fee',
+  'student_fees',
+  'student_portal',
+  'official_roster',
+  'pos',
+  'daily_materials',
+  'material_history',
+  'uniform_sales',
+  'uniform_history',
+  'school_bus',
+  'canteen_vendors',
+  'daily_report',
+  'ai_scanner',
+  'system_settings',
+] as const;
+
+export type NavTab = (typeof NAV_TAB_IDS)[number];
+
+export const isNavTab = (v: string): v is NavTab => (NAV_TAB_IDS as readonly string[]).includes(v);
 
 interface SidebarProps {
   activeTab: NavTab;
