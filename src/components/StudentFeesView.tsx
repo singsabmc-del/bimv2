@@ -1597,7 +1597,7 @@ export const StudentFeesView: React.FC<StudentFeesViewProps> = ({ onPrintReport,
             </tbody>
             <tfoot>
               <tr className="bg-amber-300 font-bold text-slate-900 border-t-2 border-amber-500">
-                <td colSpan={10} className="py-2.5 px-4 text-right border-r border-amber-400 uppercase tracking-wide font-khmer">
+                <td colSpan={currentUser.role === 'admin' ? 11 : 10} className="py-2.5 px-4 text-right border-r border-amber-400 uppercase tracking-wide font-khmer">
                   {t('សរុបទឹកប្រាក់ប្រមូលបាន (Total Collected)', 'Total Collected')}:
                 </td>
                 <td className="py-2.5 px-4 text-right font-mono tabular-nums text-base border-r border-amber-400 text-slate-950 font-black">
