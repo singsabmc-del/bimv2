@@ -36,12 +36,15 @@ interface MonthlyClassAttendanceRecord {
 
 interface Student31DaysAttendanceReportProps {
   defaultClassId?: string;
+  /** Called when the class is changed from the report's own dropdown (keeps the parent in sync) */
+  onClassChange?: (classId: string) => void;
   defaultMonth?: string;
   defaultYear?: number;
 }
 
 export const Student31DaysAttendanceReport: React.FC<Student31DaysAttendanceReportProps> = ({
   defaultClassId,
+  onClassChange,
   defaultMonth,
   defaultYear,
 }) => {
@@ -61,6 +64,11 @@ export const Student31DaysAttendanceReport: React.FC<Student31DaysAttendanceRepo
   const [activeClassId, setActiveClassId] = useState<string>(
     defaultClassId || selectedClassId || '1A'
   );
+  // Follow the class selected outside the report (e.g. the class list on the attendance page)
+  useEffect(() => {
+    if (defaultClassId && defaultClassId !== activeClassId) setActiveClassId(defaultClassId);
+  }, [defaultClassId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const [selectedMonth, setSelectedMonth] = useState<string>(
     defaultMonth || globalMonth || 'October'
   );
@@ -413,7 +421,10 @@ export const Student31DaysAttendanceReport: React.FC<Student31DaysAttendanceRepo
             </label>
             <select
               value={activeClassId}
-              onChange={(e) => setActiveClassId(e.target.value)}
+              onChange={(e) => {
+                setActiveClassId(e.target.value);
+                onClassChange?.(e.target.value);
+              }}
               className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-khmer font-bold bg-slate-50 focus:bg-white"
             >
               {orderedClassList.map((c) => (

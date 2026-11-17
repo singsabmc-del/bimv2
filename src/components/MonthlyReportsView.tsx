@@ -446,6 +446,7 @@ export const MonthlyReportsView: React.FC<MonthlyReportsViewProps> = ({
         {activeReport === 'attendance_31days' && (
           <Student31DaysAttendanceReport
             defaultClassId={selectedClassReportId}
+            onClassChange={setSelectedClassReportId}
             defaultMonth={globalMonth}
             defaultYear={globalYear}
           />
