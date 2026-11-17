@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
+import { computeMonthlyFeeSummary } from '../utils/feeSummary';
 import {
   FileSpreadsheet,
   Printer,
@@ -397,7 +398,7 @@ export const MonthlyReportsView: React.FC<MonthlyReportsViewProps> = ({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
-                    {currentClass.summaryRows.map((row) => (
+                    {computeMonthlyFeeSummary(currentClass.students || [], globalMonth, globalYear).rows.map((row) => (
                       <tr key={row.id} className="hover:bg-slate-50">
                         <td className="py-2.5 px-3 text-center font-mono border-r border-slate-200 text-slate-500">
                           {row.id}

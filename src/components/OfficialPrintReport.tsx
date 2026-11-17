@@ -1,5 +1,6 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
+import { computeMonthlyFeeSummary } from '../utils/feeSummary';
 import { NavTab } from './Sidebar';
 import { Printer, X } from 'lucide-react';
 
@@ -21,6 +22,8 @@ export const OfficialPrintReport: React.FC<OfficialPrintReportProps> = ({
     uniformTypes,
     currentBranch,
     getBranchName,
+    globalMonth,
+    globalYear,
   } = useApp();
 
   const currentClass = classData[selectedClassId] || Object.values(classData)[0];
@@ -173,7 +176,7 @@ export const OfficialPrintReport: React.FC<OfficialPrintReportProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-300">
-                  {currentClass.summaryRows.map((r) => (
+                  {computeMonthlyFeeSummary(currentClass.students || [], globalMonth, globalYear).rows.map((r) => (
                     <tr key={r.id}>
                       <td className="py-1 px-2 border-r border-slate-300 text-center font-mono">{r.id}</td>
                       <td className="py-1 px-3 border-r border-slate-300 font-khmer">{r.caseKhmer}</td>
