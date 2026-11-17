@@ -405,7 +405,7 @@ export const StudentAttendanceView: React.FC = () => {
 
       {/* 31 Days Report View */}
       {attendanceViewMode === 'monthly_31days' && (
-        <Student31DaysAttendanceReport defaultClassId={activeClassId} />
+        <Student31DaysAttendanceReport defaultClassId={activeClassId} onClassChange={setActiveClassId} />
       )}
 
       {/* Daily Attendance Views */}
