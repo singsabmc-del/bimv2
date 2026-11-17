@@ -99,7 +99,32 @@ export const OfficialClassRosterView: React.FC = () => {
     sendTelegramAlert,
     allUsers,
     updateClassTeacher,
+    academicYearArchives,
   } = useApp();
+
+  // Academic year shown in this roster. An archived (old) year is shown read-only straight from its
+  // archive, so an old roster can be viewed/printed at any time without switching the active year.
+  const activeAcademicYear = settings.academicYear || '2026-2027';
+  const [rosterYear, setRosterYear] = useState<string>(activeAcademicYear);
+  useEffect(() => { setRosterYear(activeAcademicYear); }, [activeAcademicYear]);
+  const rosterYearOptions = useMemo(
+    () => Array.from(new Set([activeAcademicYear, ...Object.keys(academicYearArchives || {})])).sort((a, b) => b.localeCompare(a)),
+    [activeAcademicYear, academicYearArchives]
+  );
+  const archiveForRoster = rosterYear !== activeAcademicYear ? academicYearArchives?.[rosterYear] : undefined;
+  const isArchiveView = !!archiveForRoster;
+  const rosterClassData = archiveForRoster ? archiveForRoster.classesData : classData;
+  const rosterClassList = useMemo(() => {
+    if (!archiveForRoster) return orderedClassList;
+    const data = archiveForRoster.classesData || {};
+    const order = (archiveForRoster.classOrder && archiveForRoster.classOrder.length ? archiveForRoster.classOrder : Object.keys(data))
+      .filter((id) => data[id]);
+    Object.keys(data).forEach((id) => { if (!order.includes(id)) order.push(id); });
+    return order
+      .map((id) => data[id])
+      .filter((c) => currentBranchId === 'all' || (c.branchId || 'branch-central') === currentBranchId);
+  }, [archiveForRoster, orderedClassList, currentBranchId]);
+  const canEditRoster = permissions.canEdit && !isArchiveView;
 
   // Mode: 'official_image' (the 15 students uploaded by user), or classId (1A, 1B, 2A...)
   const [selectedRosterSource, setSelectedRosterSource] = useState<string>('official_image');
@@ -203,7 +228,7 @@ export const OfficialClassRosterView: React.FC = () => {
     if (selectedRosterSource === 'official_image') {
       return OFFICIAL_USER_IMAGE_STUDENTS;
     }
-    const cls = classData[selectedRosterSource] || orderedClassList[0] || Object.values(classData)[0];
+    const cls = rosterClassData[selectedRosterSource] || rosterClassList[0] || Object.values(rosterClassData)[0];
     if (!cls) return [];
 
     return cls.students.map((st, idx) => {
@@ -223,18 +248,18 @@ export const OfficialClassRosterView: React.FC = () => {
         originalStudent: st,
       };
     });
-  }, [selectedRosterSource, classData, orderedClassList]);
+  }, [selectedRosterSource, rosterClassData, rosterClassList]);
 
   // Filtered classes in left slice
   const filteredClasses = useMemo(() => {
-    if (!classSliceSearch.trim()) return orderedClassList;
+    if (!classSliceSearch.trim()) return rosterClassList;
     const q = classSliceSearch.toLowerCase().trim();
-    return orderedClassList.filter((c) =>
+    return rosterClassList.filter((c) =>
       c.className.toLowerCase().includes(q) ||
       c.period.toLowerCase().includes(q) ||
       (c.homeroomTeacher && c.homeroomTeacher.toLowerCase().includes(q))
     );
-  }, [orderedClassList, classSliceSearch]);
+  }, [rosterClassList, classSliceSearch]);
 
   // Filtered students for display in table
   const filteredStudents = useMemo(() => {
@@ -264,10 +289,10 @@ export const OfficialClassRosterView: React.FC = () => {
       setHomeroomTeacher('សុខ ម៉ាលី');
       setTeacherPhone('012 345 678');
     } else {
-      const cls = classData[srcId];
+      const cls = rosterClassData[srcId];
       if (cls) {
         setClassNameTitle(cls.className);
-        setAcademicYear(settings.academicYear || '២០២៦-២០២៧');
+        setAcademicYear(rosterYear || '២០២៦-២០២៧');
         const assignedTeacher = cls.homeroomTeacher || 'គ្រូបន្ទុកថ្នាក់';
         const assignedPhone = cls.teacherPhone || settings.phone;
         setHomeroomTeacher(assignedTeacher);
@@ -277,6 +302,15 @@ export const OfficialClassRosterView: React.FC = () => {
       }
     }
   };
+
+  // Switching the roster year: keep the same class when it exists in that year, otherwise pick its first class
+  useEffect(() => {
+    if (selectedRosterSource === 'official_image') return;
+    const keep = rosterClassData[selectedRosterSource] ? selectedRosterSource : rosterClassList[0]?.classId;
+    if (keep) handleSelectSource(keep);
+    else setAcademicYear(rosterYear);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rosterYear]);
 
   const handleSaveTeacherAssignment = (e: React.FormEvent) => {
     e.preventDefault();
@@ -348,6 +382,23 @@ export const OfficialClassRosterView: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
+            <label className={`flex items-center gap-1.5 pl-3 pr-1 py-1 rounded-xl border text-xs font-bold font-khmer ${
+              isArchiveView ? 'bg-rose-50 border-rose-300 text-rose-900' : 'bg-white border-slate-200 text-slate-700'
+            }`} title="ជ្រើសឆ្នាំសិក្សាដើម្បីមើល ឬបោះពុម្ពបញ្ជីឆ្នាំចាស់">
+              <span>ឆ្នាំសិក្សា</span>
+              <select
+                value={rosterYear}
+                onChange={(e) => setRosterYear(e.target.value)}
+                className="bg-transparent font-mono font-bold text-xs py-1 pr-1 focus:outline-none cursor-pointer"
+              >
+                {rosterYearOptions.map((y) => (
+                  <option key={y} value={y}>
+                    {y}{y === activeAcademicYear ? ' (បច្ចុប្បន្ន)' : ' (ឆ្នាំចាស់)'}
+                  </option>
+                ))}
+              </select>
+            </label>
+
             <button
               onClick={() => {
                 setTempTitle(classNameTitle);
@@ -369,6 +420,7 @@ export const OfficialClassRosterView: React.FC = () => {
               <span>ការកំណត់</span>
             </button>
 
+            {!isArchiveView && (
             <button
               onClick={() => {
                 setTempTeacherName(homeroomTeacher);
@@ -381,7 +433,9 @@ export const OfficialClassRosterView: React.FC = () => {
               <UserCheck className="w-4 h-4 text-indigo-700 shrink-0" />
               <span>កំណត់គ្រូបន្ទុកថ្នាក់</span>
             </button>
+            )}
 
+            {!isArchiveView && (
             <button
               onClick={() => setIsExcelImportOpen(true)}
               className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold font-khmer transition-all shadow-xs cursor-pointer"
@@ -390,6 +444,7 @@ export const OfficialClassRosterView: React.FC = () => {
               <FileSpreadsheet className="w-4 h-4 shrink-0" />
               <span>នាំចូលពី Excel</span>
             </button>
+            )}
 
             <button
               onClick={handleExportCSV}
@@ -418,6 +473,21 @@ export const OfficialClassRosterView: React.FC = () => {
         </div>
       </div>
 
+      {isArchiveView && (
+        <div className="no-print flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-xs font-khmer text-rose-900">
+          <span>
+            <strong>បញ្ជីឆ្នាំសិក្សាចាស់ {rosterYear}</strong> — មើល និងបោះពុម្ពបានតែប៉ុណ្ណោះ (មិនអាចកែប្រែ)។ ទិន្នន័យឆ្នាំ {activeAcademicYear} មិនត្រូវបានប៉ះពាល់ទេ។
+          </span>
+          <button
+            type="button"
+            onClick={() => setRosterYear(activeAcademicYear)}
+            className="px-2.5 py-1 rounded-lg bg-white border border-rose-300 font-bold hover:bg-rose-100 cursor-pointer"
+          >
+            ត្រឡប់ទៅឆ្នាំ {activeAcademicYear}
+          </button>
+        </div>
+      )}
+
       {/* 2. Main Two-Column Layout: Left Vertical Slice Class Rail + Right Roster Table */}
       <div className="flex flex-col lg:flex-row gap-5 items-start w-full">
         {/* VERTICAL SLICE: CLASS SELECTOR RAIL */}
@@ -434,7 +504,7 @@ export const OfficialClassRosterView: React.FC = () => {
                     <div className="font-bold text-xs text-slate-900 font-khmer flex items-center gap-1.5">
                       <span>ថ្នាក់រៀន (Classes)</span>
                       <span className="px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-600 font-mono text-[10px]">
-                        {orderedClassList.length + 1}
+                        {rosterClassList.length + 1}
                       </span>
                     </div>
                     <div className="text-[10px] text-slate-400 font-khmer">ជ្រើសរើសថ្នាក់ដើម្បីមើលបញ្ជី</div>
@@ -499,11 +569,11 @@ export const OfficialClassRosterView: React.FC = () => {
                     return (
                       <div
                         key={cls.classId}
-                        draggable={permissions.canEdit}
+                        draggable={canEditRoster}
                         onDragStart={() => setDraggedClassIndex(idx)}
                         onDragOver={(e) => e.preventDefault()}
                         onDrop={() => {
-                          if (draggedClassIndex === null || draggedClassIndex === idx) return;
+                          if (!canEditRoster || draggedClassIndex === null || draggedClassIndex === idx) return;
                           const currentList = orderedClassList.map((c) => c.classId);
                           const updated = [...currentList];
                           const [moved] = updated.splice(draggedClassIndex, 1);
@@ -519,7 +589,7 @@ export const OfficialClassRosterView: React.FC = () => {
                         }`}
                       >
                         <div className="flex items-center gap-2 min-w-0">
-                          {permissions.canEdit && (
+                          {canEditRoster && (
                             <span className="cursor-grab text-slate-400 group-hover:text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity">
                               <GripVertical className="w-3.5 h-3.5" />
                             </span>
@@ -561,7 +631,7 @@ export const OfficialClassRosterView: React.FC = () => {
                 >
                   <Sparkles className="w-4 h-4" />
                 </button>
-                {orderedClassList.map((cls) => {
+                {rosterClassList.map((cls) => {
                   const isSelected = selectedRosterSource === cls.classId;
                   return (
                     <button

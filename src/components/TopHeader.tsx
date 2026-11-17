@@ -17,6 +17,7 @@ import {
   Database,
   Settings,
   ShoppingCart,
+  GraduationCap,
 } from 'lucide-react';
 
 import { MONTH_NAMES, MONTH_NAMES_KH } from '../types';
@@ -60,6 +61,8 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
     openAutoBackupModal,
     autoBackupConfig,
     lastBackupTime,
+    academicYearArchives,
+    switchAcademicYear,
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -67,6 +70,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [isBranchOpen, setIsBranchOpen] = useState(false);
   const [isPeriodOpen, setIsPeriodOpen] = useState(false);
+  const [isYearOpen, setIsYearOpen] = useState(false);
   const [isTgLogsOpen, setIsTgLogsOpen] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
 
@@ -85,6 +89,14 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const branchDropdownRef = useRef<HTMLDivElement>(null);
   const periodDropdownRef = useRef<HTMLDivElement>(null);
+  const yearDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Academic years that have their own data (active year + archived years), newest first
+  const activeAcademicYear = settings.academicYear || '2026-2027';
+  const academicYearList = Array.from(
+    new Set([activeAcademicYear, ...Object.keys(academicYearArchives || {})])
+  ).sort((a, b) => b.localeCompare(a));
+  const latestAcademicYear = academicYearList[0];
   const tgLogsDropdownRef = useRef<HTMLDivElement>(null);
 
   // Keyboard shortcut Cmd+K or Ctrl+K to open search
@@ -105,6 +117,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
         setIsMobileSearchOpen(false);
         setIsBranchOpen(false);
         setIsPeriodOpen(false);
+        setIsYearOpen(false);
         setIsTgLogsOpen(false);
       }
     };
@@ -127,6 +140,9 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
       }
       if (branchDropdownRef.current && !branchDropdownRef.current.contains(e.target as Node)) {
         setIsBranchOpen(false);
+      }
+      if (yearDropdownRef.current && !yearDropdownRef.current.contains(e.target as Node)) {
+        setIsYearOpen(false);
       }
       if (periodDropdownRef.current && !periodDropdownRef.current.contains(e.target as Node)) {
         setIsPeriodOpen(false);
@@ -554,6 +570,77 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
                       គ្រប់គ្រងសាខា (Manage Branches) ⚙
                     </button>
                   </div>
+                </div>
+              )}
+            </div>
+
+            {/* Academic Year Switcher — open an old year's data at any time */}
+            <div className="relative" ref={yearDropdownRef}>
+              <button
+                onClick={() => setIsYearOpen((prev) => !prev)}
+                className={`flex items-center gap-1 sm:gap-1.5 p-2 sm:px-3 sm:py-1.5 rounded-xl border text-xs font-bold transition-all shadow-2xs ${
+                  activeAcademicYear !== latestAcademicYear
+                    ? 'bg-rose-50 hover:bg-rose-100 border-rose-300 text-rose-900'
+                    : 'bg-teal-50 hover:bg-teal-100 border-teal-200 text-teal-900'
+                }`}
+                title={t('ប្តូរឆ្នាំសិក្សា', 'Switch academic year')}
+              >
+                <GraduationCap className="w-4 h-4 shrink-0" />
+                <span className="hidden sm:inline font-mono text-[11px]">{activeAcademicYear}</span>
+                <span className="hidden sm:inline text-[10px] opacity-70">▾</span>
+              </button>
+
+              {isYearOpen && (
+                <div className="fixed sm:absolute top-16 sm:top-full mt-2 left-3 right-3 sm:left-auto sm:right-0 sm:w-72 max-w-sm sm:max-w-none mx-auto sm:mx-0 bg-white border border-slate-200 rounded-2xl shadow-2xl p-3 z-50 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="pb-2 mb-2 border-b border-slate-100">
+                    <div className="text-xs font-bold text-slate-800 font-khmer">
+                      {t('ឆ្នាំសិក្សា', 'Academic Year')}
+                    </div>
+                    <div className="text-[10px] text-slate-500 font-khmer mt-0.5">
+                      {t('ជ្រើសឆ្នាំដើម្បីមើល ឬបោះពុម្ពទិន្នន័យឆ្នាំនោះ', 'Pick a year to view or print its data')}
+                    </div>
+                  </div>
+                  <div className="space-y-1.5 max-h-64 overflow-y-auto">
+                    {academicYearList.map((y) => {
+                      const isActive = y === activeAcademicYear;
+                      const archive = academicYearArchives?.[y];
+                      return (
+                        <button
+                          key={y}
+                          type="button"
+                          onClick={() => {
+                            setIsYearOpen(false);
+                            if (isActive) return;
+                            switchAcademicYear(y);
+                          }}
+                          className={`w-full text-left px-3 py-2 rounded-xl border text-xs transition-all flex items-center justify-between gap-2 ${
+                            isActive
+                              ? 'bg-slate-900 border-slate-900 text-white'
+                              : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-800'
+                          }`}
+                        >
+                          <div className="min-w-0">
+                            <div className="font-mono font-bold">{y}</div>
+                            <div className={`text-[10px] font-khmer ${isActive ? 'text-slate-300' : 'text-slate-500'}`}>
+                              {y === latestAcademicYear ? t('ឆ្នាំបច្ចុប្បន្ន', 'Current year') : t('ឆ្នាំចាស់', 'Past year')}
+                              {!isActive && archive ? ` · ${archive.totalStudents} ${t('សិស្ស', 'students')}` : ''}
+                            </div>
+                          </div>
+                          {isActive && <span className="text-[10px] font-khmer shrink-0">✓ {t('កំពុងបើក', 'Open')}</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsYearOpen(false);
+                      setActiveTab('student_upgrade');
+                    }}
+                    className="w-full mt-2 pt-2 border-t border-slate-100 text-[11px] font-khmer text-teal-700 hover:text-teal-900 font-bold text-left"
+                  >
+                    {t('គ្រប់គ្រងឆ្នាំសិក្សា / ឡើងថ្នាក់ →', 'Manage years / promotion →')}
+                  </button>
                 </div>
               )}
             </div>
