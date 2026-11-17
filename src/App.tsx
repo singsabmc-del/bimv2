@@ -81,7 +81,16 @@ function MainApp() {
     isVerifyInvoiceModalOpen,
     verifyInvoiceTarget,
     closeInvoiceVerification,
+    academicYearArchives,
+    switchAcademicYear,
   } = useApp();
+
+  // Is an older academic year open? (switched from the header year menu)
+  const activeAcademicYear = settings.academicYear || '2026-2027';
+  const latestAcademicYear = Array.from(
+    new Set([activeAcademicYear, ...Object.keys(academicYearArchives || {})])
+  ).sort((a, b) => b.localeCompare(a))[0];
+  const isViewingOldYear = activeAcademicYear !== latestAcademicYear;
 
   if (!isAuthenticated) {
     return <LoginView />;
@@ -145,6 +154,24 @@ function MainApp() {
 
         {/* Full-Width Dynamic Views Viewport matching 5 Flowchart Sections */}
         <main className="flex-1 p-3 sm:p-6 lg:p-8 print:p-0 w-full max-w-full overflow-x-hidden">
+          {isViewingOldYear && (
+            <div className="no-print mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 font-khmer">
+              <div className="text-sm text-rose-900">
+                <span className="font-bold">កំពុងមើលទិន្នន័យឆ្នាំសិក្សាចាស់ </span>
+                <span className="font-mono font-bold">{activeAcademicYear}</span>
+                <span className="text-rose-700 text-xs block sm:inline sm:ml-2">
+                  អាចមើល និងបោះពុម្ពបញ្ជីបាន · ឆ្នាំបច្ចុប្បន្នគឺ {latestAcademicYear}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => switchAcademicYear(latestAcademicYear)}
+                className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold cursor-pointer"
+              >
+                ត្រឡប់ទៅឆ្នាំ {latestAcademicYear}
+              </button>
+            </div>
+          )}
           {/* Section 1: Dashboard */}
           {(activeTab === 'overview' || activeTab === 'daily_report') && (
             <OverviewDashboard setActiveTab={setActiveTab} />
