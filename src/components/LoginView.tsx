@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { InstallAppButton } from './InstallAppButton';
 import {
   GraduationCap,
   Lock,
@@ -271,6 +272,7 @@ export const LoginView: React.FC = () => {
                   )}
                 </button>
               </form>
+              <div className="mt-3"><InstallAppButton variant="card" /></div>
 
               {/* Security & Support Note */}
               <div className="mt-6 pt-5 border-t border-slate-100 text-center">
