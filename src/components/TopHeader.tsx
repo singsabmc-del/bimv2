@@ -253,6 +253,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
     teacher_checkin: ['ចុះវត្តមានគ្រូ (Check In)', 'Attendance Check In'],
     teacher_leave: ['សំណើសុំច្បាប់', 'Leave Request'],
     revenue_student: ['បង់ថ្លៃសិក្សា', 'Payment Student'],
+    student_payment_history: ['ប្រវត្តិបង់ថ្លៃសិក្សា', 'Student Payment History'],
     student_fees: ['បង់ថ្លៃសិក្សា', 'Payment Student'],
     revenue_uniform: ['ឯកសណ្ឋាន', 'Uniform Payment'],
     uniform_sales: ['ឯកសណ្ឋាន', 'Uniform Payment'],

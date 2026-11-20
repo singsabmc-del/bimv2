@@ -86,6 +86,7 @@ export const NAV_TAB_IDS = [
   'income_statistics',
   'teacher_checkin',
   'teacher_leave',
+  'student_payment_history',
 ] as const;
 
 export type NavTab = (typeof NAV_TAB_IDS)[number];
@@ -316,6 +317,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           labelKhmer: 'បង់ថ្លៃសិក្សាសិស្ស',
           icon: DollarSign,
           activeMatch: ['revenue_student', 'student_fees'],
+        },
+        {
+          id: 'student_payment_history' as NavTab,
+          label: 'Student Payment History',
+          labelKhmer: 'ប្រវត្តិបង់ថ្លៃសិក្សា',
+          icon: History,
+          activeMatch: ['student_payment_history'],
         },
         {
           id: 'revenue_uniform' as NavTab,

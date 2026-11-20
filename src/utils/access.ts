@@ -22,7 +22,7 @@ const STUDENT_MGMT: NavTab[] = [
 const ACADEMIC: NavTab[] = ['academic_scores', 'academic_tracking', 'academic_booklet', 'academic_honor'];
 const TEACHER_MGMT: NavTab[] = ['teacher_list', 'teacher_info', 'teaching_schedule', 'teacher_subject', 'teacher_attendance', 'teacher_checkin', 'teacher_leave'];
 const REVENUE: NavTab[] = [
-  'revenue_student', 'student_fees', 'revenue_uniform', 'uniform_sales', 'uniform_history', 'revenue_transport',
+  'revenue_student', 'student_fees', 'student_payment_history', 'revenue_uniform', 'uniform_sales', 'uniform_history', 'revenue_transport',
   'school_bus', 'revenue_materials', 'pos', 'daily_materials', 'material_history', 'revenue_stall_fee', 'canteen_vendors',
 ];
 const MONTHLY_REPORTS: NavTab[] = ['report_tuition', 'report_uniform', 'report_transport', 'report_materials', 'report_stall_fee'];
@@ -31,7 +31,7 @@ const MONTHLY_REPORTS: NavTab[] = ['report_tuition', 'report_uniform', 'report_t
 export const ROLE_TABS: Record<UserRole, NavTab[] | null> = {
   admin: null,
   cashier: ['overview', 'teacher_checkin', 'teacher_leave', ...STUDENT_MGMT, ...REVENUE, 'daily_report'],
-  accountant: ['overview', ...TEACHER_MGMT, ...MONTHLY_REPORTS, 'income_statistics', 'system_settings'],
+  accountant: ['overview', ...TEACHER_MGMT, ...MONTHLY_REPORTS, 'student_payment_history', 'income_statistics', 'system_settings'],
   // Teacher: Check In is the front page; only their own class and their own records
   teacher: ['teacher_checkin', 'teacher_leave', 'student_list', 'official_roster', 'student_attendance', 'student_info', 'student_portal'],
   student: ['student_info', 'student_portal'],

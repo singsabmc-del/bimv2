@@ -19,6 +19,7 @@ import { MonthlyExcelReportView } from './components/reports/MonthlyExcelReportV
 import { canOpenTab, homeTabFor } from './utils/access';
 import { TeacherCheckInView } from './components/TeacherCheckInView';
 import { TeacherLeaveRequestView } from './components/TeacherLeaveRequestView';
+import { StudentPaymentHistoryView } from './components/StudentPaymentHistoryView';
 import { SystemSettingsView } from './components/SystemSettingsView';
 import { OfficialPrintReport } from './components/OfficialPrintReport';
 import { OfficialClassRosterView } from './components/OfficialClassRosterView';
@@ -291,6 +292,8 @@ function MainApp() {
               onOpenOfficialRoster={() => setActiveTab('student_list')}
             />
           )}
+
+          {activeTab === 'student_payment_history' && <StudentPaymentHistoryView />}
 
           {(activeTab === 'revenue_uniform' || activeTab === 'uniform_sales') && (
             <UniformSalesView onPrintReport={() => setIsPrintOpen(true)} />
