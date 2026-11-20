@@ -643,6 +643,7 @@ export interface TeacherRecord {
   status: 'active' | 'leave' | 'resigned';
   position?: string; // e.g. "Grade 1A", "Kindergarten 1", "គ្រូភាសាអង់គ្លេស"
   workStatus?: string; // e.g. "ពេញម៉ោង" (full time)
+  profile?: Record<string, any>; // Employee Profile Form details (addresses, education, skills…)
   branchId?: string;
   address?: string;
   salaryUSD?: number;
