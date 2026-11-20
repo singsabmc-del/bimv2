@@ -681,6 +681,15 @@ export interface TeacherLeaveRequest {
   decisionNote?: string;
 }
 
+/** A work shift (e.g. Morning 07:00–11:00) */
+export interface ShiftDef {
+  id: string;
+  name: string;
+  start: string; // HH:MM
+  end: string; // HH:MM
+  color?: string;
+}
+
 export interface TeacherCheckInData {
   records: TeacherCheckInRecord[];
   startTime: string; // school start, e.g. "07:00"
@@ -691,6 +700,10 @@ export interface TeacherCheckInData {
   leaveQuotas?: Record<string, number>;
   /** Working hours in one day (to turn hours into days) */
   hoursPerDay?: number;
+  /** Work shifts */
+  shifts?: ShiftDef[];
+  /** staffId → weekday (0=Sun … 6=Sat) → shift id or 'off' */
+  shiftAssignments?: Record<string, Record<number, string>>;
 }
 
 export interface SubjectItem {

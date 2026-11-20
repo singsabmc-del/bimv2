@@ -1,0 +1,47 @@
+// Staff work shifts: shift definitions + who works which shift on which weekday
+import type { TeacherCheckInData, ShiftDef } from '../types';
+
+export const WEEKDAYS = [
+  { d: 1, kh: 'ចន្ទ', en: 'Mon' },
+  { d: 2, kh: 'អង្គារ', en: 'Tue' },
+  { d: 3, kh: 'ពុធ', en: 'Wed' },
+  { d: 4, kh: 'ព្រហ', en: 'Thu' },
+  { d: 5, kh: 'សុក្រ', en: 'Fri' },
+  { d: 6, kh: 'សៅរ៍', en: 'Sat' },
+  { d: 0, kh: 'អាទិត្យ', en: 'Sun' },
+];
+
+/** Shifts used when none are saved yet */
+export const defaultShifts = (data: Pick<TeacherCheckInData, 'startTime' | 'endTime'>): ShiftDef[] => [
+  { id: 'full', name: 'ពេញថ្ងៃ (Full day)', start: data.startTime || '07:00', end: data.endTime || '16:00', color: 'teal' },
+  { id: 'morning', name: 'វេនព្រឹក (Morning)', start: '07:00', end: '11:00', color: 'amber' },
+  { id: 'afternoon', name: 'វេនរសៀល (Afternoon)', start: '13:00', end: '17:00', color: 'sky' },
+];
+
+export const shiftsOf = (data: TeacherCheckInData): ShiftDef[] =>
+  data.shifts && data.shifts.length ? data.shifts : defaultShifts(data);
+
+/** Default rule: full-day shift Monday–Friday, weekends off */
+const DEFAULT_DAY = (weekday: number) => (weekday === 0 || weekday === 6 ? 'off' : 'full');
+
+/** Shift id for one staff member on one weekday ('off' = day off) */
+export const assignedShiftId = (data: TeacherCheckInData, staffId: string, weekday: number): string =>
+  data.shiftAssignments?.[staffId]?.[weekday] ?? DEFAULT_DAY(weekday);
+
+/** The shift a staff member works on a date, or null on a day off */
+export const shiftFor = (data: TeacherCheckInData, staffId: string, dateISO: string): ShiftDef | null => {
+  const wd = new Date(dateISO + 'T00:00:00').getDay();
+  const id = assignedShiftId(data, staffId, wd);
+  if (id === 'off') return null;
+  const all = shiftsOf(data);
+  return all.find((s) => s.id === id) || all[0] || null;
+};
+
+export const SHIFT_COLORS: Record<string, string> = {
+  teal: 'bg-teal-100 text-teal-800 border-teal-200',
+  amber: 'bg-amber-100 text-amber-900 border-amber-200',
+  sky: 'bg-sky-100 text-sky-800 border-sky-200',
+  violet: 'bg-violet-100 text-violet-800 border-violet-200',
+  rose: 'bg-rose-100 text-rose-800 border-rose-200',
+  slate: 'bg-slate-100 text-slate-700 border-slate-200',
+};

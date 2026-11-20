@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import type { TeacherCheckInRecord, TeacherRecord } from '../types';
+import { shiftFor } from '../utils/shifts';
 import { LogIn, LogOut, Clock, Search, Printer, Settings2, CalendarDays, UserCheck, FileText, Trash2, ListChecks, Users, ClipboardCheck, Send } from 'lucide-react';
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -75,7 +76,11 @@ export const TeacherCheckInView: React.FC = () => {
     });
   };
 
-  const lateLimit = toMin(startTime) + (Number(lateGraceMinutes) || 0);
+  // Each staff member's own shift for the day (Work Shifts); a day off falls back to the school hours
+  const shiftOfDay = (staffId: string, d = date) => shiftFor(teacherCheckIn, staffId, d);
+  const startFor = (staffId: string) => shiftOfDay(staffId)?.start || startTime;
+  const endFor = (staffId: string) => shiftOfDay(staffId)?.end || endTime;
+  const lateLimitFor = (staffId: string) => toMin(startFor(staffId)) + (Number(lateGraceMinutes) || 0);
   const timeToUse = () => (manualTime && canManage ? manualTime : hhmm(new Date()));
 
   const selected = (teachers as TeacherRecord[]).find((t) => t.id === selectedId);
@@ -89,13 +94,14 @@ export const TeacherCheckInView: React.FC = () => {
   const doCheckIn = () => {
     if (!selected) return;
     const t = timeToUse();
-    const status: TeacherCheckInRecord['status'] = toMin(t) > lateLimit ? 'late' : 'on_time';
+    const status: TeacherCheckInRecord['status'] = toMin(t) > lateLimitFor(selected.id) ? 'late' : 'on_time';
     upsert(selected.id, { checkIn: t, status, note: note || selectedRec?.note });
     showNotification?.(`✅ ${selected.nameKhmer} ចូលម៉ោង ${t}${status === 'late' ? ' (មកយឺត)' : ''}`, 'success');
-    const lateBy = toMin(t) - toMin(startTime);
+    const lateBy = toMin(t) - toMin(startFor(selected.id));
     alertTelegram(status === 'late' ? '⚠️ គ្រូមកយឺត (Check In)' : '✅ គ្រូចូលធ្វើការ (Check In)', [
       `👩‍🏫 ${selected.nameKhmer} (${selected.position || selected.homeroomClassName || selected.teacherCode})`,
       `🕒 ម៉ោងចូល៖ ${t}${status === 'late' ? ` — យឺត ${lateBy} នាទី` : ' — ទាន់ម៉ោង'}`,
+      ...(shiftOfDay(selected.id) ? [`🗓️ វេន៖ ${shiftOfDay(selected.id)!.name} ${shiftOfDay(selected.id)!.start}–${shiftOfDay(selected.id)!.end}`] : []),
       ...(note ? [`📝 ${note}`] : []),
     ]);
     setNote('');
@@ -109,7 +115,7 @@ export const TeacherCheckInView: React.FC = () => {
     alertTelegram('👋 គ្រូចេញពីការងារ (Check Out)', [
       `👩‍🏫 ${selected.nameKhmer}`,
       `🕒 ចូល ${selectedRec?.checkIn || '-'} → ចេញ ${t} (${fmtDur(worked)})`,
-      ...(toMin(t) < toMin(endTime) ? [`⚠️ ចេញមុនម៉ោង ${endTime}`] : []),
+      ...(toMin(t) < toMin(endFor(selected.id)) ? [`⚠️ ចេញមុនម៉ោង ${endFor(selected.id)}`] : []),
     ]);
     setNote('');
   };
@@ -148,14 +154,16 @@ export const TeacherCheckInView: React.FC = () => {
   const monthly = useMemo(() => {
     const [y, m] = month.split('-').map(Number);
     const last = new Date(y, m, 0).getDate();
-    const workDays: string[] = [];
+    const days: string[] = [];
     for (let d = 1; d <= last; d++) {
-      const dt = new Date(y, m - 1, d);
-      const iso = isoOf(dt);
+      const iso = isoOf(new Date(y, m - 1, d));
       if (iso > today) break;
-      if (dt.getDay() !== 0 && dt.getDay() !== 6) workDays.push(iso);
+      days.push(iso);
     }
+    const weekdaysOnly = days.filter((d) => ![0, 6].includes(new Date(d + 'T00:00:00').getDay()));
     const rows = (teachers as TeacherRecord[]).filter((t) => !selfOnly || t.id === selectedId).map((t) => {
+      // Working days follow the staff member's shifts (days off are not counted as absent)
+      const workDays = days.filter((d) => !!shiftFor(teacherCheckIn, t.id, d));
       let present = 0, late = 0, leave = 0, mins = 0;
       workDays.forEach((d) => {
         const r = recOf(t.id, d);
@@ -168,10 +176,10 @@ export const TeacherCheckInView: React.FC = () => {
           if (w > 0) mins += w;
         }
       });
-      return { t, present, late, leave, absent: Math.max(0, workDays.length - present - leave), mins };
+      return { t, present, late, leave, absent: Math.max(0, workDays.length - present - leave), mins, workDays: workDays.length };
     });
-    return { workDays: workDays.length, rows };
-  }, [month, teachers, records, today, selfOnly, selectedId]);
+    return { workDays: weekdaysOnly.length, rows };
+  }, [month, teachers, records, today, selfOnly, selectedId, teacherCheckIn]);
 
   const dateLabel = (() => {
     const d = new Date(date + 'T00:00:00');
@@ -201,7 +209,17 @@ export const TeacherCheckInView: React.FC = () => {
           <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-white/5" />
           <div className="pointer-events-none absolute -bottom-20 -left-10 h-56 w-56 rounded-full bg-white/5" />
           <div className="relative text-base font-bold leading-tight">សួស្តី, {firstName || 'បុគ្គលិក'}</div>
-          <div className="relative text-[11px] text-teal-100">{dateLabel}</div>
+          <div className="relative text-[11px] text-teal-100">
+            {dateLabel}
+            {selected && (() => {
+              const sh = shiftOfDay(selected.id);
+              return (
+                <span className="ml-1.5 rounded-full bg-white/15 px-2 py-0.5 font-bold text-white">
+                  {sh ? `${sh.name.split(' (')[0]} ${sh.start}–${sh.end}` : 'ថ្ងៃឈប់សម្រាក'}
+                </span>
+              );
+            })()}
+          </div>
           <div className="relative mt-2 flex items-center justify-between gap-2">
             <div>
               <div className="font-mono text-4xl font-black tabular-nums sm:text-5xl">
@@ -290,7 +308,7 @@ export const TeacherCheckInView: React.FC = () => {
                 </div>
               ))}
             </div>
-            <div className="mt-2 text-[11px] text-slate-500">ម៉ោងធ្វើការសរុប៖ {fmtDur(mine.mins)} · ថ្ងៃធ្វើការ {monthly.workDays} ថ្ងៃ</div>
+            <div className="mt-2 text-[11px] text-slate-500">ម៉ោងធ្វើការសរុប៖ {fmtDur(mine.mins)} · ថ្ងៃធ្វើការតាមវេន {mine.workDays} ថ្ងៃ</div>
           </div>
         )}
       </div>
@@ -304,7 +322,7 @@ export const TeacherCheckInView: React.FC = () => {
         <div>
           <h2 className="font-display text-lg font-bold text-slate-900">ចុះវត្តមានគ្រូ (Attendance Check In)</h2>
           <p className="text-xs text-slate-500">
-            ម៉ោងចូលធ្វើការ {startTime} · យឺតបើលើស {lateGraceMinutes} នាទី · ម៉ោងចេញ {endTime}
+            មកយឺតបើលើសម៉ោងចូលវេន {lateGraceMinutes} នាទី · ម៉ោងតាមវេនរបស់បុគ្គលិកម្នាក់ៗ
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -335,8 +353,8 @@ export const TeacherCheckInView: React.FC = () => {
       {showSettings && canManage && (
         <div className="no-print grid grid-cols-1 gap-3 rounded-2xl border border-teal-200 bg-teal-50/50 p-4 sm:grid-cols-3">
           {[
-            ['ម៉ោងចូលធ្វើការ', 'startTime', 'time'],
-            ['ម៉ោងចេញ', 'endTime', 'time'],
+            ['ម៉ោងចូល (វេនពេញថ្ងៃលំនាំដើម)', 'startTime', 'time'],
+            ['ម៉ោងចេញ (វេនពេញថ្ងៃលំនាំដើម)', 'endTime', 'time'],
             ['អនុញ្ញាតយឺត (នាទី)', 'lateGraceMinutes', 'number'],
           ].map(([label, key, type]) => (
             <label key={key} className="flex flex-col gap-1 text-[11px] font-bold text-slate-600">
@@ -511,7 +529,7 @@ export const TeacherCheckInView: React.FC = () => {
               <table className="w-full border-collapse text-xs">
                 <thead>
                   <tr className="bg-amber-400 text-slate-900">
-                    {['ល.រ', 'ឈ្មោះ', 'តួនាទី', 'ម៉ោងចូល', 'ម៉ោងចេញ', 'រយៈពេល', 'ស្ថានភាព', 'កំណត់សម្គាល់'].map((h) => (
+                    {['ល.រ', 'ឈ្មោះ', 'តួនាទី', 'វេន', 'ម៉ោងចូល', 'ម៉ោងចេញ', 'រយៈពេល', 'ស្ថានភាព', 'កំណត់សម្គាល់'].map((h) => (
                       <th key={h} className="border-r border-amber-500 px-2 py-2 text-center font-bold">{h}</th>
                     ))}
                     {canManage && <th className="no-print px-2 py-2" />}
@@ -529,6 +547,9 @@ export const TeacherCheckInView: React.FC = () => {
                           <div className="text-[10px] text-slate-500">{t.nameEnglish}</div>
                         </td>
                         <td className="border-r border-slate-200 px-2 py-1.5 text-center">{t.position || t.homeroomClassName || ''}</td>
+                        <td className="border-r border-slate-200 px-2 py-1.5 text-center text-[11px]">
+                          {(() => { const sh = shiftOfDay(t.id); return sh ? <span>{sh.name.split(' (')[0]}<div className="font-mono text-[10px] text-slate-500">{sh.start}–{sh.end}</div></span> : <span className="text-slate-400">ឈប់</span>; })()}
+                        </td>
                         <td className={`border-r border-slate-200 px-2 py-1.5 text-center font-mono ${r?.status === 'late' ? 'font-bold text-amber-700' : ''}`}>{r?.checkIn || '-'}</td>
                         <td className="border-r border-slate-200 px-2 py-1.5 text-center font-mono">{r?.checkOut || '-'}</td>
                         <td className="border-r border-slate-200 px-2 py-1.5 text-center font-mono">{fmtDur(toMin(r?.checkOut) - toMin(r?.checkIn))}</td>
@@ -562,7 +583,7 @@ export const TeacherCheckInView: React.FC = () => {
             <div>
               <div className="font-muol text-sm text-slate-900">របាយការណ៍វត្តមានគ្រូប្រចាំខែ</div>
               <div className="text-[11px] text-slate-500">
-                {settings.schoolNameKhmer} · ថ្ងៃធ្វើការ (ចន្ទ–សុក្រ) {monthly.workDays} ថ្ងៃ
+                {settings.schoolNameKhmer} · ថ្ងៃធ្វើការគិតតាមវេនរបស់បុគ្គលិកម្នាក់ៗ
               </div>
             </div>
             <div className="no-print flex items-center gap-2">
@@ -576,7 +597,7 @@ export const TeacherCheckInView: React.FC = () => {
             <table className="w-full border-collapse text-xs">
               <thead>
                 <tr className="bg-amber-400 text-slate-900">
-                  {['ល.រ', 'ឈ្មោះ', 'តួនាទី', 'វត្តមាន', 'មកយឺត', 'សុំច្បាប់', 'អវត្តមាន', 'ម៉ោងធ្វើការសរុប'].map((h) => (
+                  {['ល.រ', 'ឈ្មោះ', 'តួនាទី', 'ថ្ងៃធ្វើការ', 'វត្តមាន', 'មកយឺត', 'សុំច្បាប់', 'អវត្តមាន', 'ម៉ោងធ្វើការសរុប'].map((h) => (
                     <th key={h} className="border-r border-amber-500 px-2 py-2 text-center font-bold">{h}</th>
                   ))}
                 </tr>
@@ -587,6 +608,7 @@ export const TeacherCheckInView: React.FC = () => {
                     <td className="border-r border-slate-200 px-2 py-1.5 text-center font-mono">{i + 1}</td>
                     <td className="border-r border-slate-200 px-2 py-1.5 font-bold">{r.t.nameKhmer}</td>
                     <td className="border-r border-slate-200 px-2 py-1.5 text-center">{r.t.position || ''}</td>
+                    <td className="border-r border-slate-200 px-2 py-1.5 text-center font-mono">{r.workDays}</td>
                     <td className="border-r border-slate-200 px-2 py-1.5 text-center font-mono text-emerald-700">{r.present}</td>
                     <td className="border-r border-slate-200 px-2 py-1.5 text-center font-mono text-amber-700">{r.late}</td>
                     <td className="border-r border-slate-200 px-2 py-1.5 text-center font-mono text-sky-700">{r.leave}</td>
