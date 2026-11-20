@@ -451,7 +451,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Sidebar Container — light teal design (v2) */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 flex w-64 flex-col justify-between border-r border-slate-200/80 bg-white text-slate-700 transition-transform duration-300 ease-in-out lg:translate-x-0 print:hidden ${
+        className={`app-sidebar fixed top-0 bottom-0 left-0 z-50 flex w-64 flex-col justify-between border-r border-slate-200/80 bg-white text-slate-700 transition-transform duration-300 ease-in-out lg:translate-x-0 print:hidden ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >

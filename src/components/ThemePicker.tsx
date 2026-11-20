@@ -2,7 +2,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Palette, Check, RotateCcw, Home, Users, Settings, Bell } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { ThemePrefs, DEFAULT_THEME, SKINS, BACKGROUNDS, loadTheme, saveTheme, applyTheme, backgroundColor } from '../utils/theme';
+import { ThemePrefs, DEFAULT_THEME, SKINS, BACKGROUNDS, SIDEBARS, loadTheme, saveTheme, applyTheme, backgroundColor, sidebarStyle } from '../utils/theme';
 
 export const ThemePicker: React.FC<{ open?: boolean; onOpenChange?: (v: boolean) => void; hideButton?: boolean }> = ({ open: openProp, onOpenChange, hideButton }) => {
   const { currentUser } = useApp();
@@ -103,6 +103,29 @@ export const ThemePicker: React.FC<{ open?: boolean; onOpenChange?: (v: boolean)
             })}
             <label title="ពណ៌ផ្ទាល់ខ្លួន" className={`${swatch} cursor-pointer overflow-hidden ${prefs.bg.startsWith('#') ? 'border-teal-600' : 'border-slate-200'}`} style={{ background: 'conic-gradient(#f87171,#fbbf24,#34d399,#60a5fa,#a78bfa,#f87171)' }}>
               <input type="color" value={backgroundColor(prefs)} onChange={(e) => update({ bg: e.target.value })} className="absolute inset-0 h-full w-full cursor-pointer opacity-0" />
+            </label>
+          </div>
+
+          {/* Sidebar colour */}
+          <div className="mb-1.5 text-[11px] font-bold text-slate-500">ពណ៌ម៉ឺនុយខាងឆ្វេង (Sidebar)</div>
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            {Object.entries(SIDEBARS).map(([k, sb]) => {
+              const look = sidebarStyle({ ...prefs, sidebar: k });
+              return (
+                <button
+                  key={k}
+                  type="button"
+                  title={sb.name}
+                  onClick={() => update({ sidebar: k })}
+                  className={`${swatch} ${prefs.sidebar === k ? 'border-teal-600' : 'border-slate-200'}`}
+                  style={{ background: look.bg }}
+                >
+                  {prefs.sidebar === k && <Check className={`absolute inset-0 m-auto h-4 w-4 ${look.tone === 'dark' ? 'text-white' : 'text-teal-700'}`} />}
+                </button>
+              );
+            })}
+            <label title="ពណ៌ផ្ទាល់ខ្លួន" className={`${swatch} cursor-pointer overflow-hidden ${(prefs.sidebar || '').startsWith('#') ? 'border-teal-600' : 'border-slate-200'}`} style={{ background: 'conic-gradient(#f87171,#fbbf24,#34d399,#60a5fa,#a78bfa,#f87171)' }}>
+              <input type="color" value={(prefs.sidebar || '').startsWith('#') ? prefs.sidebar : '#ffffff'} onChange={(e) => update({ sidebar: e.target.value })} className="absolute inset-0 h-full w-full cursor-pointer opacity-0" />
             </label>
           </div>
 

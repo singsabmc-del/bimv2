@@ -4,9 +4,10 @@ export interface ThemePrefs {
   bg: string; // key of BACKGROUNDS, or a hex colour
   icon: 'thin' | 'regular' | 'bold';
   iconChips: boolean; // menu icons on a soft coloured tile
+  sidebar: string; // key of SIDEBARS, or a hex colour
 }
 
-export const DEFAULT_THEME: ThemePrefs = { skin: 'teal', bg: 'mint', icon: 'regular', iconChips: false };
+export const DEFAULT_THEME: ThemePrefs = { skin: 'teal', bg: 'mint', icon: 'regular', iconChips: false, sidebar: 'white' };
 
 const SHADES = ['50', '100', '200', '300', '400', '500', '600', '700', '800', '900', '950'] as const;
 
@@ -32,6 +33,31 @@ export const BACKGROUNDS: Record<string, { name: string; color: string }> = {
   blush: { name: 'ផ្កាឈូកស្រាល', color: '#fbf4f5' },
   white: { name: 'ស', color: '#ffffff' },
   tint: { name: 'តាមពណ៌ Skin', color: 'skin' },
+};
+
+/** Side menu colours: light ones keep dark text, dark ones switch to light text */
+export const SIDEBARS: Record<string, { name: string }> = {
+  white: { name: 'ស' },
+  tint: { name: 'ស្រាលតាម Skin' },
+  skin: { name: 'Skin ចាស់' },
+  dark: { name: 'ខ្មៅ' },
+  navy: { name: 'ខៀវចាស់' },
+};
+
+/** Background (CSS) and tone of the side menu */
+export const sidebarStyle = (prefs: ThemePrefs): { bg: string; tone: 'light' | 'dark' } => {
+  const skin = SKINS[prefs.skin] || SKINS.teal;
+  const v = prefs.sidebar || 'white';
+  if (v.startsWith('#')) {
+    const n = parseInt(v.slice(1), 16);
+    const lum = (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+    return { bg: v, tone: lum < 0.55 ? 'dark' : 'light' };
+  }
+  if (v === 'tint') return { bg: skin.c[0], tone: 'light' };
+  if (v === 'skin') return { bg: `linear-gradient(180deg, ${skin.c[7]} 0%, ${skin.c[9]} 100%)`, tone: 'dark' };
+  if (v === 'dark') return { bg: '#0f172a', tone: 'dark' };
+  if (v === 'navy') return { bg: 'linear-gradient(180deg, #1e3a8a 0%, #172554 100%)', tone: 'dark' };
+  return { bg: '#ffffff', tone: 'light' };
 };
 
 const ICON_STROKE: Record<ThemePrefs['icon'], number> = { thin: 1.4, regular: 1.9, bold: 2.5 };
@@ -77,6 +103,9 @@ export const applyTheme = (prefs: ThemePrefs) => {
   root.style.setProperty('--icon-stroke', String(ICON_STROKE[prefs.icon] || 1.9));
   root.dataset.icon = prefs.icon;
   root.dataset.iconChips = prefs.iconChips ? 'on' : 'off';
+  const sb = sidebarStyle(prefs);
+  root.style.setProperty('--sidebar-bg', sb.bg);
+  root.dataset.sidebarTone = sb.tone;
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', skin.c[7]);
 };
