@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
+import { computeMonthlyFeeSummary } from '../utils/feeSummary';
 import { StudentFeeRecord, StudentFeePaymentItem, MONTH_NAMES, MONTH_NAMES_KH } from '../types';
 import {
   Search,
@@ -634,6 +635,8 @@ export const StudentFeesView: React.FC<StudentFeesViewProps> = ({ onPrintReport,
 
   const collectionRate = currentClass.targetCollectionRate;
   const totalCashCollected = currentClass.totalCollectedCash;
+  // Official summary follows the month chosen in the filter
+  const monthlySummary = computeMonthlyFeeSummary(currentClass.students || [], globalMonth, globalYear);
 
   return (
     <div className="flex flex-col lg:flex-row gap-5 items-start w-full">
@@ -1594,7 +1597,7 @@ export const StudentFeesView: React.FC<StudentFeesViewProps> = ({ onPrintReport,
             </tbody>
             <tfoot>
               <tr className="bg-amber-300 font-bold text-slate-900 border-t-2 border-amber-500">
-                <td colSpan={10} className="py-2.5 px-4 text-right border-r border-amber-400 uppercase tracking-wide font-khmer">
+                <td colSpan={currentUser.role === 'admin' ? 11 : 10} className="py-2.5 px-4 text-right border-r border-amber-400 uppercase tracking-wide font-khmer">
                   {t('សរុបទឹកប្រាក់ប្រមូលបាន (Total Collected)', 'Total Collected')}:
                 </td>
                 <td className="py-2.5 px-4 text-right font-mono tabular-nums text-base border-r border-amber-400 text-slate-950 font-black">
@@ -1635,7 +1638,7 @@ export const StudentFeesView: React.FC<StudentFeesViewProps> = ({ onPrintReport,
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {currentClass.summaryRows.map((row) => {
+              {monthlySummary.rows.map((row) => {
                 let textClass = 'text-slate-800';
                 if (row.id === 2 || row.id === 4) textClass = 'text-rose-700 font-semibold';
                 else if (row.id === 3) textClass = 'text-blue-700 font-semibold';
@@ -1674,7 +1677,7 @@ export const StudentFeesView: React.FC<StudentFeesViewProps> = ({ onPrintReport,
                   Grand Total Collected
                 </td>
                 <td className="py-2 px-4 text-right font-mono tabular-nums text-sm font-black">
-                  $ {totalCashCollected.toFixed(2)}
+                  $ {monthlySummary.totalCollected.toFixed(2)}
                 </td>
               </tr>
             </tfoot>
