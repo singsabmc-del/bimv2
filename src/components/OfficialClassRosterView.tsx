@@ -133,6 +133,8 @@ export const OfficialClassRosterView: React.FC = () => {
   const canEditRoster = permissions.canEdit && !isArchiveView;
   // Pay History is for staff who handle money (not teacher accounts)
   const canSeePayments = canOpenTab(currentUser.role, 'student_payment_history');
+  // Teacher accounts get a simplified, mobile-friendly layout (own classes only, no admin tools)
+  const isTeacher = currentUser.role === 'teacher';
   const [payHistoryStudent, setPayHistoryStudent] = useState<any>(null);
 
   // Mode: 'official_image' (the 15 students uploaded by user), or classId (1A, 1B, 2A...)
@@ -370,6 +372,159 @@ export const OfficialClassRosterView: React.FC = () => {
       homeroomTeacher
     );
   };
+
+  // Teachers never see the sample image roster — open their first class
+  useEffect(() => {
+    if (isTeacher && selectedRosterSource === 'official_image' && rosterClassList[0]) {
+      handleSelectSource(rosterClassList[0].classId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isTeacher, selectedRosterSource, rosterClassList]);
+
+  if (isTeacher) {
+    const q = searchFilter.trim().toLowerCase();
+    return (
+      <div className="space-y-3 font-khmer">
+        {selectedStudentForAdmission && (
+          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/50 p-3 no-print" onClick={() => setSelectedStudentForAdmission(null)}>
+            <div className="w-full max-w-4xl rounded-2xl bg-white p-3 shadow-2xl sm:p-5" onClick={(e) => e.stopPropagation()}>
+              <div className="mb-2 flex items-center justify-between">
+                <div className="text-sm font-bold text-slate-900">{selectedStudentForAdmission.name}</div>
+                <button onClick={() => setSelectedStudentForAdmission(null)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100"><X className="h-5 w-5" /></button>
+              </div>
+              <TeacherStudentDetail st={selectedStudentForAdmission} />
+            </div>
+          </div>
+        )}
+
+        {/* Compact header: class chips + quick tools */}
+        <div className="bg-white border border-slate-200 rounded-2xl p-3 shadow-2xs space-y-3 no-print">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <div className="text-[11px] text-slate-500">{t('ថ្នាក់របស់ខ្ញុំ', 'My classes')}</div>
+              <div className="text-base font-bold text-slate-900 truncate">{classNameTitle}</div>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button onClick={handleExportCSV} title="Export CSV" className="p-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 cursor-pointer">
+                <Download className="w-4 h-4" />
+              </button>
+              <button onClick={() => window.print()} title={t('បោះពុម្ពបញ្ជី', 'Print')} className="p-2.5 rounded-xl bg-slate-900 text-amber-400 hover:bg-slate-800 cursor-pointer">
+                <Printer className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {rosterClassList.length > 1 && (
+            <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-1 px-1">
+              {rosterClassList.map((cls) => {
+                const on = selectedRosterSource === cls.classId;
+                return (
+                  <button
+                    key={cls.classId}
+                    type="button"
+                    onClick={() => handleSelectSource(cls.classId)}
+                    className={`shrink-0 px-3 py-1.5 rounded-full border text-xs font-bold cursor-pointer ${on ? 'bg-teal-600 border-teal-600 text-white' : 'bg-white border-slate-200 text-slate-700'}`}
+                  >
+                    {cls.className} <span className={on ? 'text-white/80' : 'text-slate-400'}>· {cls.students.length}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="rounded-xl bg-slate-50 py-1.5"><div className="text-[10px] text-slate-500">{t('សរុប', 'Total')}</div><div className="text-base font-bold font-mono text-slate-900">{totalStudentsCount}</div></div>
+            <div className="rounded-xl bg-rose-50 py-1.5"><div className="text-[10px] text-rose-600">{t('ស្រី', 'Female')}</div><div className="text-base font-bold font-mono text-rose-700">{femaleCount}</div></div>
+            <div className="rounded-xl bg-blue-50 py-1.5"><div className="text-[10px] text-blue-600">{t('ប្រុស', 'Male')}</div><div className="text-base font-bold font-mono text-blue-700">{maleCount}</div></div>
+          </div>
+
+          <div className="relative">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+            <input
+              type="text"
+              placeholder={t('ស្វែងរកឈ្មោះ ឬលេខទូរស័ព្ទ...', 'Search name or phone...')}
+              value={searchFilter}
+              onChange={(e) => setSearchFilter(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+            />
+          </div>
+        </div>
+
+        {rosterClassList.length === 0 ? (
+          <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center text-sm text-slate-500">
+            {t('មិនទាន់មានថ្នាក់ដែលបានចាត់ឱ្យអ្នកទេ', 'No class is assigned to you yet')}
+          </div>
+        ) : (
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xs divide-y divide-slate-100 overflow-hidden no-print">
+            {filteredStudents.length === 0 ? (
+              <div className="p-8 text-center text-sm text-slate-400">{q ? t('រកមិនឃើញសិស្ស', 'No student found') : t('មិនទាន់មានសិស្សក្នុងថ្នាក់នេះ', 'No students in this class yet')}</div>
+            ) : (
+              filteredStudents.map((st, i) => (
+                <button
+                  key={st.id}
+                  type="button"
+                  onClick={() => setSelectedStudentForAdmission(st)}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-slate-50 cursor-pointer"
+                >
+                  <span className="w-7 shrink-0 text-center font-mono text-xs text-slate-400">{i + 1}</span>
+                  <span className={`w-9 h-9 shrink-0 rounded-full flex items-center justify-center text-sm font-bold ${st.gender === 'Female' ? 'bg-rose-100 text-rose-700' : 'bg-blue-100 text-blue-700'}`}>
+                    {st.name.trim().charAt(0)}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-bold text-slate-900 truncate">{st.name}</span>
+                    <span className="block text-[11px] text-slate-500 truncate">
+                      {st.latinName ? `${st.latinName} · ` : ''}{st.gender === 'Female' ? t('ស្រី', 'F') : t('ប្រុស', 'M')}{st.age ? ` · ${st.age} ${t('ឆ្នាំ', 'y')}` : ''}
+                    </span>
+                  </span>
+                  {st.phone && st.phone !== '-' && (
+                    <a
+                      href={`tel:${st.phone.replace(/\s+/g, '')}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="shrink-0 p-2 rounded-full bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                      title={st.phone}
+                    >
+                      <Phone className="w-4 h-4" />
+                    </a>
+                  )}
+                </button>
+              ))
+            )}
+          </div>
+        )}
+
+        {/* Print-only official list */}
+        <div className="hidden print:block text-black">
+          <div className="text-center mb-3">
+            <div className="font-muol text-base">{schoolNameKhmer}</div>
+            <div className="font-muol text-sm mt-1">បញ្ជីនាមសិស្ស · {classNameTitle}</div>
+            <div className="text-xs mt-1">ឆ្នាំសិក្សា៖ {academicYear} · គ្រូបន្ទុកថ្នាក់៖ {homeroomTeacher} · សរុប {totalStudentsCount} នាក់ (ស្រី {femaleCount})</div>
+          </div>
+          <table className="w-full border-collapse border border-black text-xs">
+            <thead>
+              <tr className="bg-[#fbb03b]">
+                {['ល.រ', 'ឈ្មោះ', 'ភេទ', 'ថ្ងៃកំណើត', 'អាសយដ្ឋាន', 'ទូរស័ព្ទ', 'អាណាព្យាបាល'].map((h) => (
+                  <th key={h} className="border border-black px-1.5 py-1">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {activeStudents.map((st, i) => (
+                <tr key={st.id}>
+                  <td className="border border-black px-1.5 py-1 text-center">{i + 1}</td>
+                  <td className="border border-black px-1.5 py-1 font-bold">{st.name}</td>
+                  <td className="border border-black px-1.5 py-1 text-center">{st.gender === 'Female' ? 'ស្រី' : 'ប្រុស'}</td>
+                  <td className="border border-black px-1.5 py-1 text-center">{st.dob}</td>
+                  <td className="border border-black px-1.5 py-1">{st.address}</td>
+                  <td className="border border-black px-1.5 py-1 text-center">{st.phone}</td>
+                  <td className="border border-black px-1.5 py-1">{st.guardianName}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -1671,6 +1826,32 @@ export const OfficialClassRosterView: React.FC = () => {
         onClose={() => setIsExcelImportOpen(false)}
         defaultTargetClassId={selectedRosterSource !== 'official_image' ? selectedRosterSource : '1A'}
       />
+    </div>
+  );
+};
+
+
+/** Simple read-only student card for teacher accounts. */
+const TeacherStudentDetail: React.FC<{ st: RosterStudentRow }> = ({ st }) => {
+  const rows: [string, string | number | undefined][] = [
+    ['អត្តលេខ', st.studentCode],
+    ['ឈ្មោះឡាតាំង', st.latinName],
+    ['ភេទ', st.gender === 'Female' ? 'ស្រី' : 'ប្រុស'],
+    ['ថ្ងៃខែឆ្នាំកំណើត', st.dob],
+    ['អាយុ', st.age],
+    ['អាសយដ្ឋាន', st.address],
+    ['អាណាព្យាបាល', st.guardianName],
+    ['លេខទូរស័ព្ទ', st.phone],
+    ['ផ្សេងៗ', st.note],
+  ];
+  return (
+    <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 font-khmer text-sm">
+      {rows.filter(([, v]) => v !== undefined && v !== '' && v !== '-').map(([k, v]) => (
+        <div key={k} className="flex gap-3 px-3 py-2">
+          <span className="w-32 shrink-0 text-slate-500">{k}</span>
+          <span className="font-bold text-slate-900 break-words">{k === 'លេខទូរស័ព្ទ' ? <a className="text-emerald-700" href={`tel:${String(v).replace(/\s+/g, '')}`}>{v}</a> : v}</span>
+        </div>
+      ))}
     </div>
   );
 };
