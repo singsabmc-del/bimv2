@@ -698,6 +698,8 @@ export interface TeacherCheckInData {
   leaveRequests?: TeacherLeaveRequest[];
   /** Leave allowance per type per year, in days (0 = no limit) */
   leaveQuotas?: Record<string, number>;
+  /** Managed leave types (name + days per year); when empty the built-in list is used */
+  leaveTypes?: { key: string; kh: string; en?: string; days: number; active?: boolean }[];
   /** Working hours in one day (to turn hours into days) */
   hoursPerDay?: number;
   /** Work shifts */
