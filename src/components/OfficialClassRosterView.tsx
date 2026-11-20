@@ -1,7 +1,10 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
+import { canOpenTab } from '../utils/access';
+import { StudentInvoiceHistoryTable } from './StudentInvoiceHistoryTable';
 import { StudentFeeRecord, StudentAdmissionData } from '../types';
 import {
+  Receipt,
   Printer,
   Download,
   Share2,
@@ -100,6 +103,7 @@ export const OfficialClassRosterView: React.FC = () => {
     allUsers,
     updateClassTeacher,
     academicYearArchives,
+    currentUser,
   } = useApp();
 
   // Academic year shown in this roster. An archived (old) year is shown read-only straight from its
@@ -125,6 +129,9 @@ export const OfficialClassRosterView: React.FC = () => {
       .filter((c) => currentBranchId === 'all' || (c.branchId || 'branch-central') === currentBranchId);
   }, [archiveForRoster, orderedClassList, currentBranchId]);
   const canEditRoster = permissions.canEdit && !isArchiveView;
+  // Pay History is for staff who handle money (not teacher accounts)
+  const canSeePayments = canOpenTab(currentUser.role, 'student_payment_history');
+  const [payHistoryStudent, setPayHistoryStudent] = useState<any>(null);
 
   // Mode: 'official_image' (the 15 students uploaded by user), or classId (1A, 1B, 2A...)
   const [selectedRosterSource, setSelectedRosterSource] = useState<string>('official_image');
@@ -361,6 +368,17 @@ export const OfficialClassRosterView: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {payHistoryStudent && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/50 p-3 no-print" onClick={() => setPayHistoryStudent(null)}>
+          <div className="w-full max-w-5xl rounded-2xl bg-white p-4 shadow-2xl sm:p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-3 flex items-center justify-between">
+              <div className="font-khmer text-sm font-bold text-slate-900">ប្រវត្តិបង់ប្រាក់ · {payHistoryStudent.name}</div>
+              <button onClick={() => setPayHistoryStudent(null)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100"><X className="h-5 w-5" /></button>
+            </div>
+            <StudentInvoiceHistoryTable student={payHistoryStudent} className={classNameTitle} showTitle={true} />
+          </div>
+        </div>
+      )}
       {/* 1. Top Controls Toolbar */}
       <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs no-print space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -836,6 +854,17 @@ export const OfficialClassRosterView: React.FC = () => {
                                 <FileText className="w-3.5 h-3.5 text-amber-800" />
                                 <span>ពាក្យសុំ</span>
                               </button>
+                              {canSeePayments && st.originalStudent && (
+                                <button
+                                  type="button"
+                                  onClick={() => setPayHistoryStudent(st.originalStudent)}
+                                  className="mt-1 px-2 py-1 bg-teal-50 hover:bg-teal-100 text-teal-800 rounded-lg text-[11px] font-bold font-khmer transition-all flex items-center justify-center gap-1 mx-auto cursor-pointer"
+                                  title="ប្រវត្តិបង់ប្រាក់ (Pay History)"
+                                >
+                                  <Receipt className="w-3.5 h-3.5" />
+                                  <span>បង់ប្រាក់</span>
+                                </button>
+                              )}
                             </td>
                           )}
                         </tr>
