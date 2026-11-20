@@ -468,6 +468,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return INITIAL_USERS[0];
   });
 
+  // Keep the logged-in account up to date when an admin edits it (role, class, staff link…)
+  useEffect(() => {
+    const latest = users.find((u) => u.id === currentUser.id);
+    if (latest && JSON.stringify(latest) !== JSON.stringify(currentUser)) {
+      setCurrentUser(latest);
+      try {
+        localStorage.setItem(`${STORAGE_PREFIX}_CURRENT_USER`, JSON.stringify(latest));
+        localStorage.setItem('BIM_RANGSEI_PERMANENT_CURRENT_USER', JSON.stringify(latest));
+      } catch {}
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [users]);
+
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     try {
       if (typeof window === 'undefined') return true;
@@ -478,10 +491,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (explicitLogout) {
         return false;
       }
-      // If session exists or user is saved, or default for active applet session
-      return true;
+      // Only a login made on THIS device opens the app (no automatic login on a new device)
+      return (
+        localStorage.getItem(`${STORAGE_PREFIX}_AUTH_SESSION`) === 'true' ||
+        localStorage.getItem('BIM_RANGSEI_PERMANENT_AUTH_SESSION') === 'true'
+      );
     } catch {
-      return true;
+      return false;
     }
   });
 
@@ -1324,11 +1340,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (serverData.busAttendance && Array.isArray(serverData.busAttendance)) {
             setBusAttendance(serverData.busAttendance);
           }
-          if (serverData.currentUser && serverData.currentUser.id) {
-            setCurrentUser(serverData.currentUser);
-            localStorage.setItem(`${STORAGE_PREFIX}_CURRENT_USER`, JSON.stringify(serverData.currentUser));
-            localStorage.setItem('BIM_RANGSEI_PERMANENT_CURRENT_USER', JSON.stringify(serverData.currentUser));
-          }
+          // The logged-in account belongs to this device only: never take it from the shared server state
           if (serverData.settings) {
             setSettings(serverData.settings);
           }
