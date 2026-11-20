@@ -1,5 +1,6 @@
 import express from 'express';
 import { mergeSharedSections } from './src/utils/stateMerge.js';
+import { mergeFullState } from './src/utils/fullStateMerge.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
@@ -394,6 +395,16 @@ export async function createApp() {
     }
   });
 
+  // Version of the saved state (cheap check before downloading everything)
+  app.get('/api/state/version', async (req, res) => {
+    try {
+      const result = await fetchSchoolState();
+      return res.json({ success: true, lastSavedAt: Number((result.data as any)?.lastSavedAt) || null });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
   // Just the shared parts (attendance, check-ins, leave) — polled by open apps to stay in step
   app.get('/api/state/shared', async (req, res) => {
     try {
@@ -413,9 +424,13 @@ export async function createApp() {
       }
       // Parts written by many devices at once (attendance, check-ins, leave) are merged with
       // what is already stored, so one device's save does not wipe another device's entries.
+      let prevSavedAt: number | null = null;
       try {
         const stored = await fetchSchoolState();
-        if (stored?.data) payload = mergeSharedSections(stored.data, payload);
+        if (stored?.data) {
+          prevSavedAt = Number(stored.data.lastSavedAt) || null;
+          payload = mergeSharedSections(stored.data, mergeFullState(stored.data, payload));
+        }
       } catch {}
       const saveResult = await saveSchoolState(payload);
       return res.json({
@@ -424,6 +439,9 @@ export async function createApp() {
         supabaseError: saveResult.supabaseError,
         savedAt: saveResult.savedAt,
         shared: { syncedStore: payload.syncedStore, teacherCheckIn: payload.teacherCheckIn },
+        // lets the app know whether someone else saved since it last loaded
+        prevSavedAt,
+        lastSavedAt: payload.lastSavedAt,
       });
     } catch (err: any) {
       console.error('Error saving state:', err);

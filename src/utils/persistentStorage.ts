@@ -1,3 +1,4 @@
+import { stampForSync } from './fullStateMerge';
 /**
  * Multi-tier Persistent Storage Adapter for BIM Rangsei School Management
  * 
@@ -185,6 +186,7 @@ export function getStoredItemWithFallback<T>(primaryKey: string, legacyKeySuffix
  * - Server REST endpoint /api/state
  */
 let debounceTimeout: any = null;
+
 export function syncStateToServer(stateBundle: any): void {
   if (typeof window === 'undefined' || !stateBundle) return;
 
@@ -218,9 +220,15 @@ export function syncStateToServer(stateBundle: any): void {
       const res = await fetch('/api/state', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(bundleWithTimestamp),
+        // changed items are time-stamped so the server can merge with other people's saves
+        body: JSON.stringify(stampForSync(bundleWithTimestamp)),
       });
       const json: any = await res.json().catch(() => ({}));
+      if (res.ok) {
+        try {
+          window.dispatchEvent(new CustomEvent('bim-post-result', { detail: { prevSavedAt: json.prevSavedAt, lastSavedAt: json.lastSavedAt } }));
+        } catch {}
+      }
       // Entries other devices saved meanwhile (attendance, check-ins, leave) come back merged
       if (res.ok && json.shared) {
         try {
