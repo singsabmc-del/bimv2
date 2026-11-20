@@ -252,7 +252,16 @@ function MainApp() {
           )}
 
           {(activeTab === 'student_info' || activeTab === 'student_portal') && (
-            <StudentPortalView />
+            <div className="space-y-4">
+              {currentUser?.role !== 'student' && (
+                <StudentFeesView
+                  toolsOnly
+                  onPrintReport={() => setIsPrintOpen(true)}
+                  onOpenOfficialRoster={() => setActiveTab('student_list')}
+                />
+              )}
+              <StudentPortalView />
+            </div>
           )}
 
           {/* Section 2b: Academic & Results */}

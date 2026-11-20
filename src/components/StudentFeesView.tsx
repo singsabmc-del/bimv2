@@ -47,6 +47,8 @@ import { InvoiceQRCode } from './InvoiceQRCode';
 interface StudentFeesViewProps {
   onPrintReport?: () => void;
   onOpenOfficialRoster?: () => void;
+  /** Only the student-management toolbar + its modals (Student Information page). */
+  toolsOnly?: boolean;
 }
 
 // 12 Months in the Cambodian School Academic Year
@@ -108,7 +110,7 @@ const toSchoolDate = (isoStr?: string): string => {
   return isoStr;
 };
 
-export const StudentFeesView: React.FC<StudentFeesViewProps> = ({ onPrintReport, onOpenOfficialRoster }) => {
+export const StudentFeesView: React.FC<StudentFeesViewProps> = ({ onPrintReport, onOpenOfficialRoster, toolsOnly = false }) => {
   const {
     classData,
     orderedClassList,
@@ -638,6 +640,492 @@ export const StudentFeesView: React.FC<StudentFeesViewProps> = ({ onPrintReport,
   // Official summary follows the month chosen in the filter
   const monthlySummary = computeMonthlyFeeSummary(currentClass.students || [], globalMonth, globalYear);
 
+  const studentToolButtons = (
+    <>
+      {onOpenOfficialRoster && (
+        <button
+          onClick={onOpenOfficialRoster}
+          className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-2 sm:py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 hover:text-indigo-800 rounded-xl border border-indigo-200 transition-colors text-xs font-bold font-khmer shadow-2xs"
+          title="បើកបញ្ជីនាមសិស្សតាមថ្នាក់ ជាទម្រង់ផ្លូវការ (MoEYS Official Class Roster)"
+        >
+          <FileSpreadsheet className="w-4 h-4 text-indigo-600 shrink-0" />
+          <span className="hidden sm:inline">{t('បញ្ជីនាមសិស្សផ្លូវការ', 'Official Roster')}</span>
+        </button>
+      )}
+
+      {onPrintReport && (
+        <button
+          onClick={onPrintReport}
+          className="p-2 sm:p-2.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl border border-slate-200 transition-colors"
+          title="Print Official Document"
+        >
+          <Printer className="w-4 h-4" />
+        </button>
+      )}
+
+      <button
+        type="button"
+        onClick={() => openInvoiceVerification()}
+        className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-2 sm:py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl border border-emerald-200 transition-colors text-xs font-bold font-khmer shadow-2xs cursor-pointer"
+        title={t('ផ្ទៀងផ្ទាត់វិក្កយបត្រតាម QR Code', 'Verify Invoice via QR Code')}
+      >
+        <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+        <span className="hidden sm:inline">{t('ផ្ទៀងផ្ទាត់ QR', 'Verify Invoice')}</span>
+      </button>
+
+      {permissions.canEdit && (
+        <button
+          type="button"
+          onClick={() => setIsPromoteModalOpen(true)}
+          className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-2 sm:py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold font-khmer shadow-2xs transition-all text-xs cursor-pointer"
+          title={t('ឡើងថ្នាក់សិស្សតាមថ្នាក់ (Promote Student by Class)', 'Promote Students by Class')}
+        >
+          <GraduationCap className="w-4 h-4 shrink-0 text-white" />
+          <span className="hidden sm:inline">{t('ឡើងថ្នាក់សិស្ស', 'Promote Students')}</span>
+        </button>
+      )}
+
+      {permissions.canEdit && (
+        <button
+          type="button"
+          onClick={() => handleOpenStopModal()}
+          className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-2 sm:py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 hover:text-rose-800 rounded-xl border border-rose-200 transition-colors text-xs font-bold font-khmer shadow-2xs cursor-pointer"
+          title={t('អាប់ដែតសិស្សឈប់រៀន / ផ្អាកការសិក្សា', 'Update Stopped / Dropped Students')}
+        >
+          <UserX className="w-4 h-4 text-rose-600 shrink-0" />
+          <span className="hidden sm:inline">{t('អាប់ដែតសិស្សឈប់', 'Stopped Students')}</span>
+          {currentClass.students.filter((s) => s.feesGroup.toLowerCase().includes('stop')).length > 0 && (
+            <span className="px-1.5 py-0.2 rounded-full bg-rose-200 text-rose-900 text-[10px] font-mono font-bold">
+              {currentClass.students.filter((s) => s.feesGroup.toLowerCase().includes('stop')).length}
+            </span>
+          )}
+        </button>
+      )}
+
+      {permissions.canEdit && (
+        <button
+          type="button"
+          onClick={() => setIsExcelImportModalOpen(true)}
+          className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-2 sm:py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs font-khmer transition-all shadow-xs cursor-pointer"
+          title={t('នាំចូលទិន្នន័យសិស្សពី Excel (Paste from Excel)', 'Import from Excel')}
+        >
+          <FileSpreadsheet className="w-4 h-4 shrink-0 text-white" />
+          <span className="hidden sm:inline">{t('នាំចូលពី Excel', 'Import from Excel')}</span>
+        </button>
+      )}
+
+      {permissions.canEdit && (
+        <button
+          onClick={() => setIsAddModalOpen(true)}
+          className="flex items-center gap-1.5 px-2.5 sm:px-4 py-2 sm:py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl text-xs font-khmer transition-all shadow-xs cursor-pointer"
+          title={t('ចុះឈ្មោះសិស្សថ្មី', 'Enroll Student')}
+        >
+          <Plus className="w-4 h-4 shrink-0" />
+          <span className="hidden sm:inline">{t('ចុះឈ្មោះសិស្សថ្មី', 'Enroll Student')}</span>
+        </button>
+      )}
+    </>
+  );
+
+  const studentToolModals = (
+    <>
+    {/* ADD / ENROLL STUDENT MODAL (Correct input types) */}
+    {isAddModalOpen && (
+      <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 text-xs">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <h3 className="font-bold text-slate-900 text-base font-khmer">
+              {t('ចុះឈ្មោះសិស្សថ្មី', 'Enroll New Student')} ({currentClass.className})
+            </h3>
+            <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <form onSubmit={handleCreateStudent} className="mt-4 space-y-3.5">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1 font-khmer">ឈ្មោះសិស្ស (Khmer) *</label>
+                <input
+                  type="text"
+                  value={newStudentName}
+                  onChange={(e) => setNewStudentName(e.target.value)}
+                  placeholder="ឧ. សុខ ចាន់ថា"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg font-khmer font-bold"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Latin Name</label>
+                <input
+                  type="text"
+                  value={newStudentLatin}
+                  onChange={(e) => setNewStudentLatin(e.target.value)}
+                  placeholder="Sok Chantha"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg font-sans"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1 font-khmer">ភេទ *</label>
+                <select
+                  value={newStudentGender}
+                  onChange={(e) => setNewStudentGender(e.target.value as any)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                >
+                  <option value="Man">ប្រុស (Man)</option>
+                  <option value="Female">ស្រី (Female)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Note *</label>
+                <select
+                  value={newStudentNote}
+                  onChange={(e) => setNewStudentNote(e.target.value as any)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                >
+                  <option value="New">New (សិស្សថ្មី)</option>
+                  <option value="Old">Old (សិស្សចាស់)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Case *</label>
+                <select
+                  value={newStudentCase}
+                  onChange={(e) => setNewStudentCase(e.target.value as any)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                >
+                  <option value="Full">Full (100%)</option>
+                  <option value="Contribute">Contribute</option>
+                  <option value="50%">50%</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1 font-khmer">ថ្ងៃចូលរៀន (Start Date)</label>
+                <input
+                  type="date"
+                  value={newStudentStartDate}
+                  onChange={(e) => setNewStudentStartDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg font-mono"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1 font-khmer">ថ្ងៃបង់ប្រាក់ (Payment Date)</label>
+                <input
+                  type="date"
+                  value={newStudentPaymentDate}
+                  onChange={(e) => setNewStudentPaymentDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg font-mono"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Paid By</label>
+                <select
+                  value={newStudentPaidBy}
+                  onChange={(e) => setNewStudentPaidBy(e.target.value as any)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg font-mono"
+                >
+                  <option value="ABA">ABA</option>
+                  <option value="AC">AC (ACLEDA)</option>
+                  <option value="Cash">Cash</option>
+                  <option value="$ -">$ - (Unpaid)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Cash ($ USD)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  inputMode="decimal"
+                  value={newStudentCash}
+                  onChange={(e) => setNewStudentCash(Number(e.target.value))}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg font-mono font-bold"
+                />
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIsAddModalOpen(false)}
+                className="px-4 py-2 text-slate-600 hover:text-slate-800 font-medium font-khmer"
+              >
+                បោះបង់
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-bold font-khmer"
+              >
+                រក្សាទុកសិស្សថ្មី
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    )}
+    {/* STOP / REACTIVATE STUDENT MODAL */}
+    {isStopModalOpen && (
+      <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+        <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 text-xs">
+          {/* Modal Header */}
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center shadow-2xs">
+                <UserX className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-900 text-base font-khmer">
+                  {t('អាប់ដែតស្ថានភាពសិស្សឈប់ / ចូលរៀនវិញ', 'Update Student Stopped / Active Status')}
+                </h3>
+                <div className="text-[11px] text-slate-500 font-khmer">
+                  ថ្នាក់រៀន៖ <span className="font-bold text-slate-800">{currentClass.className}</span>
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setIsStopModalOpen(false);
+                setStopStudentId(null);
+              }}
+              className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <form onSubmit={handleConfirmStopAction} className="mt-4 space-y-4 font-khmer">
+            {/* Student Selector */}
+            <div>
+              <label className="block text-slate-700 font-semibold mb-1">
+                ជ្រើសរើសសិស្ស (Select Student) *
+              </label>
+              <select
+                value={stopStudentId || ''}
+                onChange={(e) => {
+                  const sid = Number(e.target.value);
+                  setStopStudentId(sid);
+                  const found = currentClass.students.find((s) => s.id === sid);
+                  if (found) {
+                    const isSt = found.feesGroup.toLowerCase().includes('stop');
+                    setStopActionType(isSt ? 'reactivate' : 'stop');
+                    if (found.paymentDate && !found.paymentDate.includes('-202')) {
+                      setStopReason(found.paymentDate);
+                    }
+                  }
+                }}
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl font-khmer font-bold text-xs bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+                required
+              >
+                {currentClass.students.map((st) => {
+                  const isSt = st.feesGroup.toLowerCase().includes('stop');
+                  return (
+                    <option key={st.id} value={st.id}>
+                      {st.name} {st.latinName ? `(${st.latinName})` : ''} · {st.studentCode} · {isSt ? '【ឈប់រៀន - Stopped】' : `【កំពុងរៀន - ${st.feesGroup}】`}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
+            {/* Action Type Toggle */}
+            <div>
+              <label className="block text-slate-700 font-semibold mb-1.5">
+                សកម្មភាពប្រតិបត្តិការ (Action) *
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setStopActionType('stop')}
+                  className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                    stopActionType === 'stop'
+                      ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
+                      : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
+                  }`}
+                >
+                  <UserMinus className="w-4 h-4" />
+                  <span>សិស្សឈប់រៀន (Mark Stopped)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setStopActionType('reactivate')}
+                  className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                    stopActionType === 'reactivate'
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                      : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
+                  }`}
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  <span>ចូលរៀនឡើងវិញ (Reactivate)</span>
+                </button>
+              </div>
+            </div>
+
+            {stopActionType === 'stop' ? (
+              <>
+                {/* Preset Reasons */}
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">
+                    មូលហេតុឈប់ ឬ ប្តូរថ្នាក់ (Reason / Note) *
+                  </label>
+                  <div className="grid grid-cols-2 gap-1.5 mb-2">
+                    {[
+                      'ឈប់រៀន',
+                      'ប្ដូរទៅថ្នាក់ទី១ក',
+                      'ប្ដូរទៅថ្នាក់ទី២ក',
+                      'ប្ដូរទៅសាលាផ្សេង',
+                      'ផ្លាស់ប្តូរទីលំនៅ',
+                      'ព្យួរការសិក្សា',
+                    ].map((preset) => (
+                      <button
+                        type="button"
+                        key={preset}
+                        onClick={() => {
+                          setStopReason(preset);
+                          setStopCustomNote('');
+                        }}
+                        className={`px-2.5 py-1.5 rounded-lg border text-[11px] text-left transition-all ${
+                          stopReason === preset && !stopCustomNote
+                            ? 'bg-rose-50 text-rose-900 border-rose-300 font-bold'
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        {preset}
+                      </button>
+                    ))}
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="ឬសរសេរមូលហេតុផ្សេងៗនៅទីនេះ (Custom reason/note)..."
+                    value={stopCustomNote}
+                    onChange={(e) => setStopCustomNote(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl font-khmer text-xs focus:ring-1 focus:ring-rose-500"
+                  />
+                </div>
+
+                {/* Effective Date */}
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">
+                    កាលបរិច្ឆេទឈប់រៀន (Stop Date) *
+                  </label>
+                  <input
+                    type="date"
+                    value={stopDate}
+                    onChange={(e) => setStopDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl font-mono text-xs"
+                    required
+                  />
+                </div>
+
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 leading-relaxed">
+                  ℹ️ នៅពេលកំណត់ជា <strong className="text-rose-700">សិស្សឈប់រៀន</strong> ប្រព័ន្ធនឹងរាប់សិស្សនេះចូលក្នុងជួរទី ២ នៃតារាងសង្ខេប (សិស្សឈប់រៀនក្នុងខែ) ដោយស្វ័យប្រវត្តិ។
+                </div>
+              </>
+            ) : (
+              <>
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">
+                    កាលបរិច្ឆេទចូលរៀនឡើងវិញ (Resumption Date) *
+                  </label>
+                  <input
+                    type="date"
+                    value={stopDate}
+                    onChange={(e) => setStopDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl font-mono text-xs"
+                    required
+                  />
+                </div>
+
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-[11px] text-emerald-900 leading-relaxed">
+                  ℹ️ សិស្សនឹងត្រូវបានកំណត់ជាសកម្មក្នុងខែ <strong className="text-emerald-800">{globalMonth} {globalYear}</strong> ឡើងវិញ ហើយអាចកត់ត្រាការបង់ប្រាក់ថ្លៃសិក្សាជាធម្មតា។
+                </div>
+              </>
+            )}
+
+            {/* Submit Buttons */}
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsStopModalOpen(false);
+                  setStopStudentId(null);
+                }}
+                className="px-4 py-2 text-slate-600 hover:text-slate-800 font-medium font-khmer"
+              >
+                បោះបង់
+              </button>
+              <button
+                type="submit"
+                className={`px-5 py-2 text-white rounded-xl font-bold font-khmer shadow-xs transition-all ${
+                  stopActionType === 'stop'
+                    ? 'bg-rose-600 hover:bg-rose-700'
+                    : 'bg-emerald-600 hover:bg-emerald-700'
+                }`}
+              >
+                {stopActionType === 'stop' ? 'បញ្ជាក់សិស្សឈប់' : 'បញ្ជាក់ចូលរៀនវិញ'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    )}
+
+    {/* Promotion Modal (ឡើងថ្នាក់សិស្សតាមថ្នាក់) */}
+    <PromoteStudentsModal
+      isOpen={isPromoteModalOpen}
+      onClose={() => setIsPromoteModalOpen(false)}
+      defaultSourceClassId={currentClass.classId}
+    />
+
+    {/* Class & Academic Month Drag-and-Drop Manager Modal */}
+    <ClassMonthManagerModal
+      isOpen={isManagerModalOpen}
+      onClose={() => setIsManagerModalOpen(false)}
+      initialTab={managerInitialTab}
+    />
+
+    {/* Excel Student Import Modal (នាំចូលសិស្សពី Excel ផ្គូផ្គងជួរឈរស្វ័យប្រវត្តិ) */}
+    <ExcelStudentImportModal
+      isOpen={isExcelImportModalOpen}
+      onClose={() => setIsExcelImportModalOpen(false)}
+      defaultTargetClassId={currentClass.classId}
+    />
+    </>
+  );
+
+  if (toolsOnly) {
+    const stoppedCount = currentClass.students.filter((s) => s.feesGroup.toLowerCase().includes('stop')).length;
+    return (
+      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-2xs no-print">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="font-khmer">
+            <div className="text-sm font-bold text-slate-900">{t('ឧបករណ៍គ្រប់គ្រងសិស្ស', 'Student Management Tools')}</div>
+            <div className="text-[11px] text-slate-500">
+              {t('ថ្នាក់', 'Class')}: <span className="font-bold text-indigo-700">{currentClass.className}</span>
+              {' · '}{currentClass.students.length} {t('នាក់', 'students')}
+              {stoppedCount > 0 && <span className="text-rose-600"> · {stoppedCount} {t('ឈប់', 'stopped')}</span>}
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">{studentToolButtons}</div>
+        </div>
+        {studentToolModals}
+      </div>
+    );
+  }
+
+
   return (
     <div className="flex flex-col lg:flex-row gap-5 items-start w-full">
       {/* 1. VERTICAL SLICE: CLASS SELECTOR RAIL */}
@@ -879,88 +1367,6 @@ export const StudentFeesView: React.FC<StudentFeesViewProps> = ({ onPrintReport,
             </div>
 
             <div className="flex items-center gap-1.5 sm:gap-2">
-              {onOpenOfficialRoster && (
-                <button
-                  onClick={onOpenOfficialRoster}
-                  className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-2 sm:py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 hover:text-indigo-800 rounded-xl border border-indigo-200 transition-colors text-xs font-bold font-khmer shadow-2xs"
-                  title="បើកបញ្ជីនាមសិស្សតាមថ្នាក់ ជាទម្រង់ផ្លូវការ (MoEYS Official Class Roster)"
-                >
-                  <FileSpreadsheet className="w-4 h-4 text-indigo-600 shrink-0" />
-                  <span className="hidden sm:inline">{t('បញ្ជីនាមសិស្សផ្លូវការ', 'Official Roster')}</span>
-                </button>
-              )}
-
-              {onPrintReport && (
-                <button
-                  onClick={onPrintReport}
-                  className="p-2 sm:p-2.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl border border-slate-200 transition-colors"
-                  title="Print Official Document"
-                >
-                  <Printer className="w-4 h-4" />
-                </button>
-              )}
-
-              <button
-                type="button"
-                onClick={() => openInvoiceVerification()}
-                className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-2 sm:py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl border border-emerald-200 transition-colors text-xs font-bold font-khmer shadow-2xs cursor-pointer"
-                title={t('ផ្ទៀងផ្ទាត់វិក្កយបត្រតាម QR Code', 'Verify Invoice via QR Code')}
-              >
-                <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span className="hidden sm:inline">{t('ផ្ទៀងផ្ទាត់ QR', 'Verify Invoice')}</span>
-              </button>
-
-              {permissions.canEdit && (
-                <button
-                  type="button"
-                  onClick={() => setIsPromoteModalOpen(true)}
-                  className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-2 sm:py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold font-khmer shadow-2xs transition-all text-xs cursor-pointer"
-                  title={t('ឡើងថ្នាក់សិស្សតាមថ្នាក់ (Promote Student by Class)', 'Promote Students by Class')}
-                >
-                  <GraduationCap className="w-4 h-4 shrink-0 text-white" />
-                  <span className="hidden sm:inline">{t('ឡើងថ្នាក់សិស្ស', 'Promote Students')}</span>
-                </button>
-              )}
-
-              {permissions.canEdit && (
-                <button
-                  type="button"
-                  onClick={() => handleOpenStopModal()}
-                  className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-2 sm:py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 hover:text-rose-800 rounded-xl border border-rose-200 transition-colors text-xs font-bold font-khmer shadow-2xs cursor-pointer"
-                  title={t('អាប់ដែតសិស្សឈប់រៀន / ផ្អាកការសិក្សា', 'Update Stopped / Dropped Students')}
-                >
-                  <UserX className="w-4 h-4 text-rose-600 shrink-0" />
-                  <span className="hidden sm:inline">{t('អាប់ដែតសិស្សឈប់', 'Stopped Students')}</span>
-                  {currentClass.students.filter((s) => s.feesGroup.toLowerCase().includes('stop')).length > 0 && (
-                    <span className="px-1.5 py-0.2 rounded-full bg-rose-200 text-rose-900 text-[10px] font-mono font-bold">
-                      {currentClass.students.filter((s) => s.feesGroup.toLowerCase().includes('stop')).length}
-                    </span>
-                  )}
-                </button>
-              )}
-
-              {permissions.canEdit && (
-                <button
-                  type="button"
-                  onClick={() => setIsExcelImportModalOpen(true)}
-                  className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-2 sm:py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs font-khmer transition-all shadow-xs cursor-pointer"
-                  title={t('នាំចូលទិន្នន័យសិស្សពី Excel (Paste from Excel)', 'Import from Excel')}
-                >
-                  <FileSpreadsheet className="w-4 h-4 shrink-0 text-white" />
-                  <span className="hidden sm:inline">{t('នាំចូលពី Excel', 'Import from Excel')}</span>
-                </button>
-              )}
-
-              {permissions.canEdit && (
-                <button
-                  onClick={() => setIsAddModalOpen(true)}
-                  className="flex items-center gap-1.5 px-2.5 sm:px-4 py-2 sm:py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl text-xs font-khmer transition-all shadow-xs cursor-pointer"
-                  title={t('ចុះឈ្មោះសិស្សថ្មី', 'Enroll Student')}
-                >
-                  <Plus className="w-4 h-4 shrink-0" />
-                  <span className="hidden sm:inline">{t('ចុះឈ្មោះសិស្សថ្មី', 'Enroll Student')}</span>
-                </button>
-              )}
 
               {currentUser.role === 'admin' && (
                 <button
@@ -2269,151 +2675,6 @@ export const StudentFeesView: React.FC<StudentFeesViewProps> = ({ onPrintReport,
         </div>
       )}
 
-      {/* ADD / ENROLL STUDENT MODAL (Correct input types) */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 text-xs">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="font-bold text-slate-900 text-base font-khmer">
-                {t('ចុះឈ្មោះសិស្សថ្មី', 'Enroll New Student')} ({currentClass.className})
-              </h3>
-              <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateStudent} className="mt-4 space-y-3.5">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-700 font-semibold mb-1 font-khmer">ឈ្មោះសិស្ស (Khmer) *</label>
-                  <input
-                    type="text"
-                    value={newStudentName}
-                    onChange={(e) => setNewStudentName(e.target.value)}
-                    placeholder="ឧ. សុខ ចាន់ថា"
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg font-khmer font-bold"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-700 font-semibold mb-1">Latin Name</label>
-                  <input
-                    type="text"
-                    value={newStudentLatin}
-                    onChange={(e) => setNewStudentLatin(e.target.value)}
-                    placeholder="Sok Chantha"
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg font-sans"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-slate-700 font-semibold mb-1 font-khmer">ភេទ *</label>
-                  <select
-                    value={newStudentGender}
-                    onChange={(e) => setNewStudentGender(e.target.value as any)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg"
-                  >
-                    <option value="Man">ប្រុស (Man)</option>
-                    <option value="Female">ស្រី (Female)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-slate-700 font-semibold mb-1">Note *</label>
-                  <select
-                    value={newStudentNote}
-                    onChange={(e) => setNewStudentNote(e.target.value as any)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg"
-                  >
-                    <option value="New">New (សិស្សថ្មី)</option>
-                    <option value="Old">Old (សិស្សចាស់)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-slate-700 font-semibold mb-1">Case *</label>
-                  <select
-                    value={newStudentCase}
-                    onChange={(e) => setNewStudentCase(e.target.value as any)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg"
-                  >
-                    <option value="Full">Full (100%)</option>
-                    <option value="Contribute">Contribute</option>
-                    <option value="50%">50%</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-700 font-semibold mb-1 font-khmer">ថ្ងៃចូលរៀន (Start Date)</label>
-                  <input
-                    type="date"
-                    value={newStudentStartDate}
-                    onChange={(e) => setNewStudentStartDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg font-mono"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-700 font-semibold mb-1 font-khmer">ថ្ងៃបង់ប្រាក់ (Payment Date)</label>
-                  <input
-                    type="date"
-                    value={newStudentPaymentDate}
-                    onChange={(e) => setNewStudentPaymentDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg font-mono"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-700 font-semibold mb-1">Paid By</label>
-                  <select
-                    value={newStudentPaidBy}
-                    onChange={(e) => setNewStudentPaidBy(e.target.value as any)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg font-mono"
-                  >
-                    <option value="ABA">ABA</option>
-                    <option value="AC">AC (ACLEDA)</option>
-                    <option value="Cash">Cash</option>
-                    <option value="$ -">$ - (Unpaid)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-slate-700 font-semibold mb-1">Cash ($ USD)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    inputMode="decimal"
-                    value={newStudentCash}
-                    onChange={(e) => setNewStudentCash(Number(e.target.value))}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg font-mono font-bold"
-                  />
-                </div>
-              </div>
-
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2 text-slate-600 hover:text-slate-800 font-medium font-khmer"
-                >
-                  បោះបង់
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-bold font-khmer"
-                >
-                  រក្សាទុកសិស្សថ្មី
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* EDIT STUDENT MODAL */}
       {isEditModalOpen && selectedStudent && (
@@ -2721,234 +2982,7 @@ export const StudentFeesView: React.FC<StudentFeesViewProps> = ({ onPrintReport,
         </div>
       )}
 
-      {/* STOP / REACTIVATE STUDENT MODAL */}
-      {isStopModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 text-xs">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center shadow-2xs">
-                  <UserX className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 text-base font-khmer">
-                    {t('អាប់ដែតស្ថានភាពសិស្សឈប់ / ចូលរៀនវិញ', 'Update Student Stopped / Active Status')}
-                  </h3>
-                  <div className="text-[11px] text-slate-500 font-khmer">
-                    ថ្នាក់រៀន៖ <span className="font-bold text-slate-800">{currentClass.className}</span>
-                  </div>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsStopModalOpen(false);
-                  setStopStudentId(null);
-                }}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleConfirmStopAction} className="mt-4 space-y-4 font-khmer">
-              {/* Student Selector */}
-              <div>
-                <label className="block text-slate-700 font-semibold mb-1">
-                  ជ្រើសរើសសិស្ស (Select Student) *
-                </label>
-                <select
-                  value={stopStudentId || ''}
-                  onChange={(e) => {
-                    const sid = Number(e.target.value);
-                    setStopStudentId(sid);
-                    const found = currentClass.students.find((s) => s.id === sid);
-                    if (found) {
-                      const isSt = found.feesGroup.toLowerCase().includes('stop');
-                      setStopActionType(isSt ? 'reactivate' : 'stop');
-                      if (found.paymentDate && !found.paymentDate.includes('-202')) {
-                        setStopReason(found.paymentDate);
-                      }
-                    }
-                  }}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl font-khmer font-bold text-xs bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
-                  required
-                >
-                  {currentClass.students.map((st) => {
-                    const isSt = st.feesGroup.toLowerCase().includes('stop');
-                    return (
-                      <option key={st.id} value={st.id}>
-                        {st.name} {st.latinName ? `(${st.latinName})` : ''} · {st.studentCode} · {isSt ? '【ឈប់រៀន - Stopped】' : `【កំពុងរៀន - ${st.feesGroup}】`}
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
-
-              {/* Action Type Toggle */}
-              <div>
-                <label className="block text-slate-700 font-semibold mb-1.5">
-                  សកម្មភាពប្រតិបត្តិការ (Action) *
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setStopActionType('stop')}
-                    className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 ${
-                      stopActionType === 'stop'
-                        ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
-                        : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
-                    }`}
-                  >
-                    <UserMinus className="w-4 h-4" />
-                    <span>សិស្សឈប់រៀន (Mark Stopped)</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setStopActionType('reactivate')}
-                    className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 ${
-                      stopActionType === 'reactivate'
-                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                        : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
-                    }`}
-                  >
-                    <RotateCcw className="w-4 h-4" />
-                    <span>ចូលរៀនឡើងវិញ (Reactivate)</span>
-                  </button>
-                </div>
-              </div>
-
-              {stopActionType === 'stop' ? (
-                <>
-                  {/* Preset Reasons */}
-                  <div>
-                    <label className="block text-slate-700 font-semibold mb-1">
-                      មូលហេតុឈប់ ឬ ប្តូរថ្នាក់ (Reason / Note) *
-                    </label>
-                    <div className="grid grid-cols-2 gap-1.5 mb-2">
-                      {[
-                        'ឈប់រៀន',
-                        'ប្ដូរទៅថ្នាក់ទី១ក',
-                        'ប្ដូរទៅថ្នាក់ទី២ក',
-                        'ប្ដូរទៅសាលាផ្សេង',
-                        'ផ្លាស់ប្តូរទីលំនៅ',
-                        'ព្យួរការសិក្សា',
-                      ].map((preset) => (
-                        <button
-                          type="button"
-                          key={preset}
-                          onClick={() => {
-                            setStopReason(preset);
-                            setStopCustomNote('');
-                          }}
-                          className={`px-2.5 py-1.5 rounded-lg border text-[11px] text-left transition-all ${
-                            stopReason === preset && !stopCustomNote
-                              ? 'bg-rose-50 text-rose-900 border-rose-300 font-bold'
-                              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                          }`}
-                        >
-                          {preset}
-                        </button>
-                      ))}
-                    </div>
-                    <input
-                      type="text"
-                      placeholder="ឬសរសេរមូលហេតុផ្សេងៗនៅទីនេះ (Custom reason/note)..."
-                      value={stopCustomNote}
-                      onChange={(e) => setStopCustomNote(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl font-khmer text-xs focus:ring-1 focus:ring-rose-500"
-                    />
-                  </div>
-
-                  {/* Effective Date */}
-                  <div>
-                    <label className="block text-slate-700 font-semibold mb-1">
-                      កាលបរិច្ឆេទឈប់រៀន (Stop Date) *
-                    </label>
-                    <input
-                      type="date"
-                      value={stopDate}
-                      onChange={(e) => setStopDate(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl font-mono text-xs"
-                      required
-                    />
-                  </div>
-
-                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 leading-relaxed">
-                    ℹ️ នៅពេលកំណត់ជា <strong className="text-rose-700">សិស្សឈប់រៀន</strong> ប្រព័ន្ធនឹងរាប់សិស្សនេះចូលក្នុងជួរទី ២ នៃតារាងសង្ខេប (សិស្សឈប់រៀនក្នុងខែ) ដោយស្វ័យប្រវត្តិ។
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div>
-                    <label className="block text-slate-700 font-semibold mb-1">
-                      កាលបរិច្ឆេទចូលរៀនឡើងវិញ (Resumption Date) *
-                    </label>
-                    <input
-                      type="date"
-                      value={stopDate}
-                      onChange={(e) => setStopDate(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl font-mono text-xs"
-                      required
-                    />
-                  </div>
-
-                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-[11px] text-emerald-900 leading-relaxed">
-                    ℹ️ សិស្សនឹងត្រូវបានកំណត់ជាសកម្មក្នុងខែ <strong className="text-emerald-800">{globalMonth} {globalYear}</strong> ឡើងវិញ ហើយអាចកត់ត្រាការបង់ប្រាក់ថ្លៃសិក្សាជាធម្មតា។
-                  </div>
-                </>
-              )}
-
-              {/* Submit Buttons */}
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsStopModalOpen(false);
-                    setStopStudentId(null);
-                  }}
-                  className="px-4 py-2 text-slate-600 hover:text-slate-800 font-medium font-khmer"
-                >
-                  បោះបង់
-                </button>
-                <button
-                  type="submit"
-                  className={`px-5 py-2 text-white rounded-xl font-bold font-khmer shadow-xs transition-all ${
-                    stopActionType === 'stop'
-                      ? 'bg-rose-600 hover:bg-rose-700'
-                      : 'bg-emerald-600 hover:bg-emerald-700'
-                  }`}
-                >
-                  {stopActionType === 'stop' ? 'បញ្ជាក់សិស្សឈប់' : 'បញ្ជាក់ចូលរៀនវិញ'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Promotion Modal (ឡើងថ្នាក់សិស្សតាមថ្នាក់) */}
-      <PromoteStudentsModal
-        isOpen={isPromoteModalOpen}
-        onClose={() => setIsPromoteModalOpen(false)}
-        defaultSourceClassId={currentClass.classId}
-      />
-
-      {/* Class & Academic Month Drag-and-Drop Manager Modal */}
-      <ClassMonthManagerModal
-        isOpen={isManagerModalOpen}
-        onClose={() => setIsManagerModalOpen(false)}
-        initialTab={managerInitialTab}
-      />
-
-      {/* Excel Student Import Modal (នាំចូលសិស្សពី Excel ផ្គូផ្គងជួរឈរស្វ័យប្រវត្តិ) */}
-      <ExcelStudentImportModal
-        isOpen={isExcelImportModalOpen}
-        onClose={() => setIsExcelImportModalOpen(false)}
-        defaultTargetClassId={currentClass.classId}
-      />
+      {studentToolModals}
 
       {/* Clear Payment History Modal (សម្អាតប្រវត្តិបង់ប្រាក់តាមជ្រើសរើស ឬ ទាំងអស់ - Admin Only) */}
       {isClearHistoryModalOpen && currentUser.role === 'admin' && (
