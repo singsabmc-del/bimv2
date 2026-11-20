@@ -1,4 +1,5 @@
 import express from 'express';
+import { mergeSharedSections } from './src/utils/stateMerge.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
@@ -393,18 +394,36 @@ export async function createApp() {
     }
   });
 
+  // Just the shared parts (attendance, check-ins, leave) — polled by open apps to stay in step
+  app.get('/api/state/shared', async (req, res) => {
+    try {
+      const result = await fetchSchoolState();
+      const d: any = result.data || {};
+      return res.json({ success: true, shared: { syncedStore: d.syncedStore || null, teacherCheckIn: d.teacherCheckIn || null } });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
   app.post(['/api/state', '/api/supabase/state'], async (req, res) => {
     try {
-      const payload = req.body;
+      let payload = req.body;
       if (!payload || typeof payload !== 'object') {
         return res.status(400).json({ success: false, error: 'Valid JSON payload is required' });
       }
+      // Parts written by many devices at once (attendance, check-ins, leave) are merged with
+      // what is already stored, so one device's save does not wipe another device's entries.
+      try {
+        const stored = await fetchSchoolState();
+        if (stored?.data) payload = mergeSharedSections(stored.data, payload);
+      } catch {}
       const saveResult = await saveSchoolState(payload);
       return res.json({
         success: true,
         savedToSupabase: saveResult.savedToSupabase,
         supabaseError: saveResult.supabaseError,
         savedAt: saveResult.savedAt,
+        shared: { syncedStore: payload.syncedStore, teacherCheckIn: payload.teacherCheckIn },
       });
     } catch (err: any) {
       console.error('Error saving state:', err);

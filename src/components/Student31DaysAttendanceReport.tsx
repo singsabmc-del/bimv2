@@ -59,6 +59,8 @@ export const Student31DaysAttendanceReport: React.FC<Student31DaysAttendanceRepo
     globalYear,
     permissions,
     t,
+    syncedGet,
+    syncedSet,
   } = useApp();
 
   const [activeClassId, setActiveClassId] = useState<string>(
@@ -96,10 +98,8 @@ export const Student31DaysAttendanceReport: React.FC<Student31DaysAttendanceRepo
   const [monthlyAttendance, setMonthlyAttendance] = useState<{
     [studentId: number]: { [day: number]: Attendance31DayCell };
   }>(() => {
-    try {
-      const stored = localStorage.getItem(storageKey);
-      if (stored) return JSON.parse(stored);
-    } catch {}
+    const stored = syncedGet(storageKey);
+    if (stored) return stored;
 
     // Generate smart baseline attendance (weekdays mostly present, weekends holiday)
     const initial: { [studentId: number]: { [day: number]: Attendance31DayCell } } = {};
@@ -137,13 +137,11 @@ export const Student31DaysAttendanceReport: React.FC<Student31DaysAttendanceRepo
 
   // Re-load when class/month/year changes
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(storageKey);
-      if (stored) {
-        setMonthlyAttendance(JSON.parse(stored));
-        return;
-      }
-    } catch {}
+    const stored = syncedGet(storageKey);
+    if (stored) {
+      setMonthlyAttendance(stored);
+      return;
+    }
 
     // If not found in storage, generate default structure
     const initial: { [studentId: number]: { [day: number]: Attendance31DayCell } } = {};
@@ -165,16 +163,13 @@ export const Student31DaysAttendanceReport: React.FC<Student31DaysAttendanceRepo
       });
     }
     setMonthlyAttendance(initial);
-  }, [activeClassId, selectedMonth, selectedYear, daysInMonth, storageKey]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeClassId, selectedMonth, selectedYear, daysInMonth, storageKey, JSON.stringify(syncedGet(storageKey) || null)]);
 
   // Save changes
   const saveAttendanceData = (data: typeof monthlyAttendance) => {
     setMonthlyAttendance(data);
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(data));
-    } catch (e) {
-      console.error(e);
-    }
+    syncedSet(storageKey, data);
   };
 
   // Cycle status on cell click: present -> absent_permission -> absent_no_permission -> late -> present

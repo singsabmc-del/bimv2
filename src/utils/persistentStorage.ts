@@ -221,6 +221,12 @@ export function syncStateToServer(stateBundle: any): void {
         body: JSON.stringify(bundleWithTimestamp),
       });
       const json: any = await res.json().catch(() => ({}));
+      // Entries other devices saved meanwhile (attendance, check-ins, leave) come back merged
+      if (res.ok && json.shared) {
+        try {
+          window.dispatchEvent(new CustomEvent('bim-shared-merged', { detail: json.shared }));
+        } catch {}
+      }
       if (res.ok && json.savedToSupabase) report(true);
       else report(false, json.supabaseError || json.error || `HTTP ${res.status}`);
     } catch (err: any) {

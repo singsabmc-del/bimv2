@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useMemo } from 'react';
 import { INITIAL_SUBJECTS } from '../data/initialSubjects';
 import { BIM_TEACHERS, BIM_SCHEDULE_1A, BIM_TIME_PERIODS } from '../data/initialTeachers';
+import { SyncedStore, isSyncedStoreKey, mergeSyncedStore, mergeCheckIn, stampCheckIn, ATTENDANCE_STORE_KEY } from '../utils/stateMerge';
 import {
   SubjectItem,
   TeacherRecord,
@@ -281,6 +282,9 @@ interface AppContextType {
   setScheduleTimePeriods: (periods: ScheduleTimePeriod[]) => void;
   teacherCheckIn: TeacherCheckInData;
   setTeacherCheckIn: React.Dispatch<React.SetStateAction<TeacherCheckInData>>;
+  /** Shared browser stores (attendance etc.), synced through Supabase */
+  syncedGet: (key: string) => any;
+  syncedSet: (key: string, value: any) => void;
   /** The staff record (teacher list) linked to the logged-in account, used for own Check In / Leave */
   linkedTeacher?: TeacherRecord;
   /** Classes a Teacher account may see (null = every class, for other roles) */
@@ -994,7 +998,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   });
   // Teacher Attendance Check In (synced)
-  const [teacherCheckIn, setTeacherCheckIn] = useState<TeacherCheckInData>(() => {
+  const [teacherCheckIn, setTeacherCheckInRaw] = useState<TeacherCheckInData>(() => {
     const fallback: TeacherCheckInData = { records: [], startTime: '07:00', endTime: '16:00', lateGraceMinutes: 5 };
     try {
       const parsed = JSON.parse(localStorage.getItem('BIM_RANGSEI_TEACHER_CHECKIN') || 'null');
@@ -1008,6 +1012,96 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       localStorage.setItem('BIM_RANGSEI_TEACHER_CHECKIN', JSON.stringify(teacherCheckIn));
     } catch {}
   }, [teacherCheckIn]);
+  // Every change is time-stamped so saves from several phones merge instead of overwriting
+  const setTeacherCheckIn: React.Dispatch<React.SetStateAction<TeacherCheckInData>> = (upd) =>
+    setTeacherCheckInRaw((prev) => stampCheckIn(prev, typeof upd === 'function' ? (upd as any)(prev) : upd));
+
+  // ---- Browser stores now shared through Supabase: student attendance, 31-day sheets,
+  //      the daily teacher attendance sheet and honor-roll teacher signatures ----
+  const [syncedStore, setSyncedStore] = useState<SyncedStore>(() => {
+    const data: Record<string, any> = {};
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!k || !isSyncedStoreKey(k)) continue;
+        try {
+          data[k] = JSON.parse(localStorage.getItem(k) || 'null');
+        } catch {}
+      }
+    } catch {}
+    let t: Record<string, number> = {};
+    try {
+      t = JSON.parse(localStorage.getItem('BIM_SYNCED_STORE_T') || '{}') || {};
+    } catch {}
+    return { data, t };
+  });
+  useEffect(() => {
+    try {
+      Object.entries(syncedStore.data).forEach(([k, v]) => {
+        const str = JSON.stringify(v);
+        if (localStorage.getItem(k) !== str) localStorage.setItem(k, str);
+      });
+      localStorage.setItem('BIM_SYNCED_STORE_T', JSON.stringify(syncedStore.t));
+    } catch {}
+  }, [syncedStore]);
+  const syncedGet = (key: string) => syncedStore.data[key];
+  const syncedSet = (key: string, value: any) => {
+    const now = Date.now();
+    setSyncedStore((prev) => {
+      let v = value;
+      if (key === ATTENDANCE_STORE_KEY && v && typeof v === 'object') {
+        // stamp each changed class/day record
+        const old = prev.data[key] || {};
+        v = Object.fromEntries(
+          Object.entries(v).map(([rk, rec]: [string, any]) => {
+            const o = old[rk];
+            const same = o && JSON.stringify({ ...o, updatedAt: 0 }) === JSON.stringify({ ...rec, updatedAt: 0 });
+            return [rk, same ? rec : { ...rec, updatedAt: now }];
+          })
+        );
+      }
+      return { data: { ...prev.data, [key]: v }, t: { ...prev.t, [key]: now } };
+    });
+  };
+
+  // Take in what other devices saved (merged copy returned by the server, or polled)
+  const applySharedFromServer = (shared: any) => {
+    if (!shared) return;
+    if (shared.syncedStore) {
+      setSyncedStore((prev) => {
+        const merged = mergeSyncedStore(prev, shared.syncedStore);
+        return JSON.stringify(merged) === JSON.stringify(prev) ? prev : merged;
+      });
+    }
+    if (shared.teacherCheckIn && Array.isArray(shared.teacherCheckIn.records)) {
+      setTeacherCheckInRaw((prev) => {
+        const merged = mergeCheckIn(prev, shared.teacherCheckIn);
+        return JSON.stringify(merged) === JSON.stringify(prev) ? prev : merged;
+      });
+    }
+  };
+  useEffect(() => {
+    const onMerged = (e: Event) => applySharedFromServer((e as CustomEvent).detail);
+    window.addEventListener('bim-shared-merged', onMerged);
+    // Poll every 30 s while the app is open, so attendance / check-ins from other phones show up
+    const poll = async () => {
+      if (document.visibilityState !== 'visible') return;
+      try {
+        const res = await fetch('/api/state/shared');
+        if (!res.ok) return;
+        const json = await res.json();
+        if (json?.success) applySharedFromServer(json.shared);
+      } catch {}
+    };
+    const id = setInterval(poll, 30000);
+    document.addEventListener('visibilitychange', poll);
+    return () => {
+      window.removeEventListener('bim-shared-merged', onMerged);
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', poll);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   useEffect(() => {
     try {
       localStorage.setItem('BIM_RANGSEI_TEACHERS', JSON.stringify(teachers));
@@ -1326,8 +1420,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setTeacherSchedules(serverData.teacherSchedules);
           if (Array.isArray(serverData.scheduleTimePeriods) && serverData.scheduleTimePeriods.length > 0)
             setScheduleTimePeriods(serverData.scheduleTimePeriods);
+          if (serverData.syncedStore) setSyncedStore((prev) => mergeSyncedStore(prev, serverData.syncedStore));
           if (serverData.teacherCheckIn && Array.isArray(serverData.teacherCheckIn.records))
-            setTeacherCheckIn(serverData.teacherCheckIn);
+            setTeacherCheckInRaw((prev) => mergeCheckIn(prev, serverData.teacherCheckIn));
           if (serverData.busRoutes && Array.isArray(serverData.busRoutes)) {
             setBusRoutes(serverData.busRoutes);
           }
@@ -1406,6 +1501,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       teacherSchedules,
       scheduleTimePeriods,
       teacherCheckIn,
+      syncedStore,
       busRoutes,
       busEnrollments,
       busPayments,
@@ -1422,6 +1518,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     teacherSchedules,
     scheduleTimePeriods,
     teacherCheckIn,
+    syncedStore,
     currentUser,
     users,
     classData,
@@ -1609,6 +1706,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         teacherSchedules,
         scheduleTimePeriods,
         teacherCheckIn,
+        syncedStore,
         busRoutes,
         busEnrollments,
         busPayments,
@@ -1688,7 +1786,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (Array.isArray(d.teachers) && d.teachers.length > 0) setTeachers(d.teachers);
       if (Array.isArray(d.teacherSchedules) && d.teacherSchedules.length > 0) setTeacherSchedules(d.teacherSchedules);
       if (Array.isArray(d.scheduleTimePeriods) && d.scheduleTimePeriods.length > 0) setScheduleTimePeriods(d.scheduleTimePeriods);
-      if (d.teacherCheckIn && Array.isArray(d.teacherCheckIn.records)) setTeacherCheckIn(d.teacherCheckIn);
+      if (d.teacherCheckIn && Array.isArray(d.teacherCheckIn.records)) setTeacherCheckInRaw(d.teacherCheckIn);
+      if (d.syncedStore) setSyncedStore(d.syncedStore);
       if (d.busRoutes) setBusRoutes(d.busRoutes);
       if (d.busEnrollments) setBusEnrollments(d.busEnrollments);
       if (d.busPayments) setBusPayments(d.busPayments);
@@ -5014,6 +5113,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       teacherSchedules,
       scheduleTimePeriods,
       teacherCheckIn,
+      syncedStore,
       busRoutes,
       busEnrollments,
       busAttendance,
@@ -5057,7 +5157,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (Array.isArray(parsed.teachers) && parsed.teachers.length > 0) setTeachers(parsed.teachers);
       if (Array.isArray(parsed.teacherSchedules) && parsed.teacherSchedules.length > 0) setTeacherSchedules(parsed.teacherSchedules);
       if (Array.isArray(parsed.scheduleTimePeriods) && parsed.scheduleTimePeriods.length > 0) setScheduleTimePeriods(parsed.scheduleTimePeriods);
-      if (parsed.teacherCheckIn && Array.isArray(parsed.teacherCheckIn.records)) setTeacherCheckIn(parsed.teacherCheckIn);
+      if (parsed.teacherCheckIn && Array.isArray(parsed.teacherCheckIn.records)) setTeacherCheckInRaw(parsed.teacherCheckIn);
+      if (parsed.syncedStore) setSyncedStore(parsed.syncedStore);
       if (parsed.busRoutes && Array.isArray(parsed.busRoutes)) setBusRoutes(parsed.busRoutes);
       if (parsed.busEnrollments && Array.isArray(parsed.busEnrollments)) setBusEnrollments(parsed.busEnrollments);
       if (parsed.busAttendance && Array.isArray(parsed.busAttendance)) setBusAttendance(parsed.busAttendance);
@@ -5358,6 +5459,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setScheduleTimePeriods,
         teacherCheckIn,
         setTeacherCheckIn,
+        syncedGet,
+        syncedSet,
         linkedTeacher,
         teacherClassIds,
         showNotification,
