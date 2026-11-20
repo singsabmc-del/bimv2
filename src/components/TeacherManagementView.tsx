@@ -209,36 +209,13 @@ export const TeacherManagementView: React.FC<TeacherManagementViewProps> = ({
   }, [initialSubTab]);
 
   // Local state persistence for teachers, subjects, schedules, and custom time periods
-  const [teachers, setTeachers] = useState<TeacherRecord[]>(() => {
-    try {
-      const stored = localStorage.getItem('BIM_RANGSEI_TEACHERS');
-      return stored ? JSON.parse(stored) : INITIAL_TEACHERS;
-    } catch {
-      return INITIAL_TEACHERS;
-    }
-  });
-
-  // Subjects live in AppContext so they sync to Supabase and are shared with the score sheets
-  const { subjects, setSubjects } = useApp();
-
-  const [schedules, setSchedules] = useState<ScheduleSlot[]>(() => {
-    try {
-      const stored = localStorage.getItem('BIM_RANGSEI_SCHEDULES');
-      return stored ? JSON.parse(stored) : INITIAL_SCHEDULE;
-    } catch {
-      return INITIAL_SCHEDULE;
-    }
-  });
-
-  // Configurable study time periods state
-  const [timePeriods, setTimePeriods] = useState<ScheduleTimePeriod[]>(() => {
-    try {
-      const stored = localStorage.getItem('BIM_RANGSEI_TIME_PERIODS');
-      return stored ? JSON.parse(stored) : DEFAULT_TIME_PERIODS;
-    } catch {
-      return DEFAULT_TIME_PERIODS;
-    }
-  });
+  // Teachers, subjects, timetable and time periods live in AppContext so they sync to Supabase
+  const {
+    subjects, setSubjects,
+    teachers, setTeachers,
+    teacherSchedules: schedules, setTeacherSchedules: setSchedules,
+    scheduleTimePeriods: timePeriods, setScheduleTimePeriods: setTimePeriods,
+  } = useApp();
 
   // Filter & Search states
   const [teacherSearch, setTeacherSearch] = useState('');
@@ -725,10 +702,10 @@ export const TeacherManagementView: React.FC<TeacherManagementViewProps> = ({
                       <th className="py-3 px-4">កូដគ្រូ</th>
                       <th className="py-3 px-4">ឈ្មោះគ្រូបង្រៀន</th>
                       <th className="py-3 px-4">ភេទ</th>
-                      <th className="py-3 px-4">ថ្នាក់ទទួលបន្ទុក</th>
-                      <th className="py-3 px-4">មុខវិជ្ជាបង្រៀន</th>
-                      <th className="py-3 px-4">លេខទូរស័ព្ទ / អ៊ីមែល</th>
-                      <th className="py-3 px-4">កម្រិតវប្បធម៌</th>
+                      <th className="py-3 px-4">តួនាទី (Position)</th>
+                      <th className="py-3 px-4">ថ្ងៃខែឆ្នាំកំណើត / ចូលបម្រើការងារ</th>
+                      <th className="py-3 px-4">លេខទូរស័ព្ទ</th>
+                      <th className="py-3 px-4">កម្រិតវប្បធម៌ (Degree)</th>
                       <th className="py-3 px-4 text-center">ស្ថានភាព</th>
                       {permissions.canEdit && (
                         <th className="py-3 px-4 text-center no-print">សកម្មភាព</th>
@@ -759,16 +736,18 @@ export const TeacherManagementView: React.FC<TeacherManagementViewProps> = ({
                             {tch.gender === 'Female' ? 'ស្រី' : 'ប្រុស'}
                           </td>
                           <td className="py-3 px-4">
-                            {tch.homeroomClassName ? (
+                            {tch.position || tch.homeroomClassName ? (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 font-khmer">
-                                {tch.homeroomClassName}
+                                {tch.position || tch.homeroomClassName}
                               </span>
                             ) : (
                               <span className="text-slate-400 font-khmer text-[11px]">-</span>
                             )}
                           </td>
-                          <td className="py-3 px-4 max-w-xs">
-                            <div className="flex flex-wrap gap-1">
+                          <td className="py-3 px-4 font-mono text-[11px] text-slate-600 whitespace-nowrap">
+                            <div title="ថ្ងៃខែឆ្នាំកំណើត">🎂 {tch.dob ? tch.dob.split('-').reverse().join('-') : '-'}</div>
+                            <div className="text-slate-400" title="ថ្ងៃចូលបម្រើការងារ">🏫 {tch.joinDate ? tch.joinDate.split('-').reverse().join('-') : '-'}</div>
+                            <div className="flex flex-wrap gap-1 mt-1">
                               {tch.subjects.map((s, i) => (
                                 <span
                                   key={i}
@@ -796,6 +775,7 @@ export const TeacherManagementView: React.FC<TeacherManagementViewProps> = ({
                             >
                               {tch.status === 'active' ? 'បង្រៀនសកម្ម' : 'ឈប់សម្រាក'}
                             </span>
+                            {tch.workStatus && <div className="mt-1 text-[10px] text-slate-500 font-khmer">{tch.workStatus}</div>}
                           </td>
                           {permissions.canEdit && (
                             <td className="py-3 px-4 text-center no-print">
@@ -2433,6 +2413,10 @@ export const TeacherManagementView: React.FC<TeacherManagementViewProps> = ({
                 const qualification = formData.get('qualification') as string;
                 const homeroomClassId = formData.get('homeroomClassId') as string;
                 const status = formData.get('status') as 'active' | 'leave';
+                const position = (formData.get('position') as string || '').trim();
+                const workStatus = (formData.get('workStatus') as string || '').trim();
+                const dob = (formData.get('dob') as string) || '';
+                const joinDate = (formData.get('joinDate') as string) || '';
 
                 const matchedClass = classData[homeroomClassId];
 
@@ -2452,6 +2436,10 @@ export const TeacherManagementView: React.FC<TeacherManagementViewProps> = ({
                             homeroomClassId,
                             homeroomClassName: matchedClass?.className || '',
                             status,
+                            position,
+                            workStatus,
+                            dob,
+                            joinDate,
                           }
                         : t
                     )
@@ -2463,14 +2451,16 @@ export const TeacherManagementView: React.FC<TeacherManagementViewProps> = ({
                     nameKhmer,
                     nameEnglish,
                     gender,
-                    dob: '1990-01-01',
+                    dob,
+                    position,
+                    workStatus,
                     phone,
                     email,
                     qualification,
                     subjects: ['ភាសាខ្មែរ (Khmer Literature)', 'គណិតវិទ្យា (Mathematics)'],
                     homeroomClassId,
                     homeroomClassName: matchedClass?.className || '',
-                    joinDate: new Date().toISOString().slice(0, 10),
+                    joinDate: joinDate || new Date().toISOString().slice(0, 10),
                     status,
                     branchId: currentBranch.id,
                   };
@@ -2579,6 +2569,25 @@ export const TeacherManagementView: React.FC<TeacherManagementViewProps> = ({
                     <option value="active">បង្រៀនសកម្ម (Active)</option>
                     <option value="leave">ឈប់សម្រាក (On Leave)</option>
                   </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">តួនាទី (Position)</label>
+                  <input name="position" type="text" defaultValue={editingTeacher?.position || editingTeacher?.homeroomClassName || ''} placeholder="Grade 1A / Kindergarten 1 / គ្រូភាសាអង់គ្លេស" className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-khmer" />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">ប្រភេទការងារ (Status)</label>
+                  <input name="workStatus" type="text" defaultValue={editingTeacher?.workStatus || 'ពេញម៉ោង'} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-khmer" />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">ថ្ងៃខែឆ្នាំកំណើត (Birth of Date)</label>
+                  <input name="dob" type="date" defaultValue={editingTeacher?.dob || ''} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs" />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">ថ្ងៃចូលបម្រើការងារ (Date of service)</label>
+                  <input name="joinDate" type="date" defaultValue={editingTeacher?.joinDate || ''} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs" />
                 </div>
               </div>
 

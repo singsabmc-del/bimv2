@@ -1,7 +1,11 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useMemo } from 'react';
 import { INITIAL_SUBJECTS } from '../data/initialSubjects';
+import { BIM_TEACHERS, BIM_SCHEDULE_1A, BIM_TIME_PERIODS } from '../data/initialTeachers';
 import {
   SubjectItem,
+  TeacherRecord,
+  ScheduleSlot,
+  ScheduleTimePeriod,
   ClassFeeData,
   DailyMaterialsReport,
   CanteenReport,
@@ -266,6 +270,13 @@ interface AppContextType {
   // Academic: subjects (shared with Teacher Management) + per-class score books
   subjects: SubjectItem[];
   setSubjects: (subjects: SubjectItem[]) => void;
+  // Teacher Management (synced to Supabase)
+  teachers: TeacherRecord[];
+  setTeachers: (teachers: TeacherRecord[]) => void;
+  teacherSchedules: ScheduleSlot[];
+  setTeacherSchedules: (slots: ScheduleSlot[]) => void;
+  scheduleTimePeriods: ScheduleTimePeriod[];
+  setScheduleTimePeriods: (periods: ScheduleTimePeriod[]) => void;
   updateClassAcademic: (classId: string, updater: (cls: ClassFeeData) => Partial<ClassFeeData>) => void;
   // Annual Academic Year Isolation & Upgrading (ការឡើងថ្នាក់សិស្សប្រចាំឆ្នាំ និងទិន្នន័យដាច់ដោយឡែក)
   availableAcademicYears: string[];
@@ -925,6 +936,47 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch {}
   }, [subjects]);
 
+  // Teachers, timetable & time periods (moved from TeacherManagementView's local-only storage so they sync).
+  // The old built-in sample staff/timetable is replaced by the school's real list on first load.
+  const SAMPLE_TEACHER_NAMES = ['Sok Maly', 'Kong Vannak', 'Chan Thida', 'Ros Pisey'];
+  const [teachers, setTeachers] = useState<TeacherRecord[]>(() => {
+    try {
+      const parsed = JSON.parse(localStorage.getItem('BIM_RANGSEI_TEACHERS') || 'null');
+      const isSample =
+        Array.isArray(parsed) &&
+        parsed.every((t: any) => /^tch-\d+$/.test(t.id)) &&
+        parsed.some((t: any) => SAMPLE_TEACHER_NAMES.includes(t.nameEnglish));
+      return Array.isArray(parsed) && parsed.length > 0 && !isSample ? parsed : BIM_TEACHERS;
+    } catch {
+      return BIM_TEACHERS;
+    }
+  });
+  const [teacherSchedules, setTeacherSchedules] = useState<ScheduleSlot[]>(() => {
+    try {
+      const parsed = JSON.parse(localStorage.getItem('BIM_RANGSEI_SCHEDULES') || 'null');
+      const isSample = Array.isArray(parsed) && parsed.every((x: any) => /^sch-\d+$/.test(x.id));
+      return Array.isArray(parsed) && parsed.length > 0 && !isSample ? parsed : BIM_SCHEDULE_1A;
+    } catch {
+      return BIM_SCHEDULE_1A;
+    }
+  });
+  const [scheduleTimePeriods, setScheduleTimePeriods] = useState<ScheduleTimePeriod[]>(() => {
+    try {
+      const parsed = JSON.parse(localStorage.getItem('BIM_RANGSEI_TIME_PERIODS') || 'null');
+      const isDefault = Array.isArray(parsed) && parsed.length === 6 && parsed[0]?.time === '07:30 - 08:30';
+      return Array.isArray(parsed) && parsed.length > 0 && !isDefault ? parsed : BIM_TIME_PERIODS;
+    } catch {
+      return BIM_TIME_PERIODS;
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem('BIM_RANGSEI_TEACHERS', JSON.stringify(teachers));
+      localStorage.setItem('BIM_RANGSEI_SCHEDULES', JSON.stringify(teacherSchedules));
+      localStorage.setItem('BIM_RANGSEI_TIME_PERIODS', JSON.stringify(scheduleTimePeriods));
+    } catch {}
+  }, [teachers, teacherSchedules, scheduleTimePeriods]);
+
   // Patch academic fields (subjectIds / scores / bookletNotes) of one class in the active year
   const updateClassAcademic = (classId: string, updater: (cls: ClassFeeData) => Partial<ClassFeeData>) => {
     setClassData((prev) => {
@@ -1024,12 +1076,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           canViewAllClasses: true,
           canExportBackup: true,
         };
+      case 'cashier':
+        // Cashier: Student Management + collecting payments + Daily Income Report
+        return {
+          canEdit: true,
+          canDelete: false,
+          canCollectFee: true,
+          canModifySettings: false,
+          canViewAllClasses: true,
+          canExportBackup: false,
+        };
       case 'accountant':
+        // Accounting: Teacher Management + Monthly Report + Settings
         return {
           canEdit: true,
           canDelete: false, // Restricted
           canCollectFee: true,
-          canModifySettings: false,
+          canModifySettings: true,
           canViewAllClasses: true,
           canExportBackup: false,
         };
@@ -1219,6 +1282,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (Array.isArray(serverData.subjects) && serverData.subjects.length > 0) {
             setSubjects(serverData.subjects);
           }
+          if (Array.isArray(serverData.teachers) && serverData.teachers.length > 0) setTeachers(serverData.teachers);
+          if (Array.isArray(serverData.teacherSchedules) && serverData.teacherSchedules.length > 0)
+            setTeacherSchedules(serverData.teacherSchedules);
+          if (Array.isArray(serverData.scheduleTimePeriods) && serverData.scheduleTimePeriods.length > 0)
+            setScheduleTimePeriods(serverData.scheduleTimePeriods);
           if (serverData.busRoutes && Array.isArray(serverData.busRoutes)) {
             setBusRoutes(serverData.busRoutes);
           }
@@ -1297,6 +1365,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       availableAcademicYears,
       academicMonths,
       subjects,
+      teachers,
+      teacherSchedules,
+      scheduleTimePeriods,
       busRoutes,
       busEnrollments,
       busPayments,
@@ -1309,6 +1380,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     availableAcademicYears,
     academicMonths,
     subjects,
+    teachers,
+    teacherSchedules,
+    scheduleTimePeriods,
     currentUser,
     users,
     classData,
@@ -1492,6 +1566,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         availableAcademicYears,
         academicMonths,
         subjects,
+        teachers,
+        teacherSchedules,
+        scheduleTimePeriods,
         busRoutes,
         busEnrollments,
         busPayments,
@@ -1568,6 +1645,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setAvailableAcademicYears(d.availableAcademicYears);
       if (Array.isArray(d.academicMonths) && d.academicMonths.length > 0) setAcademicMonths(d.academicMonths);
       if (Array.isArray(d.subjects) && d.subjects.length > 0) setSubjects(d.subjects);
+      if (Array.isArray(d.teachers) && d.teachers.length > 0) setTeachers(d.teachers);
+      if (Array.isArray(d.teacherSchedules) && d.teacherSchedules.length > 0) setTeacherSchedules(d.teacherSchedules);
+      if (Array.isArray(d.scheduleTimePeriods) && d.scheduleTimePeriods.length > 0) setScheduleTimePeriods(d.scheduleTimePeriods);
       if (d.busRoutes) setBusRoutes(d.busRoutes);
       if (d.busEnrollments) setBusEnrollments(d.busEnrollments);
       if (d.busPayments) setBusPayments(d.busPayments);
@@ -1706,6 +1786,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ? 'admin123'
         : matchedUser.role === 'accountant'
         ? 'accountant123'
+        : matchedUser.role === 'cashier'
+        ? 'cashier123'
         : matchedUser.role === 'teacher'
         ? 'teacher123'
         : 'student123');
@@ -4867,6 +4949,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       availableAcademicYears,
       academicMonths,
       subjects,
+      teachers,
+      teacherSchedules,
+      scheduleTimePeriods,
       busRoutes,
       busEnrollments,
       busAttendance,
@@ -4907,6 +4992,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (Array.isArray(parsed.academicMonths) && parsed.academicMonths.length > 0)
         setAcademicMonths(parsed.academicMonths);
       if (Array.isArray(parsed.subjects) && parsed.subjects.length > 0) setSubjects(parsed.subjects);
+      if (Array.isArray(parsed.teachers) && parsed.teachers.length > 0) setTeachers(parsed.teachers);
+      if (Array.isArray(parsed.teacherSchedules) && parsed.teacherSchedules.length > 0) setTeacherSchedules(parsed.teacherSchedules);
+      if (Array.isArray(parsed.scheduleTimePeriods) && parsed.scheduleTimePeriods.length > 0) setScheduleTimePeriods(parsed.scheduleTimePeriods);
       if (parsed.busRoutes && Array.isArray(parsed.busRoutes)) setBusRoutes(parsed.busRoutes);
       if (parsed.busEnrollments && Array.isArray(parsed.busEnrollments)) setBusEnrollments(parsed.busEnrollments);
       if (parsed.busAttendance && Array.isArray(parsed.busAttendance)) setBusAttendance(parsed.busAttendance);
@@ -5160,6 +5248,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         promotionHistory,
         subjects,
         setSubjects,
+        teachers,
+        setTeachers,
+        teacherSchedules,
+        setTeacherSchedules,
+        scheduleTimePeriods,
+        setScheduleTimePeriods,
         updateClassAcademic,
         availableAcademicYears,
         activeAcademicYear: settings.academicYear || '2026-2027',

@@ -13,7 +13,10 @@ import { UniformSalesHistoryView } from './components/UniformSalesHistoryView';
 import { ReportScannerView } from './components/ReportScannerView';
 import { POSSalesView } from './components/POSSalesView';
 import { SchoolBusView } from './components/SchoolBusView';
-import { DailyPaymentReportView } from './components/DailyPaymentReportView';
+import { DailyIncomeReportView } from './components/reports/DailyIncomeReportView';
+import { CashReportView } from './components/reports/CashReportView';
+import { MonthlyExcelReportView } from './components/reports/MonthlyExcelReportView';
+import { canOpenTab, homeTabFor } from './utils/access';
 import { SystemSettingsView } from './components/SystemSettingsView';
 import { OfficialPrintReport } from './components/OfficialPrintReport';
 import { OfficialClassRosterView } from './components/OfficialClassRosterView';
@@ -21,7 +24,6 @@ import { UserRoleModal } from './components/UserRoleModal';
 import { LoginView } from './components/LoginView';
 import { TeacherManagementView } from './components/TeacherManagementView';
 import { StudentAttendanceView } from './components/StudentAttendanceView';
-import { MonthlyReportsView } from './components/MonthlyReportsView';
 import { StudentAdmissionModal } from './components/StudentAdmissionModal';
 import { StudentAdmissionView } from './components/StudentAdmissionView';
 import { PromoteStudentsModal } from './components/PromoteStudentsModal';
@@ -83,7 +85,17 @@ function MainApp() {
     closeInvoiceVerification,
     academicYearArchives,
     switchAcademicYear,
+    currentUser,
   } = useApp();
+
+  // Land each role on a page it is allowed to open (e.g. a teacher starts at the student list)
+  useEffect(() => {
+    if (isAuthenticated && currentUser && !canOpenTab(currentUser.role, activeTab)) {
+      setActiveTabState(homeTabFor(currentUser.role));
+      window.history.replaceState(null, '', `#${homeTabFor(currentUser.role)}`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, currentUser?.role]);
 
   // Is an older academic year open? (switched from the header year menu)
   const activeAcademicYear = settings.academicYear || '2026-2027';
@@ -173,9 +185,25 @@ function MainApp() {
             </div>
           )}
           {/* Section 1: Dashboard */}
-          {(activeTab === 'overview' || activeTab === 'daily_report') && (
+          {!canOpenTab(currentUser.role, activeTab) && (
+            <div className="mx-auto mt-10 max-w-md rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center font-khmer">
+              <div className="text-sm font-bold text-amber-900">គណនីរបស់អ្នកមិនមានសិទ្ធិចូលទំព័រនេះទេ</div>
+              <button
+                type="button"
+                onClick={() => setActiveTab(homeTabFor(currentUser.role))}
+                className="mt-3 rounded-xl bg-teal-600 px-4 py-2 text-xs font-bold text-white hover:bg-teal-700"
+              >
+                ទៅទំព័រដើម
+              </button>
+            </div>
+          )}
+          {canOpenTab(currentUser.role, activeTab) && (<>
+          {activeTab === 'overview' && (
             <OverviewDashboard setActiveTab={setActiveTab} />
           )}
+
+          {activeTab === 'daily_report' && <DailyIncomeReportView />}
+          {activeTab === 'income_statistics' && <CashReportView />}
 
           {/* Section 2: Student Management */}
           {(activeTab === 'student_list' || activeTab === 'official_roster') && (
@@ -266,23 +294,23 @@ function MainApp() {
 
           {/* Section 5: Monthly Report Section */}
           {activeTab === 'report_tuition' && (
-            <MonthlyReportsView initialReportType="tuition_fee" />
+            <MonthlyExcelReportView key="report_tuition" initialReportType="tuition_fee" />
           )}
 
           {activeTab === 'report_uniform' && (
-            <MonthlyReportsView initialReportType="uniform_sales" />
+            <MonthlyExcelReportView key="report_uniform" initialReportType="uniform_sales" />
           )}
 
           {activeTab === 'report_transport' && (
-            <MonthlyReportsView initialReportType="transportation" />
+            <MonthlyExcelReportView key="report_transport" initialReportType="transportation" />
           )}
 
           {activeTab === 'report_materials' && (
-            <MonthlyReportsView initialReportType="study_materials" />
+            <MonthlyExcelReportView key="report_materials" initialReportType="study_materials" />
           )}
 
           {activeTab === 'report_stall_fee' && (
-            <MonthlyReportsView initialReportType="stall_fee" />
+            <MonthlyExcelReportView key="report_stall_fee" initialReportType="stall_fee" />
           )}
 
           {/* Utility Tools */}
@@ -293,6 +321,7 @@ function MainApp() {
           {activeTab === 'system_settings' && (
             <SystemSettingsView />
           )}
+          </>)}
         </main>
 
         {/* Mobile App-like Bottom Navigation Bar */}

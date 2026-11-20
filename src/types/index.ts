@@ -1,7 +1,7 @@
 export type Currency = 'USD' | 'KHR';
 export type Language = 'km' | 'en';
 
-export type UserRole = 'admin' | 'accountant' | 'teacher' | 'student';
+export type UserRole = 'admin' | 'cashier' | 'accountant' | 'teacher' | 'student';
 
 export interface UserProfile {
   id: string;
@@ -637,8 +637,10 @@ export interface TeacherRecord {
   subjects: string[]; // List of subject names or codes
   homeroomClassId?: string; // Homeroom class ID (e.g. "1A")
   homeroomClassName?: string;
-  joinDate: string;
+  joinDate: string; // Date of service
   status: 'active' | 'leave' | 'resigned';
+  position?: string; // e.g. "Grade 1A", "Kindergarten 1", "គ្រូភាសាអង់គ្លេស"
+  workStatus?: string; // e.g. "ពេញម៉ោង" (full time)
   branchId?: string;
   address?: string;
   salaryUSD?: number;
