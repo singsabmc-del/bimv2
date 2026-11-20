@@ -197,17 +197,17 @@ export const TeacherCheckInView: React.FC = () => {
             ← គ្រប់គ្រងវត្តមានបុគ្គលិកទាំងអស់
           </button>
         )}
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#1b2a52] via-[#1e3166] to-[#24407e] p-4 text-white shadow-xl">
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-teal-600 via-teal-700 to-teal-800 p-4 text-white shadow-lg shadow-teal-900/20">
           <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-white/5" />
           <div className="pointer-events-none absolute -bottom-20 -left-10 h-56 w-56 rounded-full bg-white/5" />
           <div className="relative text-base font-bold leading-tight">សួស្តី, {firstName || 'បុគ្គលិក'}</div>
-          <div className="relative text-[11px] text-blue-100">{dateLabel}</div>
+          <div className="relative text-[11px] text-teal-100">{dateLabel}</div>
           <div className="relative mt-2 flex items-center justify-between gap-2">
             <div>
               <div className="font-mono text-4xl font-black tabular-nums sm:text-5xl">
-                {hhmm(now)}<span className="text-xl text-blue-200 sm:text-3xl">:{pad(now.getSeconds())}</span>
+                {hhmm(now)}<span className="text-xl text-teal-200 sm:text-3xl">:{pad(now.getSeconds())}</span>
               </div>
-              <div className="mt-1 text-[11px] text-blue-100">
+              <div className="mt-1 text-[11px] text-teal-100">
                 ចូល {selectedRec?.checkIn || '--:--'} · ចេញ {selectedRec?.checkOut || '--:--'}
                 {selectedRec && <span className={`ml-2 rounded-full px-2 py-0.5 text-[10px] font-bold ${STATUS_UI[selectedRec.status].cls}`}>{STATUS_UI[selectedRec.status].label}</span>}
               </div>
@@ -216,8 +216,8 @@ export const TeacherCheckInView: React.FC = () => {
               type="button"
               disabled={!selected || doneToday}
               onClick={onBig}
-              className={`flex h-24 w-24 shrink-0 items-center justify-center rounded-full border-4 border-orange-500 text-xs font-bold tracking-wide shadow-[0_0_24px_rgba(249,115,22,0.35)] transition active:scale-95 disabled:opacity-50 sm:h-28 sm:w-28 sm:text-sm ${
-                !selectedRec?.checkIn ? 'bg-gradient-to-br from-indigo-600 to-blue-700' : 'bg-gradient-to-br from-amber-500 to-orange-600'
+              className={`flex h-24 w-24 shrink-0 items-center justify-center rounded-full border-4 border-amber-400 text-xs font-bold tracking-wide shadow-[0_0_24px_rgba(251,191,36,0.35)] transition active:scale-95 disabled:opacity-50 sm:h-28 sm:w-28 sm:text-sm ${
+                !selectedRec?.checkIn ? 'bg-white text-teal-800' : 'bg-amber-400 text-slate-900'
               }`}
             >
               {btnLabel}
@@ -227,7 +227,7 @@ export const TeacherCheckInView: React.FC = () => {
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="កំណត់សម្គាល់ (ជម្រើស)"
-            className="relative mt-3 w-full rounded-xl bg-white/10 px-3 py-1.5 text-xs text-white placeholder:text-blue-200 focus:bg-white/15 focus:outline-none"
+            className="relative mt-3 w-full rounded-xl bg-white/10 px-3 py-1.5 text-xs text-white placeholder:text-teal-100 focus:bg-white/15 focus:outline-none"
           />
           {!linkedTeacher && (
             <p className="relative mt-2 rounded-lg bg-amber-400/95 px-2 py-1.5 text-[10px] font-bold leading-snug text-slate-900">
@@ -237,7 +237,7 @@ export const TeacherCheckInView: React.FC = () => {
         </div>
 
         {/* Quick tiles */}
-        <div className="grid grid-cols-3 overflow-hidden rounded-3xl bg-[#1e3166] text-white shadow-lg">
+        <div className="grid grid-cols-3 overflow-hidden rounded-3xl border border-slate-200 bg-white text-slate-800 shadow-[0_1px_2px_rgb(15_23_42/0.04)]">
           {[
             { label: 'វត្តមានរបស់ខ្ញុំ', en: 'Attendance', Icon: Clock, onClick: () => document.getElementById('my-attendance')?.scrollIntoView({ behavior: 'smooth' }), badge: mine ? `${mine.present}` : '' },
             { label: 'សុំច្បាប់', en: 'Leave', Icon: Send, onClick: () => go('teacher_leave'), badge: pendingLeaves ? `${pendingLeaves}` : '' },
@@ -246,10 +246,10 @@ export const TeacherCheckInView: React.FC = () => {
             { label: 'ព័ត៌មានសិស្ស', en: 'Student Info', Icon: ListChecks, onClick: () => go('student_info') },
             { label: 'សរុបខែនេះ', en: 'This month', Icon: CalendarDays, onClick: () => setTab('month') },
           ].filter((x) => currentUser.role === 'teacher' || !['Student Attendance', 'Student List', 'Student Info'].includes(x.en)).map(({ label, en, Icon, onClick, badge }) => (
-            <button key={en} type="button" onClick={onClick} className="relative flex flex-col items-center gap-1 border-b border-r border-white/15 px-1 py-3 hover:bg-white/5">
-              <Icon className="h-6 w-6" strokeWidth={1.8} />
+            <button key={en} type="button" onClick={onClick} className="relative flex flex-col items-center gap-1 border-b border-r border-slate-100 px-1 py-3 hover:bg-teal-50">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-50 text-teal-700"><Icon className="h-5 w-5" strokeWidth={1.9} /></span>
               <span className="text-[11px] font-bold leading-tight sm:text-sm">{label}</span>
-              <span className="hidden text-[10px] text-blue-200 sm:block">{en}</span>
+              <span className="hidden text-[10px] text-slate-400 sm:block">{en}</span>
               {badge && <span className="absolute right-2 top-2 rounded-full bg-amber-400 px-1.5 text-[10px] font-bold text-slate-900">{badge}</span>}
             </button>
           ))}
@@ -318,7 +318,7 @@ export const TeacherCheckInView: React.FC = () => {
           {canManage && (
             <button
               onClick={() => { setMode('me'); setDate(isoOf(new Date())); }}
-              className="rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white hover:bg-indigo-700"
+              className="rounded-xl bg-teal-600 px-3 py-2 text-xs font-bold text-white hover:bg-teal-700"
               title={linkedTeacher ? '' : 'គណនីនេះមិនទាន់ភ្ជាប់ឈ្មោះក្នុងបញ្ជីបុគ្គលិក'}
             >
               Check In ខ្លួនឯង
