@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { canOpenTab } from '../utils/access';
 import { InstallAppButton } from './InstallAppButton';
+import { ThemePicker } from './ThemePicker';
 import { NavTab } from './Sidebar';
 import {
   Menu,
@@ -935,6 +936,9 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
               </span>
             </button>
             )}
+
+            {/* Personal theme: background, skin, icon style */}
+            <ThemePicker />
 
             {/* Install as an app (PWA) — shown only when the browser can install it */}
             <InstallAppButton />

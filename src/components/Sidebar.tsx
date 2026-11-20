@@ -536,10 +536,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           key={item.id}
                           onClick={() => handleNavClick(item.id)}
                           className={`flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition ${
-                            isActive ? 'bg-teal-50 font-bold text-teal-800' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                            isActive ? 'nav-item-active bg-teal-50 font-bold text-teal-800' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                           } ${language === 'km' ? 'font-khmer' : ''}`}
                         >
-                          <Icon className={`h-[18px] w-[18px] shrink-0 ${isActive ? 'text-teal-700' : 'text-slate-400'}`} strokeWidth={1.8} />
+                          <Icon className={`nav-icon h-[18px] w-[18px] shrink-0 ${isActive ? 'text-teal-700' : 'text-slate-400'}`} strokeWidth={1.8} />
                           <span className="flex-1 truncate leading-tight">{itemTitle}</span>
                           {badge !== undefined && badge > 0 && (
                             <span
