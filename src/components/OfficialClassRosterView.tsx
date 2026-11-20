@@ -104,6 +104,8 @@ export const OfficialClassRosterView: React.FC = () => {
     updateClassTeacher,
     academicYearArchives,
     currentUser,
+    deleteStudent,
+    showNotification,
   } = useApp();
 
   // Academic year shown in this roster. An archived (old) year is shown read-only straight from its
@@ -135,6 +137,9 @@ export const OfficialClassRosterView: React.FC = () => {
 
   // Mode: 'official_image' (the 15 students uploaded by user), or classId (1A, 1B, 2A...)
   const [selectedRosterSource, setSelectedRosterSource] = useState<string>('official_image');
+  // Delete a student (Admin only — needs delete permission; not on old-year archives or the sample image list)
+  const rosterSourceClassId = rosterClassData[selectedRosterSource] ? selectedRosterSource : rosterClassList[0]?.classId || '';
+  const canDeleteHere = permissions.canDelete && !isArchiveView && selectedRosterSource !== 'official_image' && !!rosterSourceClassId;
 
   // Vertical Slice states
   const [isClassSliceOpen, setIsClassSliceOpen] = useState(true);
@@ -863,6 +868,20 @@ export const OfficialClassRosterView: React.FC = () => {
                                 >
                                   <Receipt className="w-3.5 h-3.5" />
                                   <span>បង់ប្រាក់</span>
+                                </button>
+                              )}
+                              {canDeleteHere && st.originalStudent && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (!window.confirm(`តើអ្នកពិតជាចង់លុបសិស្ស «${st.name}» (${st.studentCode || ''}) ចេញពីថ្នាក់នេះមែនទេ?\n\nប្រវត្តិបង់ប្រាក់របស់សិស្សនេះក៏នឹងត្រូវលុបដែរ។`)) return;
+                                    if (deleteStudent(rosterSourceClassId, st.id)) showNotification?.(`បានលុបសិស្ស ${st.name}`, 'success');
+                                  }}
+                                  className="mt-1 px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-[11px] font-bold font-khmer transition-all flex items-center justify-center gap-1 mx-auto cursor-pointer"
+                                  title="លុបសិស្ស (Delete)"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <span>លុប</span>
                                 </button>
                               )}
                             </td>
