@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Download, Share, PlusSquare, X } from 'lucide-react';
 import { usePwaInstall } from '../utils/pwa';
 
-export const InstallAppButton: React.FC<{ variant?: 'header' | 'card' }> = ({ variant = 'header' }) => {
+export const InstallAppButton: React.FC<{ variant?: 'header' | 'card' | 'menu'; onDone?: () => void }> = ({ variant = 'header', onDone }) => {
   const { canInstall, ios, install } = usePwaInstall();
   const [showIos, setShowIos] = useState(false);
   if (!canInstall && !ios) return null;
@@ -12,7 +12,15 @@ export const InstallAppButton: React.FC<{ variant?: 'header' | 'card' }> = ({ va
 
   return (
     <>
-      {variant === 'header' ? (
+      {variant === 'menu' ? (
+        <button
+          type="button"
+          onClick={() => { const native = canInstall; onClick(); if (native) onDone?.(); }}
+          className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 font-khmer"
+        >
+          <Download className="h-4 w-4 text-teal-600" /> ដំឡើងជា App
+        </button>
+      ) : variant === 'header' ? (
         <button
           type="button"
           onClick={onClick}

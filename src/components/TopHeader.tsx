@@ -16,6 +16,8 @@ import {
   Building,
   Calendar,
   LogOut,
+  MoreHorizontal,
+  Palette,
   QrCode,
   Database,
   Settings,
@@ -74,6 +76,9 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   const [isBranchOpen, setIsBranchOpen] = useState(false);
   const [isPeriodOpen, setIsPeriodOpen] = useState(false);
   const [isYearOpen, setIsYearOpen] = useState(false);
+  const [isMoreOpen, setIsMoreOpen] = useState(false);
+  const [isThemeOpen, setIsThemeOpen] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
   const [isTgLogsOpen, setIsTgLogsOpen] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
 
@@ -166,6 +171,9 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
       }
       if (yearDropdownRef.current && !yearDropdownRef.current.contains(e.target as Node)) {
         setIsYearOpen(false);
+      }
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+        setIsMoreOpen(false);
       }
       if (periodDropdownRef.current && !periodDropdownRef.current.contains(e.target as Node)) {
         setIsPeriodOpen(false);
@@ -883,75 +891,6 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
             </button>
             )}
 
-            {/* Quick QR Invoice Verification Button for Staff */}
-            {isStaff && (
-            <button
-              onClick={() => openInvoiceVerification()}
-              title={t('ផ្ទៀងផ្ទាត់វិក្កយបត្រតាម QR Code', 'Verify Invoice via QR Code')}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 text-xs font-bold transition-all shadow-2xs cursor-pointer"
-            >
-              <QrCode className="w-3.5 h-3.5 text-emerald-600" />
-              <span className="hidden lg:inline font-khmer text-xs">
-                {t('ផ្ទៀងផ្ទាត់ QR', 'Verify QR')}
-              </span>
-            </button>
-            )}
-
-            {/* Quick Auto-Backup & Cloud Sync Button */}
-            {showBackup && (
-            <button
-              onClick={() => openAutoBackupModal()}
-              title={
-                autoBackupConfig?.enabled
-                  ? t(`ការបម្រុងទុកស្វ័យប្រវត្ត (សកម្ម) - ចុងក្រោយ: ${lastBackupTime ? new Date(lastBackupTime).toLocaleTimeString() : 'មិនទាន់មាន'}`, `Auto-Backup (Active) - Last: ${lastBackupTime ? new Date(lastBackupTime).toLocaleTimeString() : 'None'}`)
-                  : t('ការបម្រុងទុកស្វ័យប្រវត្ត & Cloud Sync', 'Auto-Backup & Cloud Sync')
-              }
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all shadow-2xs cursor-pointer ${
-                autoBackupConfig?.enabled
-                  ? 'bg-indigo-50 hover:bg-indigo-100 border-indigo-300 text-indigo-800'
-                  : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'
-              }`}
-            >
-              <Database className={`w-3.5 h-3.5 ${autoBackupConfig?.enabled ? 'text-indigo-600' : 'text-slate-500'}`} />
-              <span className="hidden xl:inline font-khmer text-xs">
-                {t('បម្រុងទុកទិន្នន័យ', 'Auto-Backup')}
-              </span>
-            </button>
-            )}
-
-            {/* Quick Settings Button */}
-            {showSettings && (
-            <button
-              onClick={() => setActiveTab('system_settings')}
-              title={t('ការកំណត់ប្រព័ន្ធ (System Settings)', 'System Settings')}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all shadow-2xs cursor-pointer ${
-                activeTab === 'system_settings'
-                  ? 'bg-amber-500 text-slate-950 border-amber-500 shadow-xs'
-                  : 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-800'
-              }`}
-            >
-              <Settings className={`w-3.5 h-3.5 ${activeTab === 'system_settings' ? 'text-slate-950' : 'text-slate-700'}`} />
-              <span className="hidden sm:inline font-khmer text-xs">
-                {t('ការកំណត់', 'Settings')}
-              </span>
-            </button>
-            )}
-
-            {/* Personal theme: background, skin, icon style */}
-            <ThemePicker />
-
-            {/* Install as an app (PWA) — shown only when the browser can install it */}
-            <InstallAppButton />
-
-            {/* Print button (Hidden on Mobile) */}
-            <button
-              onClick={handlePrint}
-              title={t('បោះពុម្ពទំព័រនេះ', 'Print this page')}
-              className="hidden sm:flex items-center justify-center p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
-            >
-              <Printer className="w-4 h-4" />
-            </button>
-
             {/* User Profile Pill */}
             <button
               onClick={onOpenUserModal}
@@ -971,21 +910,50 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
               </div>
             </button>
 
-            {/* Quick Logout Button */}
-            <button
-              onClick={() => {
-                if (window.confirm(t('តើអ្នកពិតជាចង់ចាកចេញពីប្រព័ន្ធមែនទេ?', 'Are you sure you want to log out?'))) {
-                  logout();
-                }
-              }}
-              title={t('ចាកចេញពីប្រព័ន្ធ (Log Out)', 'Log Out')}
-              className="flex items-center gap-1 p-2 sm:px-2.5 sm:py-1.5 rounded-xl text-rose-600 hover:text-white hover:bg-rose-600 bg-rose-50 border border-rose-200 text-xs font-bold transition-all shrink-0 cursor-pointer shadow-2xs"
-            >
-              <LogOut className="w-3.5 h-3.5 shrink-0" />
-              <span className="hidden sm:inline font-khmer text-xs">
-                {t('ចាកចេញ', 'Log Out')}
-              </span>
-            </button>
+            {/* Theme panel (opened from the More menu) */}
+            <ThemePicker hideButton open={isThemeOpen} onOpenChange={setIsThemeOpen} />
+
+            {/* More: theme, install app, print, log out (QR / backup / settings live in the side menu) */}
+            <div className="relative" ref={moreMenuRef}>
+              <button
+                type="button"
+                onClick={() => setIsMoreOpen((v) => !v)}
+                title={t('ឧបករណ៍ផ្សេងៗ', 'More')}
+                className={`flex items-center justify-center p-2 rounded-xl border text-slate-700 transition-colors cursor-pointer ${isMoreOpen ? 'bg-slate-100 border-slate-300' : 'bg-white border-slate-200 hover:bg-slate-50'}`}
+              >
+                <MoreHorizontal className="w-4 h-4" />
+              </button>
+              {isMoreOpen && (
+                <div className="fixed sm:absolute top-16 sm:top-full mt-2 right-3 sm:right-0 w-60 z-50 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-2xl font-khmer">
+                  <button
+                    type="button"
+                    onClick={() => { setIsMoreOpen(false); setIsThemeOpen(true); }}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50"
+                  >
+                    <Palette className="h-4 w-4 text-teal-600" /> {t('ប្តូរ Theme', 'Theme')}
+                  </button>
+                  <InstallAppButton variant="menu" onDone={() => setIsMoreOpen(false)} />
+                  <button
+                    type="button"
+                    onClick={() => { setIsMoreOpen(false); handlePrint(); }}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50"
+                  >
+                    <Printer className="h-4 w-4 text-slate-500" /> {t('បោះពុម្ពទំព័រនេះ', 'Print this page')}
+                  </button>
+                  <div className="my-1 border-t border-slate-100" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsMoreOpen(false);
+                      if (window.confirm(t('តើអ្នកពិតជាចង់ចាកចេញពីប្រព័ន្ធមែនទេ?', 'Are you sure you want to log out?'))) logout();
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-bold text-rose-600 hover:bg-rose-50"
+                  >
+                    <LogOut className="h-4 w-4" /> {t('ចាកចេញ', 'Log Out')}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
