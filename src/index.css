@@ -325,3 +325,18 @@ html[data-icon-chips='on'] .nav-item-active .nav-icon {
   background: var(--color-teal-600);
   color: #fff !important;
 }
+
+/* ---------- Sidebar colour (Theme → Sidebar) ---------- */
+.app-sidebar { background: var(--sidebar-bg, #ffffff) !important; }
+html[data-sidebar-tone='dark'] .app-sidebar { color: rgb(255 255 255 / 0.85); border-color: rgb(255 255 255 / 0.08) !important; }
+html[data-sidebar-tone='dark'] .app-sidebar :is(.text-slate-300, .text-slate-400, .text-slate-500) { color: rgb(255 255 255 / 0.6) !important; }
+html[data-sidebar-tone='dark'] .app-sidebar :is(.text-slate-600, .text-slate-700, .text-slate-800, .text-slate-900, .text-teal-700, .text-teal-800) { color: rgb(255 255 255 / 0.92) !important; }
+html[data-sidebar-tone='dark'] .app-sidebar :is(.bg-white, .bg-slate-50, .bg-slate-100) { background-color: rgb(255 255 255 / 0.08) !important; }
+html[data-sidebar-tone='dark'] .app-sidebar .bg-slate-50\/60 { background-color: rgb(255 255 255 / 0.08) !important; }
+html[data-sidebar-tone='dark'] .app-sidebar :is(.border-slate-100, .border-slate-200, .border-t) { border-color: rgb(255 255 255 / 0.12) !important; }
+html[data-sidebar-tone='dark'] .app-sidebar button:hover { background-color: rgb(255 255 255 / 0.1) !important; }
+html[data-sidebar-tone='dark'] .app-sidebar .nav-item-active { background-color: rgb(255 255 255 / 0.18) !important; color: #fff !important; }
+html[data-sidebar-tone='dark'] .app-sidebar .nav-item-active .nav-icon { color: #fff !important; }
+html[data-sidebar-tone='dark'] .app-sidebar .text-teal-800.font-display,
+html[data-sidebar-tone='dark'] .app-sidebar .font-display { color: #fff !important; }
+html[data-sidebar-tone='dark'][data-icon-chips='on'] .app-sidebar .nav-icon { background: rgb(255 255 255 / 0.12); color: #fff !important; }
