@@ -4,6 +4,7 @@ import { BIM_TEACHERS, BIM_SCHEDULE_1A, BIM_TIME_PERIODS } from '../data/initial
 import {
   SubjectItem,
   TeacherRecord,
+  TeacherCheckInData,
   ScheduleSlot,
   ScheduleTimePeriod,
   ClassFeeData,
@@ -184,6 +185,7 @@ interface AppContextType {
   // Telegram Alert & Notification Toast
   activeToast: TelegramAlertToast | null;
   dismissToast: () => void;
+  showNotification: (message: string, kind?: 'success' | 'error' | 'warning') => void;
   telegramAlertLogs: TelegramAlertLogItem[];
   clearTelegramLogs: () => void;
   deleteTelegramLog: (id: string) => void;
@@ -277,6 +279,8 @@ interface AppContextType {
   setTeacherSchedules: (slots: ScheduleSlot[]) => void;
   scheduleTimePeriods: ScheduleTimePeriod[];
   setScheduleTimePeriods: (periods: ScheduleTimePeriod[]) => void;
+  teacherCheckIn: TeacherCheckInData;
+  setTeacherCheckIn: React.Dispatch<React.SetStateAction<TeacherCheckInData>>;
   updateClassAcademic: (classId: string, updater: (cls: ClassFeeData) => Partial<ClassFeeData>) => void;
   // Annual Academic Year Isolation & Upgrading (ការឡើងថ្នាក់សិស្សប្រចាំឆ្នាំ និងទិន្នន័យដាច់ដោយឡែក)
   availableAcademicYears: string[];
@@ -969,6 +973,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return BIM_TIME_PERIODS;
     }
   });
+  // Teacher Attendance Check In (synced)
+  const [teacherCheckIn, setTeacherCheckIn] = useState<TeacherCheckInData>(() => {
+    const fallback: TeacherCheckInData = { records: [], startTime: '07:00', endTime: '16:00', lateGraceMinutes: 5 };
+    try {
+      const parsed = JSON.parse(localStorage.getItem('BIM_RANGSEI_TEACHER_CHECKIN') || 'null');
+      return parsed && Array.isArray(parsed.records) ? { ...fallback, ...parsed } : fallback;
+    } catch {
+      return fallback;
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem('BIM_RANGSEI_TEACHER_CHECKIN', JSON.stringify(teacherCheckIn));
+    } catch {}
+  }, [teacherCheckIn]);
   useEffect(() => {
     try {
       localStorage.setItem('BIM_RANGSEI_TEACHERS', JSON.stringify(teachers));
@@ -1287,6 +1306,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setTeacherSchedules(serverData.teacherSchedules);
           if (Array.isArray(serverData.scheduleTimePeriods) && serverData.scheduleTimePeriods.length > 0)
             setScheduleTimePeriods(serverData.scheduleTimePeriods);
+          if (serverData.teacherCheckIn && Array.isArray(serverData.teacherCheckIn.records))
+            setTeacherCheckIn(serverData.teacherCheckIn);
           if (serverData.busRoutes && Array.isArray(serverData.busRoutes)) {
             setBusRoutes(serverData.busRoutes);
           }
@@ -1368,6 +1389,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       teachers,
       teacherSchedules,
       scheduleTimePeriods,
+      teacherCheckIn,
       busRoutes,
       busEnrollments,
       busPayments,
@@ -1383,6 +1405,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     teachers,
     teacherSchedules,
     scheduleTimePeriods,
+    teacherCheckIn,
     currentUser,
     users,
     classData,
@@ -1569,6 +1592,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         teachers,
         teacherSchedules,
         scheduleTimePeriods,
+        teacherCheckIn,
         busRoutes,
         busEnrollments,
         busPayments,
@@ -1648,6 +1672,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (Array.isArray(d.teachers) && d.teachers.length > 0) setTeachers(d.teachers);
       if (Array.isArray(d.teacherSchedules) && d.teacherSchedules.length > 0) setTeacherSchedules(d.teacherSchedules);
       if (Array.isArray(d.scheduleTimePeriods) && d.scheduleTimePeriods.length > 0) setScheduleTimePeriods(d.scheduleTimePeriods);
+      if (d.teacherCheckIn && Array.isArray(d.teacherCheckIn.records)) setTeacherCheckIn(d.teacherCheckIn);
       if (d.busRoutes) setBusRoutes(d.busRoutes);
       if (d.busEnrollments) setBusEnrollments(d.busEnrollments);
       if (d.busPayments) setBusPayments(d.busPayments);
@@ -4952,6 +4977,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       teachers,
       teacherSchedules,
       scheduleTimePeriods,
+      teacherCheckIn,
       busRoutes,
       busEnrollments,
       busAttendance,
@@ -4995,6 +5021,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (Array.isArray(parsed.teachers) && parsed.teachers.length > 0) setTeachers(parsed.teachers);
       if (Array.isArray(parsed.teacherSchedules) && parsed.teacherSchedules.length > 0) setTeacherSchedules(parsed.teacherSchedules);
       if (Array.isArray(parsed.scheduleTimePeriods) && parsed.scheduleTimePeriods.length > 0) setScheduleTimePeriods(parsed.scheduleTimePeriods);
+      if (parsed.teacherCheckIn && Array.isArray(parsed.teacherCheckIn.records)) setTeacherCheckIn(parsed.teacherCheckIn);
       if (parsed.busRoutes && Array.isArray(parsed.busRoutes)) setBusRoutes(parsed.busRoutes);
       if (parsed.busEnrollments && Array.isArray(parsed.busEnrollments)) setBusEnrollments(parsed.busEnrollments);
       if (parsed.busAttendance && Array.isArray(parsed.busAttendance)) setBusAttendance(parsed.busAttendance);
@@ -5254,6 +5281,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setTeacherSchedules,
         scheduleTimePeriods,
         setScheduleTimePeriods,
+        teacherCheckIn,
+        setTeacherCheckIn,
+        showNotification,
         updateClassAcademic,
         availableAcademicYears,
         activeAcademicYear: settings.academicYear || '2026-2027',

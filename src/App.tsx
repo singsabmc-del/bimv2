@@ -17,6 +17,7 @@ import { DailyIncomeReportView } from './components/reports/DailyIncomeReportVie
 import { CashReportView } from './components/reports/CashReportView';
 import { MonthlyExcelReportView } from './components/reports/MonthlyExcelReportView';
 import { canOpenTab, homeTabFor } from './utils/access';
+import { TeacherCheckInView } from './components/TeacherCheckInView';
 import { SystemSettingsView } from './components/SystemSettingsView';
 import { OfficialPrintReport } from './components/OfficialPrintReport';
 import { OfficialClassRosterView } from './components/OfficialClassRosterView';
@@ -251,6 +252,8 @@ function MainApp() {
           {activeTab === 'teacher_subject' && (
             <TeacherManagementView initialSubTab="subject" />
           )}
+
+          {activeTab === 'teacher_checkin' && <TeacherCheckInView />}
 
           {activeTab === 'teacher_attendance' && (
             <TeacherManagementView initialSubTab="teacher_attendance" />

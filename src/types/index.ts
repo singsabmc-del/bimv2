@@ -646,6 +646,25 @@ export interface TeacherRecord {
   salaryUSD?: number;
 }
 
+/** One teacher's check-in / check-out for one day (Teacher Management → Attendance Check In) */
+export interface TeacherCheckInRecord {
+  id: string; // `${date}_${teacherId}`
+  teacherId: string;
+  date: string; // YYYY-MM-DD
+  checkIn?: string; // HH:MM (24h)
+  checkOut?: string; // HH:MM (24h)
+  status: 'on_time' | 'late' | 'leave' | 'absent';
+  note?: string;
+  recordedBy?: string;
+}
+
+export interface TeacherCheckInData {
+  records: TeacherCheckInRecord[];
+  startTime: string; // school start, e.g. "07:00"
+  endTime: string; // school end, e.g. "16:00"
+  lateGraceMinutes: number; // minutes after start before "late"
+}
+
 export interface SubjectItem {
   id: string;
   code: string; // e.g. "KH-01", "MATH-01", "ENG-01"
