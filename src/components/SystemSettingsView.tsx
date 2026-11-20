@@ -289,7 +289,7 @@ export const SystemSettingsView: React.FC = () => {
   const [formUserName, setFormUserName] = useState('');
   const [formUserKhmerName, setFormUserKhmerName] = useState('');
   const [formUserUsername, setFormUserUsername] = useState('');
-  const [formUserRole, setFormUserRole] = useState<'admin' | 'accountant' | 'teacher' | 'student'>('teacher');
+  const [formUserRole, setFormUserRole] = useState<'admin' | 'cashier' | 'accountant' | 'teacher' | 'student'>('teacher');
   const [formUserEmail, setFormUserEmail] = useState('');
   const [formUserClassId, setFormUserClassId] = useState('');
 
@@ -2587,6 +2587,8 @@ export const SystemSettingsView: React.FC = () => {
                               ? 'bg-rose-100 text-rose-800'
                               : u.role === 'accountant'
                               ? 'bg-amber-100 text-amber-800'
+                              : u.role === 'cashier'
+                              ? 'bg-sky-100 text-sky-800'
                               : u.role === 'teacher'
                               ? 'bg-indigo-100 text-indigo-800'
                               : 'bg-emerald-100 text-emerald-800'
@@ -2786,9 +2788,10 @@ export const SystemSettingsView: React.FC = () => {
                     onChange={(e) => setFormUserRole(e.target.value as any)}
                     className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-khmer font-bold"
                   >
-                    <option value="admin">Admin (នាយកសាលា)</option>
-                    <option value="accountant">Accountant (គណនេយ្យករ)</option>
-                    <option value="teacher">Teacher (គ្រូបន្ទុកថ្នាក់)</option>
+                    <option value="admin">Admin (អ្នកគ្រប់គ្រង · ប្រើប្រាស់ទាំងអស់)</option>
+                    <option value="cashier">Cashier (បេឡាករ · គ្រប់គ្រងសិស្ស + ចំណូលប្រចាំថ្ងៃ)</option>
+                    <option value="accountant">Accounting (គណនេយ្យ · គ្រូ + របាយការណ៍ប្រចាំខែ + ការកំណត់)</option>
+                    <option value="teacher">Teacher (គ្រូ · មើលបញ្ជីសិស្ស + ស្រង់វត្តមាន)</option>
                     <option value="student">Student (សិស្ស)</option>
                   </select>
                 </div>
@@ -2929,9 +2932,10 @@ export const SystemSettingsView: React.FC = () => {
                     onChange={(e) => setFormUserRole(e.target.value as any)}
                     className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-khmer font-bold"
                   >
-                    <option value="admin">Admin (នាយកសាលា)</option>
-                    <option value="accountant">Accountant (គណនេយ្យករ)</option>
-                    <option value="teacher">Teacher (គ្រូបន្ទុកថ្នាក់)</option>
+                    <option value="admin">Admin (អ្នកគ្រប់គ្រង · ប្រើប្រាស់ទាំងអស់)</option>
+                    <option value="cashier">Cashier (បេឡាករ · គ្រប់គ្រងសិស្ស + ចំណូលប្រចាំថ្ងៃ)</option>
+                    <option value="accountant">Accounting (គណនេយ្យ · គ្រូ + របាយការណ៍ប្រចាំខែ + ការកំណត់)</option>
+                    <option value="teacher">Teacher (គ្រូ · មើលបញ្ជីសិស្ស + ស្រង់វត្តមាន)</option>
                     <option value="student">Student (សិស្ស)</option>
                   </select>
                 </div>

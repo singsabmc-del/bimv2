@@ -37,7 +37,10 @@ import {
   BookMarked,
   Trophy,
   IdCard,
+  CalendarDays,
+  PieChart,
 } from 'lucide-react';
+import { canOpenTab, ROLE_LABELS } from '../utils/access';
 
 export const NAV_TAB_IDS = [
   'overview',
@@ -79,6 +82,7 @@ export const NAV_TAB_IDS = [
   'daily_report',
   'ai_scanner',
   'system_settings',
+  'income_statistics',
 ] as const;
 
 export type NavTab = (typeof NAV_TAB_IDS)[number];
@@ -145,7 +149,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           label: 'Dashboard',
           labelKhmer: 'ផ្ទាំងគ្រប់គ្រងទូទៅ',
           icon: LayoutDashboard,
-          activeMatch: ['overview', 'daily_report'],
+          activeMatch: ['overview'],
         },
       ],
     },
@@ -326,13 +330,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
         },
       ],
     },
-    // Section 5: Monthly Report Section
+    // Section 5: Reporting Section (Monthly Report + Daily Income Report)
     {
       id: 'reports',
-      title: 'Monthly Report Section',
-      titleKhmer: 'ផ្នែករបាយការណ៍ប្រចាំខែ',
+      title: 'Reporting Section',
+      titleKhmer: 'ផ្នែករបាយការណ៍',
       color: 'blue',
       items: [
+        {
+          id: 'daily_report' as NavTab,
+          label: 'Daily Income Report',
+          labelKhmer: 'របាយការណ៍ចំណូលប្រចាំថ្ងៃ',
+          icon: CalendarDays,
+          activeMatch: ['daily_report'],
+        },
         {
           id: 'report_tuition' as NavTab,
           label: 'Tuition Fee Payment Report',
@@ -370,7 +381,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
         },
       ],
     },
-  ];
+    // Section 6: Income Statistics
+    {
+      id: 'income',
+      title: 'Income Statistics',
+      titleKhmer: 'ស្ថិតិចំណូល',
+      color: 'emerald',
+      items: [
+        {
+          id: 'income_statistics' as NavTab,
+          label: 'Cash Report',
+          labelKhmer: 'របាយការណ៍សាច់ប្រាក់ (Cash Report)',
+          icon: PieChart,
+          activeMatch: ['income_statistics'],
+        },
+      ],
+    },
+  ]
+    // Show only the pages this user's role may open (Setting → access rights)
+    .map((sec) => ({ ...sec, items: sec.items.filter((it) => canOpenTab(currentUser.role, it.id)) }))
+    .filter((sec) => sec.items.length > 0);
 
   return (
     <>
@@ -427,7 +457,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
             <div className="min-w-0 flex-1">
               <div className="truncate text-[13px] font-bold text-slate-900 font-khmer">{currentUser.khmerName.split('(')[0].trim()}</div>
-              <div className="truncate text-[11px] capitalize text-slate-500">{currentUser.role}</div>
+              <div className="truncate text-[11px] text-slate-500 font-khmer">
+                {language === 'km' ? ROLE_LABELS[currentUser.role]?.km : ROLE_LABELS[currentUser.role]?.en}
+              </div>
             </div>
             <ChevronRight className="h-4 w-4 shrink-0 text-slate-300 group-hover:text-teal-600" />
           </button>
@@ -526,6 +558,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     active: activeTab === 'system_settings',
                   },
                 ] as const
+              ).filter(({ key }) =>
+                key === 'settings' ? canOpenTab(currentUser.role, 'system_settings')
+                : key === 'backup' ? currentUser.role === 'admin' || currentUser.role === 'accountant'
+                : true
               ).map(({ key, icon: Icon, label, onClick, active }) => (
                 <button
                   key={key}

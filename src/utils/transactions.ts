@@ -66,6 +66,8 @@ export interface TransactionSources {
   selectedCanteenMonth: string;
   settings: { exchangeRate: number };
   currentBranchId: string;
+  /** Include stall fees from every saved month (default: only the selected month) */
+  allCanteenMonths?: boolean;
 }
 
 /** Every transaction across all dates (each with an ISO `date`). Filter by date as needed. */
@@ -79,6 +81,7 @@ export const collectAllTransactions = ({
   selectedCanteenMonth,
   settings,
   currentBranchId,
+  allCanteenMonths = false,
 }: TransactionSources): UnifiedDailyTransaction[] => {
     const list: UnifiedDailyTransaction[] = [];
 
@@ -224,7 +227,10 @@ export const collectAllTransactions = ({
     }
 
     // 5. Canteen Daily Stall Fees
-    const currentCanteen = canteenHistory[selectedCanteenMonth] || Object.values(canteenHistory)[0];
+    const canteenMonths = allCanteenMonths
+      ? Object.values(canteenHistory || {})
+      : [canteenHistory[selectedCanteenMonth] || Object.values(canteenHistory)[0]];
+    canteenMonths.forEach((currentCanteen) => {
     if (currentCanteen && currentCanteen.dailyRecords) {
       currentCanteen.dailyRecords.forEach((dr) => {
         const drISO = normalizeDateToISO(dr.date);
@@ -254,6 +260,7 @@ export const collectAllTransactions = ({
         }
       });
     }
+    });
 
     return list;
 };
