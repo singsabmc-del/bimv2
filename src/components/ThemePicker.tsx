@@ -4,9 +4,15 @@ import { Palette, Check, RotateCcw, Home, Users, Settings, Bell } from 'lucide-r
 import { useApp } from '../context/AppContext';
 import { ThemePrefs, DEFAULT_THEME, SKINS, BACKGROUNDS, loadTheme, saveTheme, applyTheme, backgroundColor } from '../utils/theme';
 
-export const ThemePicker: React.FC = () => {
+export const ThemePicker: React.FC<{ open?: boolean; onOpenChange?: (v: boolean) => void; hideButton?: boolean }> = ({ open: openProp, onOpenChange, hideButton }) => {
   const { currentUser } = useApp();
-  const [open, setOpen] = useState(false);
+  const [openState, setOpenState] = useState(false);
+  const open = openProp ?? openState;
+  const setOpen = (v: boolean | ((p: boolean) => boolean)) => {
+    const next = typeof v === 'function' ? v(open) : v;
+    setOpenState(next);
+    onOpenChange?.(next);
+  };
   const [prefs, setPrefs] = useState<ThemePrefs>(() => loadTheme(currentUser?.id));
   const ref = useRef<HTMLDivElement>(null);
 
@@ -36,7 +42,7 @@ export const ThemePicker: React.FC = () => {
 
   return (
     <div className="relative" ref={ref}>
-      <button
+      {!hideButton && <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         title="ប្តូរ Theme (ពណ៌ផ្ទៃ, Skin, រូបតំណាង)"
@@ -44,7 +50,7 @@ export const ThemePicker: React.FC = () => {
       >
         <Palette className="w-3.5 h-3.5 text-teal-600" />
         <span className="hidden xl:inline font-khmer">Theme</span>
-      </button>
+      </button>}
 
       {open && (
         <div className="fixed sm:absolute top-16 sm:top-full mt-2 left-3 right-3 sm:left-auto sm:right-0 sm:w-80 z-50 rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl font-khmer">
