@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import type { TeacherCheckInRecord, TeacherLeaveRequest, TeacherRecord } from '../types';
-import { CalendarDays, Check, X, Send, Clock, Trash2, Settings2, Plus } from 'lucide-react';
+import { CalendarDays, Check, X, Send, Clock, Trash2, Settings2, Plus, FilePlus2, ListChecks } from 'lucide-react';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 const todayISO = () => {
@@ -97,6 +97,8 @@ export const TeacherLeaveRequestView: React.FC = () => {
   const [reason, setReason] = useState('');
   const [filter, setFilter] = useState<'all' | TeacherLeaveRequest['status']>('all');
   const [showQuota, setShowQuota] = useState(false);
+  // Split the page into two tabs: request form / request list
+  const [tab, setTab] = useState<'form' | 'list'>(canApprove ? 'list' : 'form');
   const year = new Date().getFullYear();
 
   const requests: TeacherLeaveRequest[] = teacherCheckIn.leaveRequests || [];
@@ -183,6 +185,8 @@ export const TeacherLeaveRequestView: React.FC = () => {
     ]);
     showNotification?.('បានផ្ញើសំណើសុំច្បាប់', 'success');
     setReason('');
+    setFilter('all');
+    setTab('list');
   };
 
   const decide = (req: TeacherLeaveRequest, status: 'approved' | 'rejected') => {
@@ -271,10 +275,10 @@ export const TeacherLeaveRequestView: React.FC = () => {
 
   return (
     <div className="space-y-4 font-khmer">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
         <div>
-          <h2 className="font-display text-lg font-bold text-slate-900">សំណើសុំច្បាប់ (Leave Request)</h2>
-          <p className="text-xs text-slate-500">សុំច្បាប់ជាថ្ងៃ ឬជាម៉ោង · ១ ថ្ងៃ = {perDay} ម៉ោង</p>
+          <h2 className="font-display text-base sm:text-lg font-bold text-slate-900">សំណើសុំច្បាប់</h2>
+          <p className="hidden sm:block text-xs text-slate-500">សុំច្បាប់ជាថ្ងៃ ឬជាម៉ោង · ១ ថ្ងៃ = {perDay} ម៉ោង</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {canApprove && pendingCount > 0 && (
@@ -374,9 +378,21 @@ export const TeacherLeaveRequestView: React.FC = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {/* Request form + balance */}
-        <div className="space-y-4 lg:col-span-1">
+      {/* Tabs: Form / List */}
+      <div className="flex rounded-2xl border border-slate-200 bg-white p-1 text-sm font-bold">
+        <button type="button" onClick={() => setTab('form')} className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 ${tab === 'form' ? 'bg-teal-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}>
+          <FilePlus2 className="h-4 w-4" /> ស្នើសុំច្បាប់
+        </button>
+        <button type="button" onClick={() => setTab('list')} className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 ${tab === 'list' ? 'bg-teal-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}>
+          <ListChecks className="h-4 w-4" /> {selfOnly ? 'សំណើរបស់ខ្ញុំ' : 'បញ្ជីសំណើ'}
+          {(requests.filter((r) => r.status === 'pending' && (!selfOnly || r.teacherId === linkedTeacher?.id)).length) > 0 && (
+            <span className={`rounded-full px-1.5 text-[11px] ${tab === 'list' ? 'bg-white/25 text-white' : 'bg-amber-100 text-amber-800'}`}>{requests.filter((r) => r.status === 'pending' && (!selfOnly || r.teacherId === linkedTeacher?.id)).length}</span>
+          )}
+        </button>
+      </div>
+
+      {tab === 'form' && (
+        <div className="mx-auto w-full max-w-xl space-y-4">
           <form onSubmit={submit} className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 text-xs">
             <div className="text-sm font-bold text-slate-900">ស្នើសុំច្បាប់ថ្មី</div>
             {selfOnly ? (
@@ -466,14 +482,15 @@ export const TeacherLeaveRequestView: React.FC = () => {
             </div>
           )}
         </div>
+      )}
 
-        {/* Requests list */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 lg:col-span-2">
+      {tab === 'list' && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <div className="text-sm font-bold text-slate-900">{selfOnly ? 'សំណើរបស់ខ្ញុំ' : 'សំណើទាំងអស់'}</div>
-            <div className="flex rounded-xl bg-slate-100 p-1 text-[11px] font-bold">
+            <div className="flex w-full sm:w-auto overflow-x-auto no-scrollbar rounded-xl bg-slate-100 p-1 text-[11px] font-bold">
               {(['all', 'pending', 'approved', 'rejected'] as const).map((k) => (
-                <button key={k} type="button" onClick={() => setFilter(k)} className={`rounded-lg px-2.5 py-1 ${filter === k ? 'bg-white text-teal-800 shadow-sm' : 'text-slate-500'}`}>
+                <button key={k} type="button" onClick={() => setFilter(k)} className={`flex-1 shrink-0 whitespace-nowrap rounded-lg px-2.5 py-1 ${filter === k ? 'bg-white text-teal-800 shadow-sm' : 'text-slate-500'}`}>
                   {k === 'all' ? 'ទាំងអស់' : STATUS[k].label}
                 </button>
               ))}
@@ -525,7 +542,7 @@ export const TeacherLeaveRequestView: React.FC = () => {
             })}
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
