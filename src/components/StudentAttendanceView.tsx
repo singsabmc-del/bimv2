@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { DailyStudentAttendanceRecord, AttendanceStatus } from '../types';
 import {
@@ -61,6 +61,14 @@ export const StudentAttendanceView: React.FC = () => {
 
   const [attendanceViewMode, setAttendanceViewMode] = useState<'daily' | 'monthly_31days'>('daily');
 
+  // Keep the active class inside the classes this account can see (teachers: only their own)
+  useEffect(() => {
+    if (orderedClassList.length > 0 && !orderedClassList.some((c) => c.classId === activeClassId)) {
+      setActiveClassId(orderedClassList[0].classId);
+    }
+  }, [orderedClassList, activeClassId]);
+
+  const isTeacher = currentUser.role === 'teacher';
   const currentClass = classData[activeClassId] || orderedClassList[0] || Object.values(classData)[0];
 
   // Persistent attendance store
@@ -150,6 +158,148 @@ export const StudentAttendanceView: React.FC = () => {
   const handlePrint = () => {
     window.print();
   };
+
+  if (isTeacher) {
+    const STATUS_BTNS: { key: AttendanceStatus; label: string; on: string }[] = [
+      { key: 'present', label: 'មក', on: 'bg-emerald-600 text-white border-emerald-600' },
+      { key: 'late', label: 'យឺត', on: 'bg-purple-600 text-white border-purple-600' },
+      { key: 'absent_permission', label: 'ច្បាប់', on: 'bg-amber-500 text-white border-amber-500' },
+      { key: 'absent_no_permission', label: 'អត់', on: 'bg-rose-600 text-white border-rose-600' },
+    ];
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const shiftDate = (days: number) => {
+      const d = new Date(selectedDate + 'T00:00:00');
+      d.setDate(d.getDate() + days);
+      setSelectedDate(d.toISOString().slice(0, 10));
+    };
+    return (
+      <div className="space-y-3 font-khmer">
+        <div className="bg-white border border-slate-200 rounded-2xl p-3 shadow-2xs space-y-3 no-print">
+          {/* Mode toggle + print */}
+          <div className="flex items-center gap-2">
+            <div className="flex flex-1 rounded-xl bg-slate-100 p-1 text-xs font-bold">
+              <button type="button" onClick={() => setAttendanceViewMode('daily')} className={`flex-1 rounded-lg py-1.5 cursor-pointer ${attendanceViewMode === 'daily' ? 'bg-white text-teal-700 shadow-2xs' : 'text-slate-500'}`}>
+                {t('ស្រង់វត្តមានប្រចាំថ្ងៃ', 'Daily')}
+              </button>
+              <button type="button" onClick={() => setAttendanceViewMode('monthly_31days')} className={`flex-1 rounded-lg py-1.5 cursor-pointer ${attendanceViewMode === 'monthly_31days' ? 'bg-white text-teal-700 shadow-2xs' : 'text-slate-500'}`}>
+                {t('របាយការណ៍ខែ', 'Monthly')}
+              </button>
+            </div>
+            <button type="button" onClick={handlePrint} title={t('បោះពុម្ព', 'Print')} className="p-2.5 rounded-xl bg-slate-900 text-amber-400 cursor-pointer">
+              <Printer className="w-4 h-4" />
+            </button>
+          </div>
+
+          {orderedClassList.length > 1 && (
+            <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-1 px-1">
+              {orderedClassList.map((cls) => {
+                const on = cls.classId === currentClass?.classId;
+                return (
+                  <button key={cls.classId} type="button" onClick={() => setActiveClassId(cls.classId)}
+                    className={`shrink-0 px-3 py-1.5 rounded-full border text-xs font-bold cursor-pointer ${on ? 'bg-teal-600 border-teal-600 text-white' : 'bg-white border-slate-200 text-slate-700'}`}>
+                    {cls.className} <span className={on ? 'text-white/80' : 'text-slate-400'}>· {cls.students.length}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {attendanceViewMode === 'daily' && currentClass && (
+            <>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={() => shiftDate(-1)} className="p-2 rounded-xl border border-slate-200 text-slate-600 cursor-pointer"><ChevronLeft className="w-4 h-4" /></button>
+                <input type="date" value={selectedDate} max={todayIso} onChange={(e) => e.target.value && setSelectedDate(e.target.value)}
+                  className="flex-1 min-w-0 px-3 py-2 border border-slate-200 rounded-xl text-sm font-mono text-center bg-slate-50" />
+                <button type="button" onClick={() => shiftDate(1)} disabled={selectedDate >= todayIso} className="p-2 rounded-xl border border-slate-200 text-slate-600 disabled:opacity-30 cursor-pointer"><ChevronRight className="w-4 h-4" /></button>
+              </div>
+
+              <div className="grid grid-cols-4 gap-1.5 text-center">
+                <div className="rounded-xl bg-emerald-50 py-1.5"><div className="text-[10px] text-emerald-700">{t('មក', 'Present')}</div><div className="text-base font-bold font-mono text-emerald-700">{stats.present}</div></div>
+                <div className="rounded-xl bg-purple-50 py-1.5"><div className="text-[10px] text-purple-700">{t('យឺត', 'Late')}</div><div className="text-base font-bold font-mono text-purple-700">{stats.late}</div></div>
+                <div className="rounded-xl bg-amber-50 py-1.5"><div className="text-[10px] text-amber-700">{t('ច្បាប់', 'Leave')}</div><div className="text-base font-bold font-mono text-amber-700">{stats.permission}</div></div>
+                <div className="rounded-xl bg-rose-50 py-1.5"><div className="text-[10px] text-rose-700">{t('អត់ច្បាប់', 'Absent')}</div><div className="text-base font-bold font-mono text-rose-700">{stats.noPermission}</div></div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                  <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder={t('ស្វែងរកសិស្ស...', 'Search student...')}
+                    className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:bg-white focus:outline-none" />
+                </div>
+                <button type="button" onClick={handleMarkAllPresent} className="shrink-0 flex items-center gap-1 px-3 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold cursor-pointer">
+                  <Check className="w-4 h-4" /> {t('មកទាំងអស់', 'All present')}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+
+        {!currentClass ? (
+          <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center text-sm text-slate-500">
+            {t('មិនទាន់មានថ្នាក់ដែលបានចាត់ឱ្យអ្នកទេ', 'No class is assigned to you yet')}
+          </div>
+        ) : attendanceViewMode === 'monthly_31days' ? (
+          <Student31DaysAttendanceReport defaultClassId={currentClass.classId} onClassChange={setActiveClassId} />
+        ) : (
+          <>
+            <div className="bg-white border border-slate-200 rounded-2xl shadow-2xs divide-y divide-slate-100 overflow-hidden no-print">
+              {filteredStudents.length === 0 ? (
+                <div className="p-8 text-center text-sm text-slate-400">{t('មិនមានសិស្ស', 'No students')}</div>
+              ) : (
+                filteredStudents.map((st, i) => {
+                  const status = currentRecord.attendance[st.id]?.status || 'present';
+                  return (
+                    <div key={st.id} className="px-3 py-2.5 space-y-2">
+                      <div className="flex items-center gap-2.5">
+                        <span className="w-6 shrink-0 text-center font-mono text-xs text-slate-400">{i + 1}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-sm font-bold text-slate-900 truncate">{st.name}</span>
+                          {st.latinName && <span className="block text-[11px] text-slate-500 truncate">{st.latinName}</span>}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-4 gap-1.5 pl-8">
+                        {STATUS_BTNS.map((b) => (
+                          <button key={b.key} type="button" onClick={() => handleSetStudentStatus(st.id, b.key)}
+                            className={`py-1.5 rounded-lg border text-xs font-bold cursor-pointer transition-colors ${status === b.key ? b.on : 'bg-white border-slate-200 text-slate-500'}`}>
+                            {b.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Print-only daily sheet */}
+            <div className="hidden print:block text-black">
+              <div className="text-center mb-3">
+                <div className="font-muol text-sm">សម្រង់វត្តមានសិស្ស · {currentClass.className}</div>
+                <div className="text-xs mt-1">កាលបរិច្ឆេទ៖ {selectedDate} · សរុប {stats.total} · មក {stats.present} · យឺត {stats.late} · ច្បាប់ {stats.permission} · អត់ច្បាប់ {stats.noPermission}</div>
+              </div>
+              <table className="w-full border-collapse border border-black text-xs">
+                <thead><tr className="bg-[#fbb03b]">{['ល.រ', 'ឈ្មោះ', 'ភេទ', 'ស្ថានភាព'].map((h) => <th key={h} className="border border-black px-1.5 py-1">{h}</th>)}</tr></thead>
+                <tbody>
+                  {currentClass.students.map((st, i) => {
+                    const status = currentRecord.attendance[st.id]?.status || 'present';
+                    const label = { present: 'មក', late: 'យឺត', absent_permission: 'ច្បាប់', absent_no_permission: 'អត់ច្បាប់' }[status as string] || status;
+                    return (
+                      <tr key={st.id}>
+                        <td className="border border-black px-1.5 py-1 text-center">{i + 1}</td>
+                        <td className="border border-black px-1.5 py-1 font-bold">{st.name}</td>
+                        <td className="border border-black px-1.5 py-1 text-center">{st.gender === 'Female' ? 'ស្រី' : 'ប្រុស'}</td>
+                        <td className="border border-black px-1.5 py-1 text-center">{label}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
