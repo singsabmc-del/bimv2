@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Sidebar, NavTab, isNavTab } from './components/Sidebar';
 import { TopHeader } from './components/TopHeader';
@@ -18,6 +18,7 @@ import { CashReportView } from './components/reports/CashReportView';
 import { MonthlyExcelReportView } from './components/reports/MonthlyExcelReportView';
 import { canOpenTab, homeTabFor } from './utils/access';
 import { TeacherCheckInView } from './components/TeacherCheckInView';
+import { TeacherLeaveRequestView } from './components/TeacherLeaveRequestView';
 import { SystemSettingsView } from './components/SystemSettingsView';
 import { OfficialPrintReport } from './components/OfficialPrintReport';
 import { OfficialClassRosterView } from './components/OfficialClassRosterView';
@@ -46,6 +47,8 @@ import {
   ShoppingCart,
   Shirt,
   Bus,
+  Clock,
+  CalendarDays,
 } from 'lucide-react';
 
 function MainApp() {
@@ -87,9 +90,24 @@ function MainApp() {
     academicYearArchives,
     switchAcademicYear,
     currentUser,
+    teacherClassIds,
   } = useApp();
 
+  // A teacher account with no class assigned has nothing to show on class pages
+  const CLASS_PAGES: NavTab[] = ['student_list', 'official_roster', 'student_attendance', 'student_info', 'student_portal'];
+  const teacherWithoutClass = currentUser?.role === 'teacher' && (teacherClassIds?.length ?? 0) === 0;
+
   // Land each role on a page it is allowed to open (e.g. a teacher starts at the student list)
+  // Right after logging in, a teacher starts on Check In (their front page)
+  const wasAuthenticated = useRef(isAuthenticated);
+  useEffect(() => {
+    if (!wasAuthenticated.current && isAuthenticated && currentUser?.role === 'teacher') {
+      setActiveTabState('teacher_checkin');
+      window.history.replaceState(null, '', '#teacher_checkin');
+    }
+    wasAuthenticated.current = isAuthenticated;
+  }, [isAuthenticated, currentUser?.role]);
+
   useEffect(() => {
     if (isAuthenticated && currentUser && !canOpenTab(currentUser.role, activeTab)) {
       setActiveTabState(homeTabFor(currentUser.role));
@@ -198,7 +216,13 @@ function MainApp() {
               </button>
             </div>
           )}
-          {canOpenTab(currentUser.role, activeTab) && (<>
+          {canOpenTab(currentUser.role, activeTab) && teacherWithoutClass && CLASS_PAGES.includes(activeTab) && (
+            <div className="mx-auto mt-10 max-w-md rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center font-khmer">
+              <div className="text-sm font-bold text-amber-900">គណនីរបស់អ្នកមិនទាន់មានថ្នាក់ទទួលបន្ទុកនៅឡើយ</div>
+              <p className="mt-1 text-xs text-amber-800">សូមឱ្យ Admin កំណត់ថ្នាក់ នៅ ការកំណត់ → អ្នកប្រើប្រាស់</p>
+            </div>
+          )}
+          {canOpenTab(currentUser.role, activeTab) && !(teacherWithoutClass && CLASS_PAGES.includes(activeTab)) && (<>
           {activeTab === 'overview' && (
             <OverviewDashboard setActiveTab={setActiveTab} />
           )}
@@ -254,6 +278,7 @@ function MainApp() {
           )}
 
           {activeTab === 'teacher_checkin' && <TeacherCheckInView />}
+          {activeTab === 'teacher_leave' && <TeacherLeaveRequestView />}
 
           {activeTab === 'teacher_attendance' && (
             <TeacherManagementView initialSubTab="teacher_attendance" />
@@ -327,71 +352,54 @@ function MainApp() {
           </>)}
         </main>
 
-        {/* Mobile App-like Bottom Navigation Bar */}
+        {/* Mobile App-like Bottom Navigation Bar (only the pages this role may open) */}
         <nav
           aria-label="Mobile Navigation"
           className="lg:hidden print:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/80 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] px-2 py-1.5 flex items-center justify-around safe-bottom"
         >
-          <button
-            onClick={() => setActiveTab('overview')}
-            className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all ${
-              activeTab === 'overview'
-                ? 'text-indigo-600 font-bold'
-                : 'text-slate-500 hover:text-slate-900'
-            }`}
-          >
-            <LayoutDashboard className="w-5 h-5 mb-0.5" />
-            <span className="text-[10px] font-khmer">ទូទៅ</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('student_fees')}
-            className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all ${
-              activeTab === 'student_fees'
-                ? 'text-indigo-600 font-bold'
-                : 'text-slate-500 hover:text-slate-900'
-            }`}
-          >
-            <Users className="w-5 h-5 mb-0.5" />
-            <span className="text-[10px] font-khmer">ថ្លៃសិក្សា</span>
-          </button>
-
-          {/* Quick POS Center Button (Floating App Pill style) */}
-          <button
-            onClick={() => setActiveTab('pos')}
-            className={`flex flex-col items-center justify-center py-1 px-3 -mt-3 rounded-2xl shadow-md transition-all ${
-              activeTab === 'pos'
-                ? 'bg-teal-700 text-white shadow-teal-600/30 ring-2 ring-teal-300'
-                : 'bg-gradient-to-br from-teal-600 to-teal-500 text-white shadow-teal-600/25'
-            }`}
-          >
-            <ShoppingCart className="w-5 h-5 mb-0.5" />
-            <span className="text-[10px] font-khmer font-bold">លក់ POS</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('uniform_sales')}
-            className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all ${
-              activeTab === 'uniform_sales' || activeTab === 'uniform_history'
-                ? 'text-indigo-600 font-bold'
-                : 'text-slate-500 hover:text-slate-900'
-            }`}
-          >
-            <Shirt className="w-5 h-5 mb-0.5" />
-            <span className="text-[10px] font-khmer">ឯកសណ្ឋាន</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('school_bus')}
-            className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all ${
-              activeTab === 'school_bus'
-                ? 'text-indigo-600 font-bold'
-                : 'text-slate-500 hover:text-slate-900'
-            }`}
-          >
-            <Bus className="w-5 h-5 mb-0.5" />
-            <span className="text-[10px] font-khmer">រថយន្ត</span>
-          </button>
+          {(currentUser.role === 'teacher'
+            ? ([
+                { tab: 'teacher_checkin', label: 'Check In', Icon: Clock, center: true },
+                { tab: 'student_attendance', label: 'វត្តមានសិស្ស', Icon: CheckCircle2 },
+                { tab: 'student_list', label: 'បញ្ជីសិស្ស', Icon: Users },
+                { tab: 'teacher_leave', label: 'សុំច្បាប់', Icon: CalendarDays },
+              ] as { tab: NavTab; label: string; Icon: any; center?: boolean }[])
+            : ([
+                { tab: 'overview', label: 'ទូទៅ', Icon: LayoutDashboard },
+                { tab: 'student_fees', label: 'ថ្លៃសិក្សា', Icon: Users },
+                { tab: 'pos', label: 'លក់ POS', Icon: ShoppingCart, center: true },
+                { tab: 'uniform_sales', label: 'ឯកសណ្ឋាន', Icon: Shirt },
+                { tab: 'school_bus', label: 'រថយន្ត', Icon: Bus },
+              ] as { tab: NavTab; label: string; Icon: any; center?: boolean }[])
+          )
+            .filter((it) => canOpenTab(currentUser.role, it.tab))
+            .map(({ tab, label, Icon, center }) =>
+              center ? (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`flex flex-col items-center justify-center py-1 px-3 -mt-3 rounded-2xl shadow-md transition-all ${
+                    activeTab === tab
+                      ? 'bg-teal-700 text-white shadow-teal-600/30 ring-2 ring-teal-300'
+                      : 'bg-gradient-to-br from-teal-600 to-teal-500 text-white shadow-teal-600/25'
+                  }`}
+                >
+                  <Icon className="w-5 h-5 mb-0.5" />
+                  <span className="text-[10px] font-khmer font-bold">{label}</span>
+                </button>
+              ) : (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all ${
+                    activeTab === tab ? 'text-teal-700 font-bold' : 'text-slate-500 hover:text-slate-900'
+                  }`}
+                >
+                  <Icon className="w-5 h-5 mb-0.5" />
+                  <span className="text-[10px] font-khmer">{label}</span>
+                </button>
+              )
+            )}
         </nav>
 
         {/* Global User Authentication & Role Permission Restriction Modal */}

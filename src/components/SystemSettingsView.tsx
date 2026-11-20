@@ -57,6 +57,7 @@ export const SystemSettingsView: React.FC = () => {
     updateUser,
     deleteUser,
     classData,
+    teachers,
     telegramAlertLogs,
     clearTelegramLogs,
     deleteTelegramLog,
@@ -308,6 +309,7 @@ export const SystemSettingsView: React.FC = () => {
     return dup ? `លេខទូរស័ព្ទនេះត្រូវបានប្រើដោយគណនី ${dup.khmerName || dup.username} រួចហើយ` : null;
   };
   const [formUserClassId, setFormUserClassId] = useState('');
+  const [formUserTeacherId, setFormUserTeacherId] = useState('');
 
   // Telegram states
   const [tgEnabled, setTgEnabled] = useState(settings.telegramConfig.enabled);
@@ -2551,6 +2553,7 @@ export const SystemSettingsView: React.FC = () => {
                     setFormUserPhone('');
                     setFormUserPassword('');
                     setFormUserClassId('');
+                    setFormUserTeacherId('');
                     setIsAddUserModalOpen(true);
                   }}
                   className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold font-khmer flex items-center gap-1.5 shadow-xs cursor-pointer self-start sm:self-auto"
@@ -2635,6 +2638,7 @@ export const SystemSettingsView: React.FC = () => {
                                   setFormUserPhone(u.phone || '');
                                   setFormUserPassword('');
                                   setFormUserClassId(u.classId || '');
+                                  setFormUserTeacherId(u.teacherId || '');
                                   setIsEditUserModalOpen(true);
                                 }}
                                 className="p-1.5 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition-colors"
@@ -2759,6 +2763,7 @@ export const SystemSettingsView: React.FC = () => {
                   role: formUserRole,
                   email: formUserEmail.trim() || `${formUserUsername.trim().toLowerCase()}@bimrangsei.edu.kh`,
                   classId: formUserClassId || undefined,
+                  teacherId: formUserRole === 'teacher' ? formUserTeacherId || undefined : undefined,
                 });
                 setIsAddUserModalOpen(false);
                 showNotification('បានបន្ថែមអ្នកប្រើប្រាស់ជោគជ័យ!');
@@ -2870,7 +2875,32 @@ export const SystemSettingsView: React.FC = () => {
               {formUserRole === 'teacher' && (
                 <div>
                   <label className="block text-slate-700 font-semibold mb-1 font-khmer">
-                    ថ្នាក់ទទួលបន្ទុក (Assigned Class)
+                    ឈ្មោះគ្រូក្នុងបញ្ជីគ្រូ (សម្រាប់ Check In ខ្លួនឯង)
+                  </label>
+                  <select
+                    value={formUserTeacherId}
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      setFormUserTeacherId(id);
+                      const tch = (teachers || []).find((x: any) => x.id === id);
+                      if (tch && tch.homeroomClassId && classData[tch.homeroomClassId] && !formUserClassId) setFormUserClassId(tch.homeroomClassId);
+                    }}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-khmer"
+                  >
+                    <option value="">-- ជ្រើសរើសគ្រូ --</option>
+                    {(teachers || []).map((tch: any) => (
+                      <option key={tch.id} value={tch.id}>
+                        {tch.nameKhmer} · {tch.position || tch.homeroomClassName || tch.teacherCode}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {formUserRole === 'teacher' && (
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1 font-khmer">
+                    ថ្នាក់ទទួលបន្ទុក (Assigned Class) — គ្រូមើលឃើញតែថ្នាក់នេះ
                   </label>
                   <select
                     value={formUserClassId}
@@ -2947,6 +2977,7 @@ export const SystemSettingsView: React.FC = () => {
                   role: formUserRole,
                   email: formUserEmail.trim(),
                   classId: formUserClassId || undefined,
+                  teacherId: formUserRole === 'teacher' ? formUserTeacherId || undefined : undefined,
                 });
                 setIsEditUserModalOpen(false);
                 showNotification('បានកែប្រែព័ត៌មានអ្នកប្រើប្រាស់ជោគជ័យ!');
@@ -3054,7 +3085,32 @@ export const SystemSettingsView: React.FC = () => {
               {formUserRole === 'teacher' && (
                 <div>
                   <label className="block text-slate-700 font-semibold mb-1 font-khmer">
-                    ថ្នាក់ទទួលបន្ទុក (Assigned Class)
+                    ឈ្មោះគ្រូក្នុងបញ្ជីគ្រូ (សម្រាប់ Check In ខ្លួនឯង)
+                  </label>
+                  <select
+                    value={formUserTeacherId}
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      setFormUserTeacherId(id);
+                      const tch = (teachers || []).find((x: any) => x.id === id);
+                      if (tch && tch.homeroomClassId && classData[tch.homeroomClassId] && !formUserClassId) setFormUserClassId(tch.homeroomClassId);
+                    }}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-khmer"
+                  >
+                    <option value="">-- ជ្រើសរើសគ្រូ --</option>
+                    {(teachers || []).map((tch: any) => (
+                      <option key={tch.id} value={tch.id}>
+                        {tch.nameKhmer} · {tch.position || tch.homeroomClassName || tch.teacherCode}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {formUserRole === 'teacher' && (
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1 font-khmer">
+                    ថ្នាក់ទទួលបន្ទុក (Assigned Class) — គ្រូមើលឃើញតែថ្នាក់នេះ
                   </label>
                   <select
                     value={formUserClassId}
