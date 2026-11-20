@@ -93,6 +93,7 @@ function MainApp() {
     switchAcademicYear,
     currentUser,
     teacherClassIds,
+    permissions,
   } = useApp();
 
   // A teacher account with no class assigned has nothing to show on class pages
@@ -242,9 +243,12 @@ function MainApp() {
           )}
 
           {activeTab === 'student_admission' && (
-            <StudentAdmissionView
-              onBack={() => setActiveTab('student_list')}
-            />
+            <div className="space-y-4">
+              {permissions?.canEdit && <StudentFeesView toolsOnly="class" />}
+              <StudentAdmissionView
+                onBack={() => setActiveTab('student_list')}
+              />
+            </div>
           )}
 
           {activeTab === 'student_upgrade' && (
