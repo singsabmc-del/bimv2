@@ -256,6 +256,53 @@
 
 
 
+/* ---------- Compact "paper form" (Admission / Registration Form like the PDF) ---------- */
+.pdf-form [id^='page-section-'] {
+  padding: 0 0 10px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  scroll-margin-top: 7rem;
+}
+.pdf-form [id^='page-section-'] > * + * { margin-top: 8px !important; }
+.pdf-form [id^='page-section-'] > *:not(:first-child) { margin-left: 12px; margin-right: 12px; }
+/* Section title = yellow bar, like the printed form */
+.pdf-form [id^='page-section-'] > :first-child {
+  background: #fbbf24;
+  padding: 5px 12px !important;
+  border: 0 !important;
+  margin: 0 0 8px !important;
+}
+.pdf-form [id^='page-section-'] > :first-child h3 { font-size: 13px; color: #7f1d1d; }
+.pdf-form [id^='page-section-'] > :first-child svg { width: 16px; height: 16px; color: #7f1d1d; }
+.pdf-form [id^='page-section-'] > :first-child p { font-size: 10px; margin-top: 0; }
+/* Light-blue fields, small padding */
+.pdf-form input:not([type='checkbox']):not([type='radio']):not([type='file']),
+.pdf-form select,
+.pdf-form textarea {
+  padding: 3px 8px !important;
+  border-radius: 6px !important;
+  background-color: #eaf1fb !important;
+  border-color: #d5e1f2 !important;
+  font-size: 12px !important;
+  min-height: 28px;
+}
+.pdf-form label { margin-bottom: 1px !important; font-size: 11px !important; }
+.pdf-form .grid { gap: 6px 10px !important; }
+.pdf-form [class*='space-y-'] > * + * { margin-top: 6px !important; }
+/* Inner boxes: flatter and tighter */
+.pdf-form [id^='page-section-'] [class*='rounded-2xl'],
+.pdf-form [id^='page-section-'] [class*='rounded-xl'][class*='p-3'] {
+  padding: 6px 8px !important;
+  border-radius: 8px !important;
+}
+.pdf-form [id^='page-section-'] [class*='p-4'] { padding: 8px !important; }
+/* Sticky footer actions stay compact */
+.pdf-form > :last-child { margin: 0 !important; }
+@media print {
+  .pdf-form input, .pdf-form select, .pdf-form textarea { background: #fff !important; }
+}
+.pdf-form [id^='page-section-']:first-child > :first-child { border-radius: 1rem 1rem 0 0; }
 /* Print only an open form overlay (e.g. Employee Profile Form) */
 @media print {
   body:has(.print-isolate) * { visibility: hidden; }
