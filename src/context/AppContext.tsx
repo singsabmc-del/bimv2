@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useMemo } from 'react';
 import { INITIAL_SUBJECTS } from '../data/initialSubjects';
 import { BIM_TEACHERS, BIM_SCHEDULE_1A, BIM_TIME_PERIODS } from '../data/initialTeachers';
+import { rememberServerState, hasLocalChanges } from '../utils/fullStateMerge';
 import { SyncedStore, isSyncedStoreKey, mergeSyncedStore, mergeCheckIn, stampCheckIn, ATTENDANCE_STORE_KEY } from '../utils/stateMerge';
 import {
   SubjectItem,
@@ -1362,11 +1363,81 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem(`${STORAGE_PREFIX}_TG_LOGS`, JSON.stringify(telegramAlertLogs));
   }, [telegramAlertLogs]);
 
+  // ---- Live updates from other people's saves (whole school state) ----
+  const lastSeenSavedAtRef = useRef<number | null>(null);
+  const liveBundleRef = useRef<any>({});
+  liveBundleRef.current = {
+    users, classes: classData, classOrder, branches, materialsHistory, materialSalesHistory, canteenHistory,
+    uniformHistory, uniformSalesHistory, uniformTypes, promotionHistory, academicYearArchives, availableAcademicYears,
+    academicMonths, subjects, teachers, teacherSchedules, scheduleTimePeriods, busRoutes, busEnrollments, busPayments,
+    busAttendance, settings,
+  };
+  const SECTION_SETTERS: Record<string, (v: any) => void> = {
+    users: setUsers, classes: setClassData, classOrder: setClassOrder, branches: setBranches,
+    materialsHistory: setMaterialsHistory, materialSalesHistory: setMaterialSalesHistory, canteenHistory: setCanteenHistory,
+    uniformHistory: setUniformHistory, uniformSalesHistory: setUniformSalesHistory, uniformTypes: setUniformTypes,
+    promotionHistory: setPromotionHistory, academicYearArchives: setAcademicYearArchives,
+    availableAcademicYears: setAvailableAcademicYears, academicMonths: setAcademicMonths, subjects: setSubjects,
+    teachers: setTeachers, teacherSchedules: setTeacherSchedules, scheduleTimePeriods: setScheduleTimePeriods,
+    busRoutes: setBusRoutes, busEnrollments: setBusEnrollments, busPayments: setBusPayments,
+    busAttendance: setBusAttendance, settings: setSettings,
+  };
+  /** Take in sections other people changed — but never over this device's own unsaved edits */
+  const pullLatestState = async () => {
+    try {
+      const res = await fetch('/api/state');
+      if (!res.ok) return;
+      const json = await res.json();
+      const data = json?.data;
+      if (!json?.success || !data || typeof data !== 'object') return;
+      const take: any = { _sync: data._sync };
+      Object.keys(SECTION_SETTERS).forEach((sec) => {
+        if (data[sec] === undefined) return;
+        if (hasLocalChanges(liveBundleRef.current, sec)) return; // will be merged on our next save
+        if (JSON.stringify(data[sec]) === JSON.stringify(liveBundleRef.current[sec])) return;
+        take[sec] = data[sec];
+      });
+      rememberServerState(take);
+      Object.keys(take).forEach((sec) => SECTION_SETTERS[sec]?.(take[sec]));
+      if (data.lastSavedAt) lastSeenSavedAtRef.current = Number(data.lastSavedAt);
+    } catch {}
+  };
+  useEffect(() => {
+    const onPost = (e: Event) => {
+      const { prevSavedAt, lastSavedAt } = (e as CustomEvent).detail || {};
+      const othersSaved = prevSavedAt && lastSeenSavedAtRef.current && Number(prevSavedAt) !== lastSeenSavedAtRef.current;
+      if (lastSavedAt) lastSeenSavedAtRef.current = Number(lastSavedAt);
+      if (othersSaved) pullLatestState();
+    };
+    window.addEventListener('bim-post-result', onPost);
+    const check = async () => {
+      if (document.visibilityState !== 'visible') return;
+      try {
+        const res = await fetch('/api/state/version');
+        if (!res.ok) return;
+        const json = await res.json();
+        const v = Number(json?.lastSavedAt) || null;
+        if (v && v !== lastSeenSavedAtRef.current) pullLatestState();
+      } catch {}
+    };
+    const id = setInterval(check, 30000);
+    document.addEventListener('visibilitychange', check);
+    return () => {
+      window.removeEventListener('bim-post-result', onPost);
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', check);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Boot hydration: restore from Server / IndexedDB / Mirror if available (prevents data reset on redeployment)
   useEffect(() => {
     restoreStateOnStartup().then((serverData) => {
       try {
         if (serverData && typeof serverData === 'object') {
+          // Baseline for change tracking (what this device has now), and the version we have seen
+          rememberServerState(serverData);
+          if (serverData.lastSavedAt) lastSeenSavedAtRef.current = Number(serverData.lastSavedAt);
           if (serverData.users && Array.isArray(serverData.users)) {
             setUsers(serverData.users);
           }
