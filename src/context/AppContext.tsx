@@ -281,6 +281,10 @@ interface AppContextType {
   setScheduleTimePeriods: (periods: ScheduleTimePeriod[]) => void;
   teacherCheckIn: TeacherCheckInData;
   setTeacherCheckIn: React.Dispatch<React.SetStateAction<TeacherCheckInData>>;
+  /** The TeacherRecord linked to the logged-in Teacher account (undefined for other roles) */
+  linkedTeacher?: TeacherRecord;
+  /** Classes a Teacher account may see (null = every class, for other roles) */
+  teacherClassIds: string[] | null;
   updateClassAcademic: (classId: string, updater: (cls: ClassFeeData) => Partial<ClassFeeData>) => void;
   // Annual Academic Year Isolation & Upgrading (ការឡើងថ្នាក់សិស្សប្រចាំឆ្នាំ និងទិន្នន័យដាច់ដោយឡែក)
   availableAcademicYears: string[];
@@ -5222,6 +5226,44 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  // ---- Teacher accounts only see their own work ----
+  const linkedTeacher = useMemo<TeacherRecord | undefined>(() => {
+    if (currentUser.role !== 'teacher') return undefined;
+    return (
+      teachers.find((t) => t.id === currentUser.teacherId) ||
+      teachers.find(
+        (t) =>
+          !!currentUser.khmerName &&
+          (currentUser.khmerName.includes(t.nameKhmer) || (!!currentUser.name && t.nameEnglish.toLowerCase() === currentUser.name.toLowerCase()))
+      )
+    );
+  }, [currentUser, teachers]);
+
+  const teacherClassIds = useMemo<string[] | null>(() => {
+    if (currentUser.role !== 'teacher') return null;
+    const ids = new Set<string>();
+    const squash = (v?: string) => (v || '').toLowerCase().replace(/\s+/g, '');
+    if (currentUser.classId && classData[currentUser.classId]) ids.add(currentUser.classId);
+    if (linkedTeacher?.homeroomClassId && classData[linkedTeacher.homeroomClassId]) ids.add(linkedTeacher.homeroomClassId);
+    const pos = squash(linkedTeacher?.position || linkedTeacher?.homeroomClassName);
+    if (pos) {
+      Object.values(classData).forEach((c) => {
+        const name = squash(c.className);
+        if (name === pos || name.includes(`(${pos})`) || name.endsWith(pos)) ids.add(c.classId);
+      });
+    }
+    return Array.from(ids);
+  }, [currentUser, linkedTeacher, classData]);
+
+  const scopedClassData = useMemo(
+    () => (teacherClassIds ? Object.fromEntries(Object.entries(classData).filter(([id]) => teacherClassIds.includes(id))) : classData),
+    [classData, teacherClassIds]
+  );
+  const scopedOrderedClassList = useMemo(
+    () => (teacherClassIds ? orderedClassList.filter((c) => teacherClassIds.includes(c.classId)) : orderedClassList),
+    [orderedClassList, teacherClassIds]
+  );
+
   return (
     <AppContext.Provider
       value={{
@@ -5261,9 +5303,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         clearTelegramLogs,
         deleteTelegramLog,
         sendTelegramAlert,
-        classData,
+        classData: scopedClassData,
         classOrder,
-        orderedClassList,
+        orderedClassList: scopedOrderedClassList,
         allClassesList,
         selectedClassId,
         setSelectedClassId,
@@ -5303,6 +5345,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setScheduleTimePeriods,
         teacherCheckIn,
         setTeacherCheckIn,
+        linkedTeacher,
+        teacherClassIds,
         showNotification,
         updateClassAcademic,
         availableAcademicYears,

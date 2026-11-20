@@ -15,6 +15,7 @@ export interface UserProfile {
   avatar?: string;
   studentId?: number;
   classId?: string;
+  teacherId?: string; // links a Teacher account to its TeacherRecord (own check-in, own class)
   branchId?: string;
 }
 
@@ -642,6 +643,7 @@ export interface TeacherRecord {
   status: 'active' | 'leave' | 'resigned';
   position?: string; // e.g. "Grade 1A", "Kindergarten 1", "គ្រូភាសាអង់គ្លេស"
   workStatus?: string; // e.g. "ពេញម៉ោង" (full time)
+  profile?: Record<string, any>; // Employee Profile Form details (addresses, education, skills…)
   branchId?: string;
   address?: string;
   salaryUSD?: number;
@@ -659,11 +661,28 @@ export interface TeacherCheckInRecord {
   recordedBy?: string;
 }
 
+/** Teacher leave request (សំណើសុំច្បាប់) */
+export interface TeacherLeaveRequest {
+  id: string;
+  teacherId: string;
+  teacherName: string;
+  fromDate: string; // YYYY-MM-DD
+  toDate: string; // YYYY-MM-DD
+  type: 'sick' | 'personal' | 'family' | 'other';
+  reason: string;
+  status: 'pending' | 'approved' | 'rejected';
+  requestedAt: string; // ISO
+  decidedAt?: string;
+  decidedBy?: string;
+  decisionNote?: string;
+}
+
 export interface TeacherCheckInData {
   records: TeacherCheckInRecord[];
   startTime: string; // school start, e.g. "07:00"
   endTime: string; // school end, e.g. "16:00"
   lateGraceMinutes: number; // minutes after start before "late"
+  leaveRequests?: TeacherLeaveRequest[];
 }
 
 export interface SubjectItem {

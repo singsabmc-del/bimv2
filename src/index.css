@@ -303,3 +303,9 @@
   .pdf-form input, .pdf-form select, .pdf-form textarea { background: #fff !important; }
 }
 .pdf-form [id^='page-section-']:first-child > :first-child { border-radius: 1rem 1rem 0 0; }
+/* Print only an open form overlay (e.g. Employee Profile Form) */
+@media print {
+  body:has(.print-isolate) * { visibility: hidden; }
+  .print-isolate, .print-isolate * { visibility: visible; }
+  .print-isolate { position: absolute !important; inset: 0 auto auto 0 !important; width: 100%; overflow: visible !important; }
+}
