@@ -1,5 +1,5 @@
 import express from 'express';
-import { mergeSharedSections } from './src/utils/stateMerge';
+import { mergeSharedSections } from './src/utils/stateMerge.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
