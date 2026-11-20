@@ -20,7 +20,7 @@ const STUDENT_MGMT: NavTab[] = [
   'student_info', 'student_portal', 'student_idcard',
 ];
 const ACADEMIC: NavTab[] = ['academic_scores', 'academic_tracking', 'academic_booklet', 'academic_honor'];
-const TEACHER_MGMT: NavTab[] = ['teacher_list', 'teacher_info', 'teaching_schedule', 'teacher_subject', 'teacher_attendance', 'teacher_checkin', 'teacher_leave'];
+const TEACHER_MGMT: NavTab[] = ['teacher_list', 'teacher_info', 'teaching_schedule', 'teacher_subject', 'teacher_attendance', 'teacher_shifts', 'teacher_checkin', 'teacher_leave'];
 const REVENUE: NavTab[] = [
   'revenue_student', 'student_fees', 'student_payment_history', 'revenue_uniform', 'uniform_sales', 'uniform_history', 'revenue_transport',
   'school_bus', 'revenue_materials', 'pos', 'daily_materials', 'material_history', 'revenue_stall_fee', 'canteen_vendors',

@@ -20,6 +20,7 @@ import { canOpenTab, homeTabFor } from './utils/access';
 import { TeacherCheckInView } from './components/TeacherCheckInView';
 import { TeacherLeaveRequestView } from './components/TeacherLeaveRequestView';
 import { StudentPaymentHistoryView } from './components/StudentPaymentHistoryView';
+import { StaffShiftsView } from './components/StaffShiftsView';
 import { SystemSettingsView } from './components/SystemSettingsView';
 import { OfficialPrintReport } from './components/OfficialPrintReport';
 import { OfficialClassRosterView } from './components/OfficialClassRosterView';
@@ -279,6 +280,7 @@ function MainApp() {
           )}
 
           {activeTab === 'teacher_checkin' && <TeacherCheckInView />}
+          {activeTab === 'teacher_shifts' && <StaffShiftsView />}
           {activeTab === 'teacher_leave' && <TeacherLeaveRequestView />}
 
           {activeTab === 'teacher_attendance' && (

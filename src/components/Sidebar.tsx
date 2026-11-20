@@ -40,6 +40,7 @@ import {
   CalendarDays,
   PieChart,
   Clock,
+  CalendarClock,
 } from 'lucide-react';
 import { canOpenTab, ROLE_LABELS } from '../utils/access';
 
@@ -87,6 +88,7 @@ export const NAV_TAB_IDS = [
   'teacher_checkin',
   'teacher_leave',
   'student_payment_history',
+  'teacher_shifts',
 ] as const;
 
 export type NavTab = (typeof NAV_TAB_IDS)[number];
@@ -286,6 +288,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           labelKhmer: 'វត្តមានគ្រូបង្រៀន',
           icon: CheckCircle2,
           activeMatch: ['teacher_attendance'],
+        },
+        {
+          id: 'teacher_shifts' as NavTab,
+          label: 'Work Shifts',
+          labelKhmer: 'វេនការងារ (Shifts)',
+          icon: CalendarClock,
+          activeMatch: ['teacher_shifts'],
         },
         {
           id: 'teacher_checkin' as NavTab,
