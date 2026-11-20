@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
+import { canOpenTab } from '../utils/access';
 import { NavTab } from './Sidebar';
 import {
   Menu,
@@ -99,11 +100,31 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   const latestAcademicYear = academicYearList[0];
   const tgLogsDropdownRef = useRef<HTMLDivElement>(null);
 
+  // Header tools shown per role (Setting → access rights)
+  const role = currentUser.role;
+  const isStaff = role === 'admin' || role === 'cashier' || role === 'accountant';
+  const can = (tab: NavTab) => canOpenTab(role, tab);
+  const showPOS = can('pos');
+  const showBackup = role === 'admin' || role === 'accountant';
+  const showSettings = can('system_settings');
+  // Switching the academic year changes the data for everyone, so only Admin may do it
+  const canSwitchYear = role === 'admin';
+  // Pages with a print layout in the shared print sheet; other pages print themselves
+  const PRINT_SHEET_TABS: string[] = [
+    'student_fees', 'revenue_student', 'daily_materials', 'revenue_materials', 'pos', 'canteen_vendors',
+    'revenue_stall_fee', 'uniform_sales', 'revenue_uniform', 'school_bus', 'revenue_transport', 'overview',
+  ];
+  const handlePrint = () => (PRINT_SHEET_TABS.includes(activeTab) ? onPrint() : window.print());
+
+  const currentUserRoleRef = useRef(currentUser.role);
+  currentUserRoleRef.current = currentUser.role;
+
   // Keyboard shortcut Cmd+K or Ctrl+K to open search
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // F2 (or Alt+P) = Quick Open POS from any page
       if (e.key === 'F2' || (e.altKey && !e.ctrlKey && !e.metaKey && (e.key === 'p' || e.key === 'P'))) {
+        if (!canOpenTab(currentUserRoleRef.current, 'pos')) return;
         e.preventDefault();
         setActiveTab('pos');
         return;
@@ -160,7 +181,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
     cls.students.map((st) => ({ ...st, className: cls.className, classId: cls.classId }))
   );
 
-  const filteredStudents = searchQuery.trim()
+  const filteredStudents = searchQuery.trim() && canOpenTab(currentUser.role, 'student_portal')
     ? allStudents.filter(
         (s) =>
           s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -170,13 +191,13 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
       )
     : [];
 
-  const filteredMaterials = searchQuery.trim()
+  const filteredMaterials = searchQuery.trim() && canOpenTab(currentUser.role, 'daily_materials')
     ? dailyMaterials.items.filter((m) =>
         m.name.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : [];
 
-  const filteredVendors = searchQuery.trim()
+  const filteredVendors = searchQuery.trim() && canOpenTab(currentUser.role, 'canteen_vendors')
     ? currentCanteenReport.vendors.filter(
         (v) =>
           v.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -209,37 +230,53 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
     setSearchQuery('');
   };
 
+  const TAB_TITLES: Partial<Record<NavTab, [string, string]>> = {
+    overview: ['ផ្ទាំងគ្រប់គ្រង', 'Dashboard'],
+    student_list: ['បញ្ជីឈ្មោះសិស្ស', 'Student List'],
+    official_roster: ['បញ្ជីឈ្មោះសិស្ស', 'Student List'],
+    student_attendance: ['ការស្រង់វត្តមានសិស្ស', 'Student Attendance'],
+    student_admission: ['ចុះឈ្មោះសិស្សថ្មី', 'Admission'],
+    student_upgrade: ['ការឡើងថ្នាក់សិស្ស', 'Upgrading Students'],
+    student_info: ['ព័ត៌មានសិស្ស', 'Student Information'],
+    student_portal: ['ព័ត៌មានសិស្ស', 'Student Information'],
+    student_idcard: ['កាតសិស្ស', 'Student ID Cards'],
+    academic_scores: ['ពិន្ទុសិស្ស', 'Student Scores'],
+    academic_tracking: ['សៀវភៅតាមដាន', 'Study Tracking Book'],
+    academic_booklet: ['សៀវភៅសិក្ខាគារិក', 'Report Booklet'],
+    academic_honor: ['តារាងកិត្តិយស', 'Honor Roll'],
+    teacher_list: ['បញ្ជីឈ្មោះគ្រូ', 'Teacher List'],
+    teacher_info: ['ព័ត៌មានគ្រូ', 'Teacher Information'],
+    teaching_schedule: ['កាលវិភាគបង្រៀន', 'Teaching Schedule'],
+    teacher_subject: ['មុខវិជ្ជា', 'Subjects'],
+    teacher_attendance: ['វត្តមានគ្រូ', 'Teacher Attendance'],
+    teacher_checkin: ['ចុះវត្តមានគ្រូ (Check In)', 'Attendance Check In'],
+    teacher_leave: ['សំណើសុំច្បាប់', 'Leave Request'],
+    revenue_student: ['បង់ថ្លៃសិក្សា', 'Payment Student'],
+    student_fees: ['បង់ថ្លៃសិក្សា', 'Payment Student'],
+    revenue_uniform: ['ឯកសណ្ឋាន', 'Uniform Payment'],
+    uniform_sales: ['ឯកសណ្ឋាន', 'Uniform Payment'],
+    uniform_history: ['ប្រវត្តិលក់ឯកសណ្ឋាន', 'Uniform History'],
+    revenue_transport: ['សេវាដឹកជញ្ជូនសិស្ស', 'Student Transportation'],
+    school_bus: ['សេវាដឹកជញ្ជូនសិស្ស', 'Student Transportation'],
+    revenue_materials: ['លក់សម្ភារៈ (POS)', 'Study Materials (POS)'],
+    pos: ['លក់សម្ភារៈ (POS)', 'Point of Sale'],
+    daily_materials: ['សម្ភារៈលក់ប្រចាំថ្ងៃ', 'Daily Materials'],
+    material_history: ['ប្រវត្តិលក់សម្ភារៈ', 'Material Sales History'],
+    revenue_stall_fee: ['ថ្លៃតូប', 'Stall Fee'],
+    canteen_vendors: ['ថ្លៃតូប', 'Stall Fee'],
+    daily_report: ['របាយការណ៍ចំណូលប្រចាំថ្ងៃ', 'Daily Income Report'],
+    report_tuition: ['របាយការណ៍បង់ថ្លៃសិក្សា', 'Monthly Report · Payment Student'],
+    report_uniform: ['របាយការណ៍ឯកសណ្ឋាន', 'Monthly Report · Uniform'],
+    report_transport: ['របាយការណ៍ដឹកជញ្ជូន', 'Monthly Report · Transportation'],
+    report_materials: ['របាយការណ៍សម្ភារៈ', 'Monthly Report · Materials'],
+    report_stall_fee: ['របាយការណ៍ថ្លៃតូប', 'Monthly Report · Stall Fee'],
+    income_statistics: ['ស្ថិតិចំណូល (Cash Report)', 'Income Statistics'],
+    ai_scanner: ['វិភាគឯកសារ AI', 'AI Scanner'],
+    system_settings: ['ការកំណត់', 'Settings'],
+  };
   const getBreadcrumbTitle = () => {
-    switch (activeTab) {
-      case 'overview':
-        return t('ផ្ទាំងគ្រប់គ្រង (Overview)', 'Overview Dashboard');
-      case 'daily_report':
-        return t('របាយការណ៍បង់ប្រាក់ប្រចាំថ្ងៃ', 'Daily Payment Report');
-      case 'student_fees':
-        return t('ថ្លៃសិក្សាសិស្ស (Student Fees)', 'Student Fees Collection');
-      case 'student_portal':
-        return t('ផតថលសិស្ស (Student Portal)', 'Student Profile & Portal');
-      case 'pos':
-        return t('ប្រព័ន្ធលក់រហ័ស (POS)', 'Point of Sale (POS)');
-      case 'daily_materials':
-        return t('សម្ភារៈលក់ប្រចាំថ្ងៃ', 'Daily Stationery');
-      case 'material_history':
-        return t('ប្រវត្តិលក់សម្ភារៈ', 'Material Sales History');
-      case 'canteen_vendors':
-        return t('ថ្លៃតូបអាហារដ្ឋាន (Canteen)', 'Canteen Vendors');
-      case 'uniform_sales':
-        return t('លក់ឯកសណ្ឋាន (Uniforms)', 'Uniform Sales');
-      case 'uniform_history':
-        return t('ប្រវត្តិលក់ឯកសណ្ឋាន', 'Uniform History');
-      case 'school_bus':
-        return t('សេវារថយន្តសាលា (School Bus)', 'School Bus Service');
-      case 'ai_scanner':
-        return t('វិភាគឯកសារ AI', 'AI Scanner');
-      case 'system_settings':
-        return t('ការកំណត់ & Backup & Telegram', 'Settings & Telegram');
-      default:
-        return 'BIM Rangsei School';
-    }
+    const tt = TAB_TITLES[activeTab];
+    return tt ? t(tt[0], tt[1]) : 'BIM Rangsei School';
   };
 
   // Reusable search results list
@@ -440,7 +477,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
             </button>
 
             {/* Dynamic Campus / Branch Selector */}
-            <div className="relative" ref={branchDropdownRef}>
+            {isStaff && <div className="relative" ref={branchDropdownRef}>
               <button
                 type="button"
                 onClick={() => setIsBranchOpen((prev) => !prev)}
@@ -572,25 +609,25 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
                   </div>
                 </div>
               )}
-            </div>
+            </div>}
 
             {/* Academic Year Switcher — open an old year's data at any time */}
             <div className="relative" ref={yearDropdownRef}>
               <button
-                onClick={() => setIsYearOpen((prev) => !prev)}
+                onClick={() => canSwitchYear && setIsYearOpen((prev) => !prev)}
                 className={`flex items-center gap-1 sm:gap-1.5 p-2 sm:px-3 sm:py-1.5 rounded-xl border text-xs font-bold transition-all shadow-2xs ${
                   activeAcademicYear !== latestAcademicYear
                     ? 'bg-rose-50 hover:bg-rose-100 border-rose-300 text-rose-900'
                     : 'bg-teal-50 hover:bg-teal-100 border-teal-200 text-teal-900'
                 }`}
-                title={t('ប្តូរឆ្នាំសិក្សា', 'Switch academic year')}
+                title={canSwitchYear ? t('ប្តូរឆ្នាំសិក្សា', 'Switch academic year') : t('ឆ្នាំសិក្សា (មានតែ Admin ទេដែលប្តូរបាន)', 'Academic year (only Admin can switch)')}
               >
                 <GraduationCap className="w-4 h-4 shrink-0" />
                 <span className="hidden sm:inline font-mono text-[11px]">{activeAcademicYear}</span>
-                <span className="hidden sm:inline text-[10px] opacity-70">▾</span>
+                {canSwitchYear && <span className="hidden sm:inline text-[10px] opacity-70">▾</span>}
               </button>
 
-              {isYearOpen && (
+              {isYearOpen && canSwitchYear && (
                 <div className="fixed sm:absolute top-16 sm:top-full mt-2 left-3 right-3 sm:left-auto sm:right-0 sm:w-72 max-w-sm sm:max-w-none mx-auto sm:mx-0 bg-white border border-slate-200 rounded-2xl shadow-2xl p-3 z-50 animate-in fade-in zoom-in-95 duration-150">
                   <div className="pb-2 mb-2 border-b border-slate-100">
                     <div className="text-xs font-bold text-slate-800 font-khmer">
@@ -645,7 +682,8 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
               )}
             </div>
 
-            {/* Dynamic Global Period Selector (Compact on mobile) */}
+            {/* Dynamic Global Period Selector (Compact on mobile) — staff only */}
+            {isStaff && (<>
             <div className="relative" ref={periodDropdownRef}>
               <button
                 onClick={() => setIsPeriodOpen((prev) => !prev)}
@@ -706,8 +744,10 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
                 </div>
               )}
             </div>
+            </>)}
 
-            {/* Telegram Payment Alerts Log Popover (Hidden on Mobile) */}
+            {/* Telegram Payment Alerts Log Popover (Hidden on Mobile) — staff only */}
+            {isStaff && (<>
             <div className="relative hidden md:block" ref={tgLogsDropdownRef}>
               <button
                 onClick={() => setIsTgLogsOpen((prev) => !prev)}
@@ -820,8 +860,10 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
                 </div>
               )}
             </div>
+            </>)}
 
             {/* Quick Open POS (desktop) — also F2 / Alt+P */}
+            {showPOS && (
             <button
               onClick={() => setActiveTab('pos')}
               title={t('បើកលក់ POS រហ័ស (F2)', 'Quick Open POS (F2)')}
@@ -835,8 +877,10 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
               <span className="font-khmer text-xs">{t('លក់ POS', 'POS')}</span>
               <kbd className="hidden xl:inline rounded bg-white/20 px-1 font-mono text-[10px] font-semibold">F2</kbd>
             </button>
+            )}
 
             {/* Quick QR Invoice Verification Button for Staff */}
+            {isStaff && (
             <button
               onClick={() => openInvoiceVerification()}
               title={t('ផ្ទៀងផ្ទាត់វិក្កយបត្រតាម QR Code', 'Verify Invoice via QR Code')}
@@ -847,8 +891,10 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
                 {t('ផ្ទៀងផ្ទាត់ QR', 'Verify QR')}
               </span>
             </button>
+            )}
 
             {/* Quick Auto-Backup & Cloud Sync Button */}
+            {showBackup && (
             <button
               onClick={() => openAutoBackupModal()}
               title={
@@ -867,8 +913,10 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
                 {t('បម្រុងទុកទិន្នន័យ', 'Auto-Backup')}
               </span>
             </button>
+            )}
 
             {/* Quick Settings Button */}
+            {showSettings && (
             <button
               onClick={() => setActiveTab('system_settings')}
               title={t('ការកំណត់ប្រព័ន្ធ (System Settings)', 'System Settings')}
@@ -883,11 +931,12 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
                 {t('ការកំណត់', 'Settings')}
               </span>
             </button>
+            )}
 
             {/* Print button (Hidden on Mobile) */}
             <button
-              onClick={onPrint}
-              title={t('បោះពុម្ពរបាយការណ៍', 'Print Official Report')}
+              onClick={handlePrint}
+              title={t('បោះពុម្ពទំព័រនេះ', 'Print this page')}
               className="hidden sm:flex items-center justify-center p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
             >
               <Printer className="w-4 h-4" />

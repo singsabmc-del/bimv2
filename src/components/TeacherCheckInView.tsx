@@ -36,8 +36,10 @@ const mirrorToAttendanceSheet = (date: string, teacherId: string, status: Teache
 };
 
 export const TeacherCheckInView: React.FC = () => {
-  const { teachers, teacherCheckIn, setTeacherCheckIn, currentUser, settings, showNotification } = useApp() as any;
+  const { teachers, teacherCheckIn, setTeacherCheckIn, currentUser, settings, showNotification, linkedTeacher, sendTelegramAlert } = useApp() as any;
   const canManage = currentUser.role === 'admin' || currentUser.role === 'accountant';
+  // A Teacher account can only check in / out for itself
+  const selfOnly = currentUser.role === 'teacher';
 
   const [now, setNow] = useState(new Date());
   useEffect(() => {
@@ -48,13 +50,8 @@ export const TeacherCheckInView: React.FC = () => {
   const [tab, setTab] = useState<'today' | 'month'>('today');
   const [date, setDate] = useState(isoOf(new Date()));
   const [search, setSearch] = useState('');
-  const [selectedId, setSelectedId] = useState<string>(() => {
-    // A teacher account lands on its own name
-    const mine = (teachers as TeacherRecord[]).find(
-      (t) => currentUser.khmerName && (currentUser.khmerName.includes(t.nameKhmer) || t.nameEnglish === currentUser.name)
-    );
-    return mine?.id || '';
-  });
+  const [pickedId, setSelectedId] = useState<string>('');
+  const selectedId = selfOnly ? linkedTeacher?.id || '' : pickedId;
   const [manualTime, setManualTime] = useState('');
   const [note, setNote] = useState('');
   const [showSettings, setShowSettings] = useState(false);
@@ -83,12 +80,23 @@ export const TeacherCheckInView: React.FC = () => {
   const selected = (teachers as TeacherRecord[]).find((t) => t.id === selectedId);
   const selectedRec = selected ? recOf(selected.id) : undefined;
 
+  const alertTelegram = (title: string, lines: string[]) => {
+    try {
+      sendTelegramAlert?.(title, [...lines, `ថ្ងៃ៖ ${date}`, `កត់ត្រាដោយ៖ ${currentUser.khmerName || currentUser.name}`].join('\n'), 'system');
+    } catch {}
+  };
   const doCheckIn = () => {
     if (!selected) return;
     const t = timeToUse();
     const status: TeacherCheckInRecord['status'] = toMin(t) > lateLimit ? 'late' : 'on_time';
     upsert(selected.id, { checkIn: t, status, note: note || selectedRec?.note });
     showNotification?.(`✅ ${selected.nameKhmer} ចូលម៉ោង ${t}${status === 'late' ? ' (មកយឺត)' : ''}`, 'success');
+    const lateBy = toMin(t) - toMin(startTime);
+    alertTelegram(status === 'late' ? '⚠️ គ្រូមកយឺត (Check In)' : '✅ គ្រូចូលធ្វើការ (Check In)', [
+      `👩‍🏫 ${selected.nameKhmer} (${selected.position || selected.homeroomClassName || selected.teacherCode})`,
+      `🕒 ម៉ោងចូល៖ ${t}${status === 'late' ? ` — យឺត ${lateBy} នាទី` : ' — ទាន់ម៉ោង'}`,
+      ...(note ? [`📝 ${note}`] : []),
+    ]);
     setNote('');
   };
   const doCheckOut = () => {
@@ -96,6 +104,12 @@ export const TeacherCheckInView: React.FC = () => {
     const t = timeToUse();
     upsert(selected.id, { checkOut: t, note: note || selectedRec?.note });
     showNotification?.(`👋 ${selected.nameKhmer} ចេញម៉ោង ${t}`, 'success');
+    const worked = toMin(t) - toMin(selectedRec?.checkIn);
+    alertTelegram('👋 គ្រូចេញពីការងារ (Check Out)', [
+      `👩‍🏫 ${selected.nameKhmer}`,
+      `🕒 ចូល ${selectedRec?.checkIn || '-'} → ចេញ ${t} (${fmtDur(worked)})`,
+      ...(toMin(t) < toMin(endTime) ? [`⚠️ ចេញមុនម៉ោង ${endTime}`] : []),
+    ]);
     setNote('');
   };
   const doLeave = () => {
@@ -140,7 +154,7 @@ export const TeacherCheckInView: React.FC = () => {
       if (iso > today) break;
       if (dt.getDay() !== 0 && dt.getDay() !== 6) workDays.push(iso);
     }
-    const rows = (teachers as TeacherRecord[]).map((t) => {
+    const rows = (teachers as TeacherRecord[]).filter((t) => !selfOnly || t.id === selectedId).map((t) => {
       let present = 0, late = 0, leave = 0, mins = 0;
       workDays.forEach((d) => {
         const r = recOf(t.id, d);
@@ -156,7 +170,7 @@ export const TeacherCheckInView: React.FC = () => {
       return { t, present, late, leave, absent: Math.max(0, workDays.length - present - leave), mins };
     });
     return { workDays: workDays.length, rows };
-  }, [month, teachers, records, today]);
+  }, [month, teachers, records, today, selfOnly, selectedId]);
 
   const dateLabel = (() => {
     const d = new Date(date + 'T00:00:00');
@@ -258,16 +272,47 @@ export const TeacherCheckInView: React.FC = () => {
                   <LogOut className="h-4 w-4" /> ចេញ (Out)
                 </button>
               </div>
-              <button
+              {!selfOnly && <button
                 disabled={!selected || !!selectedRec?.checkIn}
                 onClick={doLeave}
                 className="mt-2 w-full rounded-xl border border-white/40 py-2 text-xs font-bold text-white hover:bg-white/10 disabled:opacity-40"
               >
                 <FileText className="mr-1 inline h-3.5 w-3.5" /> សុំច្បាប់ (Leave)
-              </button>
+              </button>}
+              {selfOnly && !linkedTeacher && (
+                <p className="mt-3 rounded-lg bg-amber-400/90 p-2 text-[11px] font-bold text-slate-900">
+                  គណនីរបស់អ្នកមិនទាន់ភ្ជាប់ជាមួយឈ្មោះក្នុងបញ្ជីគ្រូទេ។ សូមឱ្យ Admin ភ្ជាប់នៅ ការកំណត់ → អ្នកប្រើប្រាស់។
+                </p>
+              )}
             </div>
 
-            {/* Teacher picker */}
+            {/* Teacher picker (admin / accounting) — a teacher sees only their own history */}
+            {selfOnly ? (
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 lg:col-span-2">
+                <div className="mb-2 text-sm font-bold text-slate-900">ប្រវត្តិចុះវត្តមានរបស់ខ្ញុំ (ខែនេះ)</div>
+                <div className="max-h-[22rem] overflow-y-auto rounded-xl border border-slate-200">
+                  <table className="w-full text-xs">
+                    <thead className="bg-slate-50 text-slate-600">
+                      <tr>{['ថ្ងៃ', 'ចូល', 'ចេញ', 'រយៈពេល', 'ស្ថានភាព'].map((h) => <th key={h} className="px-2 py-2 text-left font-bold">{h}</th>)}</tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {records
+                        .filter((r: TeacherCheckInRecord) => r.teacherId === selectedId && r.date.slice(0, 7) === today.slice(0, 7))
+                        .sort((a: TeacherCheckInRecord, b: TeacherCheckInRecord) => b.date.localeCompare(a.date))
+                        .map((r: TeacherCheckInRecord) => (
+                          <tr key={r.id}>
+                            <td className="px-2 py-1.5 font-mono">{r.date.split('-').reverse().join('-')}</td>
+                            <td className="px-2 py-1.5 font-mono">{r.checkIn || '-'}</td>
+                            <td className="px-2 py-1.5 font-mono">{r.checkOut || '-'}</td>
+                            <td className="px-2 py-1.5 font-mono">{fmtDur(toMin(r.checkOut) - toMin(r.checkIn))}</td>
+                            <td className="px-2 py-1.5"><span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${STATUS_UI[r.status].cls}`}>{STATUS_UI[r.status].label}</span></td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
             <div className="rounded-2xl border border-slate-200 bg-white p-4 lg:col-span-2">
               <div className="mb-3 flex flex-wrap items-center gap-2">
                 <div className="relative flex-1">
@@ -309,9 +354,11 @@ export const TeacherCheckInView: React.FC = () => {
                 })}
               </div>
             </div>
+            )}
           </div>
 
-          {/* Summary + table */}
+          {/* Summary + table (admin / accounting) */}
+          {!selfOnly && (<>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 no-print">
             {(['on_time', 'late', 'leave', 'none'] as const).map((k) => (
               <div key={k} className="rounded-2xl border border-slate-200 bg-white p-3">
@@ -376,6 +423,7 @@ export const TeacherCheckInView: React.FC = () => {
               </table>
             </div>
           </div>
+          </>)}
         </>
       )}
 
@@ -427,7 +475,7 @@ export const TeacherCheckInView: React.FC = () => {
         </div>
       )}
 
-      {tab === 'today' && counts.none > 0 && isToday && (
+      {tab === 'today' && !selfOnly && counts.none > 0 && isToday && (
         <p className="no-print flex items-center gap-1.5 text-[11px] text-slate-500">
           <UserCheck className="h-3.5 w-3.5" /> គ្រូ {counts.none} នាក់មិនទាន់ចុះវត្តមានថ្ងៃនេះ
         </p>

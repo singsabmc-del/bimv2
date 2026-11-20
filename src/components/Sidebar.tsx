@@ -85,6 +85,7 @@ export const NAV_TAB_IDS = [
   'system_settings',
   'income_statistics',
   'teacher_checkin',
+  'teacher_leave',
 ] as const;
 
 export type NavTab = (typeof NAV_TAB_IDS)[number];
@@ -292,6 +293,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           icon: Clock,
           activeMatch: ['teacher_checkin'],
         },
+        {
+          id: 'teacher_leave' as NavTab,
+          label: 'Leave Request',
+          labelKhmer: 'សំណើសុំច្បាប់ (Leave Request)',
+          icon: CalendarDays,
+          activeMatch: ['teacher_leave'],
+        },
       ],
     },
     // Section 4: Daily School Revenue (School Income)
@@ -409,7 +417,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   ]
     // Show only the pages this user's role may open (Setting → access rights)
     .map((sec) => ({ ...sec, items: sec.items.filter((it) => canOpenTab(currentUser.role, it.id)) }))
-    .filter((sec) => sec.items.length > 0);
+    .filter((sec) => sec.items.length > 0)
+    // A teacher's own tools (Check In, Leave Request) come first as "My work"
+    .map((sec) => (currentUser.role === 'teacher' && sec.id === 'teacher' ? { ...sec, id: 'mine', title: 'My Work', titleKhmer: 'ការងាររបស់ខ្ញុំ' } : sec))
+    .sort((a, b) => (a.id === 'mine' ? -1 : b.id === 'mine' ? 1 : 0));
 
   return (
     <>
@@ -570,6 +581,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               ).filter(({ key }) =>
                 key === 'settings' ? canOpenTab(currentUser.role, 'system_settings')
                 : key === 'backup' ? currentUser.role === 'admin' || currentUser.role === 'accountant'
+                : key === 'qr' ? currentUser.role !== 'teacher' && currentUser.role !== 'student'
                 : true
               ).map(({ key, icon: Icon, label, onClick, active }) => (
                 <button
