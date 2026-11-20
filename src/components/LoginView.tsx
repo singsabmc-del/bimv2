@@ -109,7 +109,7 @@ export const LoginView: React.FC = () => {
           {/* Phone: compact brand above the form */}
           <div className="lg:hidden flex flex-col items-center text-center text-white gap-2">
             <img
-              src={settings.schoolLogo || '/icons/icon-192.png'}
+              src="/icons/icon-192.png"
               alt=""
               className="h-20 w-20 rounded-full object-cover shadow-lg shadow-amber-500/20 ring-4 ring-white/10"
             />
@@ -190,7 +190,7 @@ export const LoginView: React.FC = () => {
                   {t('ចូលប្រើប្រាស់ប្រព័ន្ធ', 'Sign In to Your Account')}
                 </h3>
                 <p className="text-xs text-slate-500 font-khmer mt-1">
-                  {t('សូមបញ្ចូលឈ្មោះគណនី ឬអ៊ីមែល និងពាក្យសម្ងាត់របស់អ្នក', 'Enter your username/email and password to proceed')}
+                  {t('សូមបញ្ចូលលេខទូរស័ព្ទ ឬឈ្មោះគណនី និងពាក្យសម្ងាត់', 'Enter your phone number or username and password')}
                 </p>
               </div>
 
