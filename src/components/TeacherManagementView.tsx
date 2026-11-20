@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
+import { TeacherProfileForm } from './TeacherProfileForm';
 import { TeacherRecord, SubjectItem, ScheduleSlot, ScheduleTimePeriod } from '../types';
 import {
   Users,
@@ -306,6 +307,7 @@ export const TeacherManagementView: React.FC<TeacherManagementViewProps> = ({
   // Modals state
   const [isTeacherModalOpen, setIsTeacherModalOpen] = useState(false);
   const [editingTeacher, setEditingTeacher] = useState<TeacherRecord | null>(null);
+  const [profileTeacher, setProfileTeacher] = useState<TeacherRecord | null>(null);
 
   const [isSubjectModalOpen, setIsSubjectModalOpen] = useState(false);
   const [editingSubject, setEditingSubject] = useState<SubjectItem | null>(null);
@@ -535,6 +537,7 @@ export const TeacherManagementView: React.FC<TeacherManagementViewProps> = ({
 
   return (
     <div className="space-y-6">
+      {profileTeacher && <TeacherProfileForm teacher={profileTeacher} onClose={() => setProfileTeacher(null)} />}
       {/* Top Banner & Sub-Navigation aligned with flowchart */}
       <div className="bg-white rounded-2xl shadow-xs border border-slate-200/80 p-5 sm:p-6 no-print">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -959,9 +962,13 @@ export const TeacherManagementView: React.FC<TeacherManagementViewProps> = ({
 
                       {/* Card Bottom Actions */}
                       <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                        <div className="text-[11px] font-mono text-slate-400">
-                          {tch.joinDate ? `ចូលបម្រើការ៖ ${tch.joinDate}` : ''}
-                        </div>
+                        <button
+                          onClick={() => setProfileTeacher(tch)}
+                          className="flex items-center gap-1 rounded-lg bg-amber-100 px-2 py-1 font-khmer font-bold text-amber-900 hover:bg-amber-200 cursor-pointer"
+                        >
+                          <FileSpreadsheet className="w-3.5 h-3.5" />
+                          <span>ប្រវត្តិរូប (Profile Form)</span>
+                        </button>
                         <button
                           onClick={() => {
                             if (tch.homeroomClassId) {

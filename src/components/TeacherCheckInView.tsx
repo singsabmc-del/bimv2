@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import type { TeacherCheckInRecord, TeacherRecord } from '../types';
-import { LogIn, LogOut, Clock, Search, Printer, Settings2, CalendarDays, UserCheck, FileText, Trash2 } from 'lucide-react';
+import { LogIn, LogOut, Clock, Search, Printer, Settings2, CalendarDays, UserCheck, FileText, Trash2, ListChecks, Users, ClipboardCheck, Send } from 'lucide-react';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 const isoOf = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -176,6 +176,120 @@ export const TeacherCheckInView: React.FC = () => {
     const d = new Date(date + 'T00:00:00');
     return `ថ្ងៃ${KH_DAYS[d.getDay()]} ទី${d.getDate()} ខែ${KH_MONTHS[d.getMonth()]} ឆ្នាំ${d.getFullYear()}`;
   })();
+
+  // ---------- Teacher's own app-style screen (like the phone check-in app) ----------
+  if (selfOnly) {
+    const go = (tab: string) => { window.location.hash = tab; };
+    const myMonth = records
+      .filter((r: TeacherCheckInRecord) => r.teacherId === selectedId && r.date.slice(0, 7) === today.slice(0, 7))
+      .sort((a: TeacherCheckInRecord, b: TeacherCheckInRecord) => b.date.localeCompare(a.date));
+    const mine = monthly.rows[0];
+    const pendingLeaves = (teacherCheckIn.leaveRequests || []).filter((r: any) => r.teacherId === selectedId && r.status === 'pending').length;
+    const doneToday = !!selectedRec?.checkOut || selectedRec?.status === 'leave';
+    const btnLabel = !selectedRec?.checkIn ? 'CHECK IN' : !selectedRec?.checkOut ? 'CHECK OUT' : 'DONE';
+    const onBig = () => (!selectedRec?.checkIn ? doCheckIn() : !selectedRec?.checkOut ? doCheckOut() : undefined);
+    const firstName = (selected?.nameKhmer || currentUser.khmerName || '').split('(')[0].trim();
+    return (
+      <div className="mx-auto max-w-xl space-y-4 font-khmer">
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#1b2a52] via-[#1e3166] to-[#24407e] p-5 text-white shadow-xl">
+          <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-white/5" />
+          <div className="pointer-events-none absolute -bottom-20 -left-10 h-56 w-56 rounded-full bg-white/5" />
+          <div className="relative text-lg font-bold">សួស្តី, {firstName || 'គ្រូ'}</div>
+          <div className="relative text-[11px] text-blue-100">{dateLabel}</div>
+          <div className="relative mt-4 flex items-center justify-between gap-3">
+            <div>
+              <div className="font-mono text-5xl font-black tracking-wider tabular-nums sm:text-6xl">
+                {hhmm(now)}<span className="text-3xl text-blue-200 sm:text-4xl">:{pad(now.getSeconds())}</span>
+              </div>
+              <div className="mt-1 text-[11px] text-blue-100">
+                ចូល {selectedRec?.checkIn || '--:--'} · ចេញ {selectedRec?.checkOut || '--:--'}
+                {selectedRec && <span className={`ml-2 rounded-full px-2 py-0.5 text-[10px] font-bold ${STATUS_UI[selectedRec.status].cls}`}>{STATUS_UI[selectedRec.status].label}</span>}
+              </div>
+            </div>
+            <button
+              type="button"
+              disabled={!selected || doneToday}
+              onClick={onBig}
+              className={`flex h-32 w-32 shrink-0 items-center justify-center rounded-full border-[5px] border-orange-500 text-sm font-bold tracking-wide shadow-[0_0_30px_rgba(249,115,22,0.35)] transition active:scale-95 disabled:opacity-50 sm:h-36 sm:w-36 ${
+                !selectedRec?.checkIn ? 'bg-gradient-to-br from-indigo-600 to-blue-700' : 'bg-gradient-to-br from-amber-500 to-orange-600'
+              }`}
+            >
+              {btnLabel}
+            </button>
+          </div>
+          <input
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="កំណត់សម្គាល់ (ជម្រើស)"
+            className="relative mt-4 w-full rounded-xl bg-white/10 px-3 py-2 text-xs text-white placeholder:text-blue-200 focus:bg-white/15 focus:outline-none"
+          />
+          {!linkedTeacher && (
+            <p className="relative mt-3 rounded-lg bg-amber-400/95 p-2 text-[11px] font-bold text-slate-900">
+              គណនីរបស់អ្នកមិនទាន់ភ្ជាប់ជាមួយឈ្មោះក្នុងបញ្ជីគ្រូទេ។ សូមឱ្យ Admin ភ្ជាប់នៅ ការកំណត់ → អ្នកប្រើប្រាស់។
+            </p>
+          )}
+        </div>
+
+        {/* Quick tiles */}
+        <div className="grid grid-cols-2 overflow-hidden rounded-3xl bg-[#1e3166] text-white shadow-lg sm:grid-cols-3">
+          {[
+            { label: 'វត្តមានរបស់ខ្ញុំ', en: 'Attendance', Icon: Clock, onClick: () => document.getElementById('my-attendance')?.scrollIntoView({ behavior: 'smooth' }), badge: mine ? `${mine.present}` : '' },
+            { label: 'សុំច្បាប់', en: 'Leave', Icon: Send, onClick: () => go('teacher_leave'), badge: pendingLeaves ? `${pendingLeaves}` : '' },
+            { label: 'វត្តមានសិស្ស', en: 'Student Attendance', Icon: ClipboardCheck, onClick: () => go('student_attendance') },
+            { label: 'បញ្ជីសិស្ស', en: 'Student List', Icon: Users, onClick: () => go('student_list') },
+            { label: 'ព័ត៌មានសិស្ស', en: 'Student Info', Icon: ListChecks, onClick: () => go('student_info') },
+            { label: 'សរុបខែនេះ', en: 'This month', Icon: CalendarDays, onClick: () => setTab('month') },
+          ].map(({ label, en, Icon, onClick, badge }) => (
+            <button key={en} type="button" onClick={onClick} className="relative flex flex-col items-center gap-1.5 border-b border-r border-white/15 px-2 py-5 hover:bg-white/5">
+              <Icon className="h-8 w-8" strokeWidth={1.8} />
+              <span className="text-sm font-bold">{label}</span>
+              <span className="text-[10px] text-blue-200">{en}</span>
+              {badge && <span className="absolute right-3 top-3 rounded-full bg-amber-400 px-1.5 text-[10px] font-bold text-slate-900">{badge}</span>}
+            </button>
+          ))}
+        </div>
+
+        {/* My attendance this month */}
+        <div id="my-attendance" className="rounded-2xl border border-slate-200 bg-white p-4">
+          <div className="mb-2 flex items-center justify-between">
+            <div className="text-sm font-bold text-slate-900">វត្តមានរបស់ខ្ញុំ (ខែនេះ)</div>
+            {mine && (
+              <div className="flex gap-1.5 text-[10px] font-bold">
+                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-800">មក {mine.present}</span>
+                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-800">យឺត {mine.late}</span>
+                <span className="rounded-full bg-sky-100 px-2 py-0.5 text-sky-800">ច្បាប់ {mine.leave}</span>
+              </div>
+            )}
+          </div>
+          <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 text-xs">
+            {myMonth.length === 0 && <div className="p-4 text-center text-slate-400">មិនទាន់មានការចុះវត្តមានខែនេះ</div>}
+            {myMonth.map((r: TeacherCheckInRecord) => (
+              <div key={r.id} className="flex items-center justify-between px-3 py-2">
+                <span className="font-mono">{r.date.split('-').reverse().join('-')}</span>
+                <span className="font-mono text-slate-600">{r.checkIn || '--:--'} → {r.checkOut || '--:--'}</span>
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${STATUS_UI[r.status].cls}`}>{STATUS_UI[r.status].label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {tab === 'month' && mine && (
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 text-xs">
+            <div className="mb-2 text-sm font-bold text-slate-900">សរុបប្រចាំខែ</div>
+            <div className="grid grid-cols-4 gap-2 text-center">
+              {[['វត្តមាន', mine.present, 'text-emerald-700'], ['យឺត', mine.late, 'text-amber-700'], ['ច្បាប់', mine.leave, 'text-sky-700'], ['អវត្តមាន', mine.absent, 'text-rose-700']].map(([l, v, c]) => (
+                <div key={l as string} className="rounded-xl bg-slate-50 p-2">
+                  <div className={`font-mono text-xl font-black ${c}`}>{v as number}</div>
+                  <div className="text-[10px] text-slate-500">{l as string}</div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-2 text-[11px] text-slate-500">ម៉ោងធ្វើការសរុប៖ {fmtDur(mine.mins)} · ថ្ងៃធ្វើការ {monthly.workDays} ថ្ងៃ</div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 font-khmer">
