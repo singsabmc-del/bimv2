@@ -48,7 +48,7 @@ interface StudentFeesViewProps {
   onPrintReport?: () => void;
   onOpenOfficialRoster?: () => void;
   /** Only the student-management toolbar + its modals (Student Information page). */
-  toolsOnly?: boolean;
+  toolsOnly?: boolean | 'class';
 }
 
 // 12 Months in the Cambodian School Academic Year
@@ -640,7 +640,7 @@ export const StudentFeesView: React.FC<StudentFeesViewProps> = ({ onPrintReport,
   // Official summary follows the month chosen in the filter
   const monthlySummary = computeMonthlyFeeSummary(currentClass.students || [], globalMonth, globalYear);
 
-  const studentToolButtons = (
+  const classToolButtons = (
     <>
       {permissions.canEdit && (
         <button
@@ -668,6 +668,12 @@ export const StudentFeesView: React.FC<StudentFeesViewProps> = ({ onPrintReport,
           <span className="hidden sm:inline">{t('រៀបចំថ្នាក់', 'Manage Classes')}</span>
         </button>
       )}
+    </>
+  );
+
+  const studentToolButtons = (
+    <>
+      {classToolButtons}
 
       {onOpenOfficialRoster && (
         <button
@@ -1196,14 +1202,14 @@ export const StudentFeesView: React.FC<StudentFeesViewProps> = ({ onPrintReport,
       <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-2xs no-print">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="font-khmer">
-            <div className="text-sm font-bold text-slate-900">{t('ឧបករណ៍គ្រប់គ្រងសិស្ស', 'Student Management Tools')}</div>
+            <div className="text-sm font-bold text-slate-900">{toolsOnly === 'class' ? t('គ្រប់គ្រងថ្នាក់រៀន', 'Class Management') : t('ឧបករណ៍គ្រប់គ្រងសិស្ស', 'Student Management Tools')}</div>
             <div className="text-[11px] text-slate-500">
               {t('ថ្នាក់', 'Class')}: <span className="font-bold text-indigo-700">{currentClass.className}</span>
               {' · '}{currentClass.students.length} {t('នាក់', 'students')}
               {stoppedCount > 0 && <span className="text-rose-600"> · {stoppedCount} {t('ឈប់', 'stopped')}</span>}
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">{studentToolButtons}</div>
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">{toolsOnly === 'class' ? classToolButtons : studentToolButtons}</div>
         </div>
         {studentToolModals}
       </div>
