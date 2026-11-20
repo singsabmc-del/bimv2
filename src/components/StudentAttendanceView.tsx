@@ -32,6 +32,8 @@ export const StudentAttendanceView: React.FC = () => {
     settings,
     currentUser,
     permissions,
+    syncedGet,
+    syncedSet,
     t,
   } = useApp();
 
@@ -62,14 +64,8 @@ export const StudentAttendanceView: React.FC = () => {
   const currentClass = classData[activeClassId] || orderedClassList[0] || Object.values(classData)[0];
 
   // Persistent attendance store
-  const [attendanceRecords, setAttendanceRecords] = useState<{ [key: string]: DailyStudentAttendanceRecord }>(() => {
-    try {
-      const stored = localStorage.getItem('BIM_RANGSEI_ATTENDANCE');
-      return stored ? JSON.parse(stored) : {};
-    } catch {
-      return {};
-    }
-  });
+  // Shared through Supabase (every teacher's phone sees the same attendance)
+  const attendanceRecords: { [key: string]: DailyStudentAttendanceRecord } = syncedGet('BIM_RANGSEI_ATTENDANCE') || {};
 
   const recordKey = `${activeClassId}_${selectedDate}`;
   const currentRecord = attendanceRecords[recordKey] || {
@@ -98,12 +94,7 @@ export const StudentAttendanceView: React.FC = () => {
       [recordKey]: updatedRecord,
     };
 
-    setAttendanceRecords(updatedStore);
-    try {
-      localStorage.setItem('BIM_RANGSEI_ATTENDANCE', JSON.stringify(updatedStore));
-    } catch (e) {
-      console.error(e);
-    }
+    syncedSet('BIM_RANGSEI_ATTENDANCE', updatedStore);
   };
 
   const handleSetStudentStatus = (studentId: number, status: AttendanceStatus) => {

@@ -216,6 +216,7 @@ export const TeacherManagementView: React.FC<TeacherManagementViewProps> = ({
     teachers, setTeachers,
     teacherSchedules: schedules, setTeacherSchedules: setSchedules,
     scheduleTimePeriods: timePeriods, setScheduleTimePeriods: setTimePeriods,
+    syncedGet, syncedSet,
   } = useApp();
 
   // Filter & Search states
@@ -225,27 +226,12 @@ export const TeacherManagementView: React.FC<TeacherManagementViewProps> = ({
 
   // Teacher Attendance state & persistence
   const [attendanceDate, setAttendanceDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [attendanceRecords, setAttendanceRecords] = useState<Record<string, { status: 'present' | 'absent' | 'leave' | 'late'; note?: string }>>(() => {
-    try {
-      const today = new Date().toISOString().slice(0, 10);
-      const stored = localStorage.getItem(`BIM_RANGSEI_TEACHER_ATT_${today}`);
-      return stored ? JSON.parse(stored) : {};
-    } catch {
-      return {};
-    }
-  });
-
-  // Reload attendance when date changes
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(`BIM_RANGSEI_TEACHER_ATT_${attendanceDate}`);
-      if (stored) {
-        setAttendanceRecords(JSON.parse(stored));
-      } else {
-        setAttendanceRecords({});
-      }
-    } catch {}
-  }, [attendanceDate]);
+  // Shared through Supabase (same sheet on every computer)
+  const attKey = `BIM_RANGSEI_TEACHER_ATT_${attendanceDate}`;
+  const attendanceRecords: Record<string, { status: 'present' | 'absent' | 'leave' | 'late'; note?: string }> = syncedGet(attKey) || {};
+  const setAttendanceRecords = (
+    upd: Record<string, { status: 'present' | 'absent' | 'leave' | 'late'; note?: string }> | ((prev: any) => any)
+  ) => syncedSet(attKey, typeof upd === 'function' ? (upd as any)(syncedGet(attKey) || {}) : upd);
 
   const handleAttendanceChange = (teacherId: string, status: 'present' | 'absent' | 'leave' | 'late', note?: string) => {
     setAttendanceRecords((prev) => {
@@ -256,9 +242,6 @@ export const TeacherManagementView: React.FC<TeacherManagementViewProps> = ({
           note: note !== undefined ? note : (prev[teacherId]?.note || ''),
         },
       };
-      try {
-        localStorage.setItem(`BIM_RANGSEI_TEACHER_ATT_${attendanceDate}`, JSON.stringify(updated));
-      } catch {}
       return updated;
     });
   };
@@ -269,9 +252,6 @@ export const TeacherManagementView: React.FC<TeacherManagementViewProps> = ({
       updated[tch.id] = { status: 'present', note: attendanceRecords[tch.id]?.note || '' };
     });
     setAttendanceRecords(updated);
-    try {
-      localStorage.setItem(`BIM_RANGSEI_TEACHER_ATT_${attendanceDate}`, JSON.stringify(updated));
-    } catch {}
   };
 
   const handleShareAttendanceTelegram = () => {

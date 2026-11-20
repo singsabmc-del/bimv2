@@ -41,7 +41,7 @@ const readImage = (file: File, max = 420): Promise<string> =>
 const TEACHER_SIG_KEY = 'BIM_HONOR_TEACHER_SIGNATURES';
 
 export const HonorRollView: React.FC = () => {
-  const { orderedClassList, classData, subjects, settings, updateSettings, permissions } = useApp();
+  const { orderedClassList, classData, subjects, settings, updateSettings, permissions, syncedGet, syncedSet } = useApp();
   const periods = useMemo(() => academicPeriods(settings.academicYear), [settings.academicYear]);
   const nowKey = `m-${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
   const [classId, setClassId] = useState(orderedClassList[0]?.classId || '');
@@ -54,13 +54,9 @@ export const HonorRollView: React.FC = () => {
   const [solarDate, setSolarDate] = useState(
     `ធ្វើនៅ.................... ថ្ងៃទី${toKh(today.getDate())} ខែ${KH_MONTHS[today.getMonth()]} ឆ្នាំ${toKh(today.getFullYear())}`
   );
-  const [teacherSigs, setTeacherSigs] = useState<{ [classId: string]: string }>(() => {
-    try {
-      return JSON.parse(localStorage.getItem(TEACHER_SIG_KEY) || '{}');
-    } catch {
-      return {};
-    }
-  });
+  // Shared through Supabase
+  const teacherSigs: { [classId: string]: string } = syncedGet(TEACHER_SIG_KEY) || {};
+  const setTeacherSigs = (next: { [classId: string]: string }) => syncedSet(TEACHER_SIG_KEY, next);
 
   const cls = classData[classId] || orderedClassList[0];
   const subIds = classSubjects(cls, subjects).map((s) => s.id);
@@ -90,9 +86,6 @@ export const HonorRollView: React.FC = () => {
     else {
       const next = { ...teacherSigs, [classId]: url };
       setTeacherSigs(next);
-      try {
-        localStorage.setItem(TEACHER_SIG_KEY, JSON.stringify(next));
-      } catch {}
     }
   };
 
@@ -292,7 +285,6 @@ export const HonorRollView: React.FC = () => {
                         const next = { ...teacherSigs };
                         delete next[classId];
                         setTeacherSigs(next);
-                        localStorage.setItem(TEACHER_SIG_KEY, JSON.stringify(next));
                       }
                     }}
                   >

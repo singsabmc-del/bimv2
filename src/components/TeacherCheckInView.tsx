@@ -26,18 +26,15 @@ const STATUS_UI: Record<string, { label: string; cls: string }> = {
   none: { label: 'មិនទាន់ចូល', cls: 'bg-slate-100 text-slate-500' },
 };
 
-/** Keep the older daily Teacher Attendance sheet in step with check-ins */
-const mirrorToAttendanceSheet = (date: string, teacherId: string, status: TeacherCheckInRecord['status'], note?: string) => {
-  try {
-    const key = `BIM_RANGSEI_TEACHER_ATT_${date}`;
-    const cur = JSON.parse(localStorage.getItem(key) || '{}');
-    cur[teacherId] = { status: status === 'on_time' ? 'present' : status, note: note || cur[teacherId]?.note || '' };
-    localStorage.setItem(key, JSON.stringify(cur));
-  } catch {}
-};
-
 export const TeacherCheckInView: React.FC = () => {
-  const { teachers, teacherCheckIn, setTeacherCheckIn, currentUser, settings, showNotification, linkedTeacher, sendTelegramAlert } = useApp() as any;
+  const { teachers, teacherCheckIn, setTeacherCheckIn, currentUser, settings, showNotification, linkedTeacher, sendTelegramAlert, syncedGet, syncedSet } = useApp() as any;
+  /** Keep the older daily Teacher Attendance sheet in step with check-ins (shared store) */
+  const mirrorToAttendanceSheet = (d: string, teacherId: string, status: TeacherCheckInRecord['status'], note?: string) => {
+    const key = `BIM_RANGSEI_TEACHER_ATT_${d}`;
+    const cur = { ...(syncedGet(key) || {}) };
+    cur[teacherId] = { status: status === 'on_time' ? 'present' : status, note: note || cur[teacherId]?.note || '' };
+    syncedSet(key, cur);
+  };
   const canManage = currentUser.role === 'admin' || currentUser.role === 'accountant';
   // Staff check in / out only for themselves; Admin & Accounting can also manage everyone
   const [mode, setMode] = useState<'me' | 'manage'>(canManage ? 'manage' : 'me');
@@ -71,9 +68,11 @@ export const TeacherCheckInView: React.FC = () => {
       const next: TeacherCheckInRecord = {
         id, teacherId, date, status: 'on_time', ...(existing || {}), ...patch, recordedBy: currentUser.khmerName || currentUser.name,
       };
-      mirrorToAttendanceSheet(date, teacherId, next.status, next.note);
       return { ...prev, records: [...prev.records.filter((r: TeacherCheckInRecord) => r.id !== id), next] };
     });
+    const existing = recOf(teacherId);
+    const status = (patch.status || existing?.status || 'on_time') as TeacherCheckInRecord['status'];
+    mirrorToAttendanceSheet(date, teacherId, status, patch.note ?? existing?.note);
   };
 
   // Each staff member's own shift for the day (Work Shifts); a day off falls back to the school hours
