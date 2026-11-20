@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import type { TeacherCheckInRecord, TeacherLeaveRequest, TeacherRecord } from '../types';
-import { CalendarDays, Check, X, Send, Clock, Trash2, Settings2 } from 'lucide-react';
+import { CalendarDays, Check, X, Send, Clock, Trash2, Settings2, Plus } from 'lucide-react';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 const todayISO = () => {
@@ -37,10 +37,14 @@ export const LEAVE_TYPES: { key: string; kh: string; en: string; defaultDays: nu
   { key: 'maternity', kh: 'ច្បាប់សម្រាលកូន', en: 'Maternity', defaultDays: 90 },
   { key: 'other', kh: 'ផ្សេងៗ (គ្មានកំណត់)', en: 'Other', defaultDays: 0 },
 ];
-const typeLabel = (k: string) => {
-  const t = LEAVE_TYPES.find((x) => x.key === k);
-  return t ? t.kh : k;
-};
+/** A leave type as managed by Admin / Accounting */
+export interface LeaveTypeDef {
+  key: string;
+  kh: string;
+  en?: string;
+  days: number; // allowance per year (0 = no limit)
+  active?: boolean; // hidden types stay for old requests but cannot be chosen
+}
 
 const STATUS: Record<TeacherLeaveRequest['status'], { label: string; cls: string }> = {
   pending: { label: 'កំពុងរង់ចាំ', cls: 'bg-amber-100 text-amber-800' },
@@ -64,11 +68,23 @@ export const TeacherLeaveRequestView: React.FC = () => {
   const selfOnly = !canApprove || mode === 'me';
 
   const perDay: number = teacherCheckIn.hoursPerDay || 8;
+  // Leave types: managed list, or the built-in defaults until someone edits them
+  const allTypes: LeaveTypeDef[] = useMemo(
+    () =>
+      teacherCheckIn.leaveTypes && teacherCheckIn.leaveTypes.length
+        ? teacherCheckIn.leaveTypes
+        : LEAVE_TYPES.map((t) => ({ key: t.key, kh: t.kh, en: t.en, days: teacherCheckIn.leaveQuotas?.[t.key] ?? t.defaultDays, active: true })),
+    [teacherCheckIn.leaveTypes, teacherCheckIn.leaveQuotas]
+  );
+  const activeTypes = allTypes.filter((t) => t.active !== false);
+  const typeLabel = (k: string) => allTypes.find((x) => x.key === k)?.kh || k;
   const quotas: Record<string, number> = useMemo(() => {
     const q: Record<string, number> = {};
-    LEAVE_TYPES.forEach((t) => (q[t.key] = teacherCheckIn.leaveQuotas?.[t.key] ?? t.defaultDays));
+    allTypes.forEach((t) => (q[t.key] = Number(t.days) || 0));
     return q;
-  }, [teacherCheckIn.leaveQuotas]);
+  }, [allTypes]);
+  const saveTypes = (next: LeaveTypeDef[]) => setTeacherCheckIn((p: any) => ({ ...p, leaveTypes: next }));
+  const usedCount = (key: string) => (teacherCheckIn.leaveRequests || []).filter((r: TeacherLeaveRequest) => r.type === key).length;
 
   const [teacherId, setTeacherId] = useState<string>('');
   const [unit, setUnit] = useState<'day' | 'hour'>('day');
@@ -76,7 +92,8 @@ export const TeacherLeaveRequestView: React.FC = () => {
   const [toDate, setToDate] = useState(todayISO());
   const [fromTime, setFromTime] = useState(teacherCheckIn.startTime || '07:00');
   const [toTime, setToTime] = useState('09:00');
-  const [type, setType] = useState<string>('annual');
+  const [typeState, setType] = useState<string>('');
+  const type = typeState;
   const [reason, setReason] = useState('');
   const [filter, setFilter] = useState<'all' | TeacherLeaveRequest['status']>('all');
   const [showQuota, setShowQuota] = useState(false);
@@ -91,7 +108,7 @@ export const TeacherLeaveRequestView: React.FC = () => {
   /** Used / pending hours per type this year for one staff member */
   const balanceOf = (staffId?: string) => {
     const out: Record<string, { used: number; pending: number }> = {};
-    LEAVE_TYPES.forEach((t) => (out[t.key] = { used: 0, pending: 0 }));
+    allTypes.forEach((t) => (out[t.key] = { used: 0, pending: 0 }));
     requests
       .filter((r) => r.teacherId === staffId && r.fromDate.startsWith(String(year)))
       .forEach((r) => {
@@ -134,6 +151,7 @@ export const TeacherLeaveRequestView: React.FC = () => {
     if (unit === 'hour' && !(requestedHours > 0)) return alert('ម៉ោងបញ្ចប់ត្រូវនៅក្រោយម៉ោងចាប់ផ្តើម');
     if (requestedHours <= 0) return alert('មិនមានថ្ងៃធ្វើការក្នុងចន្លោះនេះទេ');
     if (!reason.trim()) return alert('សូមសរសេរមូលហេតុ');
+    const type = (activeTypes.find((t) => t.key === typeState) ? typeState : activeTypes[0]?.key) || 'other';
     const q = quotas[type] || 0;
     if (q > 0) {
       const left = q * perDay - balance[type].used - balance[type].pending;
@@ -222,10 +240,10 @@ export const TeacherLeaveRequestView: React.FC = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {LEAVE_TYPES.map((t) => {
+            {activeTypes.map((t) => {
               const q = quotas[t.key] || 0;
-              const left = q * perDay - b[t.key].used;
-              const pct = q ? Math.min(100, (b[t.key].used / (q * perDay)) * 100) : 0;
+              const left = q * perDay - (b[t.key]?.used || 0);
+              const pct = q ? Math.min(100, ((b[t.key]?.used || 0) / (q * perDay)) * 100) : 0;
               return (
                 <tr key={t.key}>
                   <td className="px-2 py-1.5 font-bold text-slate-800">
@@ -237,8 +255,8 @@ export const TeacherLeaveRequestView: React.FC = () => {
                     )}
                   </td>
                   <td className="px-2 py-1.5 text-center font-mono">{q ? `${q} ថ្ងៃ` : '∞'}</td>
-                  <td className="px-2 py-1.5 text-center font-mono text-amber-700">{fmtDH(b[t.key].used, perDay)}</td>
-                  <td className="px-2 py-1.5 text-center font-mono text-slate-500">{fmtDH(b[t.key].pending, perDay)}</td>
+                  <td className="px-2 py-1.5 text-center font-mono text-amber-700">{fmtDH(b[t.key]?.used || 0, perDay)}</td>
+                  <td className="px-2 py-1.5 text-center font-mono text-slate-500">{fmtDH(b[t.key]?.pending || 0, perDay)}</td>
                   <td className={`px-2 py-1.5 text-center font-mono font-bold ${q && left <= 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
                     {q ? fmtDH(Math.max(0, left), perDay) : '∞'}
                   </td>
@@ -274,7 +292,7 @@ export const TeacherLeaveRequestView: React.FC = () => {
             </div>
           )}
           {canApprove && (
-            <button onClick={() => setShowQuota((v) => !v)} className="rounded-xl border border-slate-200 p-2 text-slate-500 hover:bg-slate-50" title="កំណត់សិទ្ធិច្បាប់">
+            <button onClick={() => setShowQuota((v) => !v)} className="rounded-xl border border-slate-200 p-2 text-slate-500 hover:bg-slate-50" title="គ្រប់គ្រងប្រភេទច្បាប់ និងចំនួនថ្ងៃ">
               <Settings2 className="h-4 w-4" />
             </button>
           )}
@@ -283,33 +301,75 @@ export const TeacherLeaveRequestView: React.FC = () => {
 
       {showQuota && canApprove && (
         <div className="rounded-2xl border border-teal-200 bg-teal-50/50 p-4">
-          <div className="mb-2 text-xs font-bold text-slate-700">សិទ្ធិច្បាប់ក្នុងមួយឆ្នាំ (ថ្ងៃ) — 0 = គ្មានកំណត់</div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {LEAVE_TYPES.map((t) => (
-              <label key={t.key} className="flex flex-col gap-1 text-[11px] font-bold text-slate-600">
-                {t.kh}
-                <input
-                  type="number"
-                  min={0}
-                  value={quotas[t.key]}
-                  onChange={(e) =>
-                    setTeacherCheckIn((p: any) => ({ ...p, leaveQuotas: { ...(p.leaveQuotas || {}), [t.key]: Math.max(0, Number(e.target.value) || 0) } }))
-                  }
-                  className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs"
-                />
-              </label>
-            ))}
-            <label className="flex flex-col gap-1 text-[11px] font-bold text-slate-600">
-              ម៉ោងធ្វើការ / ថ្ងៃ
-              <input
-                type="number"
-                min={1}
-                max={24}
-                value={perDay}
-                onChange={(e) => setTeacherCheckIn((p: any) => ({ ...p, hoursPerDay: Math.min(24, Math.max(1, Number(e.target.value) || 8)) }))}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs"
-              />
-            </label>
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <div className="text-sm font-bold text-slate-800">គ្រប់គ្រងប្រភេទច្បាប់ និងចំនួនថ្ងៃ</div>
+            <button
+              type="button"
+              onClick={() => saveTypes([...allTypes, { key: `type-${Date.now()}`, kh: 'ប្រភេទច្បាប់ថ្មី', en: '', days: 0, active: true }])}
+              className="flex items-center gap-1 rounded-lg bg-teal-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-teal-700"
+            >
+              <Plus className="h-3.5 w-3.5" /> បន្ថែមប្រភេទ
+            </button>
+          </div>
+          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+            <table className="w-full text-xs">
+              <thead className="bg-slate-50 text-slate-600">
+                <tr>
+                  <th className="px-2 py-2 text-left">ឈ្មោះ (ខ្មែរ)</th>
+                  <th className="px-2 py-2 text-left">English</th>
+                  <th className="w-28 px-2 py-2 text-center">ថ្ងៃ / ឆ្នាំ</th>
+                  <th className="w-20 px-2 py-2 text-center">ប្រើប្រាស់</th>
+                  <th className="w-20 px-2 py-2 text-center">សំណើ</th>
+                  <th className="w-10 px-2 py-2" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {allTypes.map((t, i) => {
+                  const n = usedCount(t.key);
+                  const set = (patch: Partial<LeaveTypeDef>) => saveTypes(allTypes.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+                  return (
+                    <tr key={t.key} className={t.active === false ? 'opacity-50' : ''}>
+                      <td className="px-2 py-1.5"><input value={t.kh} onChange={(e) => set({ kh: e.target.value })} className="w-full rounded-lg border border-slate-200 px-2 py-1" /></td>
+                      <td className="px-2 py-1.5"><input value={t.en || ''} onChange={(e) => set({ en: e.target.value })} className="w-full rounded-lg border border-slate-200 px-2 py-1" /></td>
+                      <td className="px-2 py-1.5 text-center">
+                        <input type="number" min={0} value={t.days} onChange={(e) => set({ days: Math.max(0, Number(e.target.value) || 0) })} className="w-20 rounded-lg border border-slate-200 px-2 py-1 text-center" />
+                        <div className="text-[10px] text-slate-400">{t.days ? `${t.days} ថ្ងៃ` : 'គ្មានកំណត់'}</div>
+                      </td>
+                      <td className="px-2 py-1.5 text-center">
+                        <input type="checkbox" checked={t.active !== false} onChange={(e) => set({ active: e.target.checked })} className="h-4 w-4 accent-teal-600" title="បង្ហាញក្នុងទម្រង់សុំច្បាប់" />
+                      </td>
+                      <td className="px-2 py-1.5 text-center font-mono">{n}</td>
+                      <td className="px-2 py-1.5 text-center">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (n > 0) return alert(`ប្រភេទនេះមានសំណើ ${n} រួចហើយ។ សូមដកធីក «ប្រើប្រាស់» ដើម្បីលាក់វា ជំនួសការលុប។`);
+                            if (allTypes.filter((x) => x.active !== false).length <= 1 && t.active !== false) return alert('ត្រូវមានប្រភេទច្បាប់យ៉ាងតិចមួយ');
+                            if (confirm(`លុបប្រភេទ «${t.kh}»?`)) saveTypes(allTypes.filter((_, j) => j !== i));
+                          }}
+                          className="rounded-lg p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                          title="លុប"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-bold text-slate-600">
+            ម៉ោងធ្វើការក្នុង ១ ថ្ងៃ (សម្រាប់គិតច្បាប់ជាម៉ោង)
+            <input
+              type="number"
+              min={1}
+              max={24}
+              value={perDay}
+              onChange={(e) => setTeacherCheckIn((p: any) => ({ ...p, hoursPerDay: Math.min(24, Math.max(1, Number(e.target.value) || 8)) }))}
+              className="w-20 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs"
+            />
+            <span className="font-normal text-slate-400">ថ្ងៃ = 0 មានន័យថាគ្មានកំណត់ · ដកធីក «ប្រើប្រាស់» ដើម្បីលាក់ប្រភេទ ដោយមិនបាត់ប្រវត្តិ</span>
           </div>
         </div>
       )}
@@ -341,8 +401,8 @@ export const TeacherLeaveRequestView: React.FC = () => {
 
             <label className="flex flex-col gap-1 font-bold text-slate-600">
               ប្រភេទច្បាប់
-              <select value={type} onChange={(e) => setType(e.target.value)} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                {LEAVE_TYPES.map((t) => {
+              <select value={type || activeTypes[0]?.key || ''} onChange={(e) => setType(e.target.value)} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                {activeTypes.map((t) => {
                   const q = quotas[t.key] || 0;
                   const left = q * perDay - (balance[t.key]?.used || 0) - (balance[t.key]?.pending || 0);
                   return (

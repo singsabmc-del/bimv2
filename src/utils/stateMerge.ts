@@ -50,7 +50,7 @@ export const mergeSyncedStore = (a?: SyncedStore | null, b?: SyncedStore | null)
 };
 
 // ---------- Teacher Check In / Leave ----------
-const CONFIG_KEYS = ['startTime', 'endTime', 'lateGraceMinutes', 'leaveQuotas', 'hoursPerDay', 'shifts', 'shiftAssignments'];
+const CONFIG_KEYS = ['startTime', 'endTime', 'lateGraceMinutes', 'leaveQuotas', 'leaveTypes', 'hoursPerDay', 'shifts', 'shiftAssignments'];
 
 const mergeById = (a: any[] = [], b: any[] = [], deleted: Record<string, number> = {}) => {
   const map = new Map<string, any>();
