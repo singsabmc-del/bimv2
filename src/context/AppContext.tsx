@@ -1785,23 +1785,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return {
         success: false,
         error: language === 'km'
-          ? 'សូមបញ្ចូលឈ្មោះគណនី/អ៊ីមែល និងពាក្យសម្ងាត់'
+          ? 'សូមបញ្ចូលលេខទូរស័ព្ទ/ឈ្មោះគណនី និងពាក្យសម្ងាត់'
           : 'Please enter username/email and password',
       };
     }
 
-    const matchedUser = users.find(
+    // Phone numbers are compared digits-only: Khmer digits, spaces, dashes and +855 are accepted
+    const normalizePhone = (v: string) => {
+      const latin = v.replace(/[០-៩]/g, (d) => String('០១២៣៤៥៦៧៨៩'.indexOf(d)));
+      let digits = latin.replace(/\D/g, '');
+      if (digits.startsWith('855')) digits = '0' + digits.slice(3);
+      else if (digits && !digits.startsWith('0')) digits = '0' + digits;
+      return digits;
+    };
+    const inputPhone = normalizePhone(trimmedInput);
+    const looksLikePhone = /^[+\d\s\-().០-៩]+$/.test(trimmedInput) && inputPhone.length >= 8;
+
+    let matchedUser = users.find(
       (u) =>
         u.username.toLowerCase() === trimmedInput ||
         u.email.toLowerCase() === trimmedInput
     );
+    const viaPhone = !matchedUser && looksLikePhone;
+    if (viaPhone) {
+      matchedUser = users.find((u) => u.phone && normalizePhone(u.phone) === inputPhone);
+    }
 
     if (!matchedUser) {
       return {
         success: false,
         error: language === 'km'
-          ? 'រកមិនឃើញឈ្មោះគណនី ឬអ៊ីមែលនេះក្នុងប្រព័ន្ធឡើយ'
-          : 'User account or email not found in system',
+          ? looksLikePhone
+            ? 'រកមិនឃើញលេខទូរស័ព្ទនេះក្នុងប្រព័ន្ធឡើយ (សូមឱ្យ Admin បញ្ចូលលេខក្នុងការកំណត់ → អ្នកប្រើប្រាស់)'
+            : 'រកមិនឃើញឈ្មោះគណនី ឬអ៊ីមែលនេះក្នុងប្រព័ន្ធឡើយ'
+          : 'User account, email or phone not found in system',
       };
     }
 
@@ -1817,7 +1834,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ? 'teacher123'
         : 'student123');
 
-    const isMatch = trimmedPass === validPassword || trimmedPass === '123456';
+    // Phone login always needs the account's own password (no shared fallback password)
+    const isMatch = viaPhone
+      ? !!matchedUser.password && trimmedPass === matchedUser.password
+      : trimmedPass === validPassword || trimmedPass === '123456';
 
     if (!isMatch) {
       return {

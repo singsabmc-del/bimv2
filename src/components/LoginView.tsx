@@ -196,7 +196,7 @@ export const LoginView: React.FC = () => {
                 {/* Username or Email Input */}
                 <div className="space-y-1.5 text-left">
                   <label className="block text-xs font-bold text-slate-700 font-khmer">
-                    {t('ឈ្មោះគណនី ឬអ៊ីមែល', 'Username or Email')}
+                    {t('លេខទូរស័ព្ទ ឬឈ្មោះគណនី', 'Phone number or Username')}
                   </label>
                   <div className="relative">
                     <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
@@ -205,7 +205,8 @@ export const LoginView: React.FC = () => {
                       required
                       value={usernameOrEmail}
                       onChange={(e) => setUsernameOrEmail(e.target.value)}
-                      placeholder={t('ឧទាហរណ៍៖ director ឬ accountant', 'e.g. director or accountant')}
+                      autoComplete="username"
+                      placeholder={t('ឧទាហរណ៍៖ 012 345 678 ឬ director', 'e.g. 012 345 678 or director')}
                       className="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all font-sans"
                     />
                   </div>

@@ -291,6 +291,22 @@ export const SystemSettingsView: React.FC = () => {
   const [formUserUsername, setFormUserUsername] = useState('');
   const [formUserRole, setFormUserRole] = useState<'admin' | 'cashier' | 'accountant' | 'teacher' | 'student'>('teacher');
   const [formUserEmail, setFormUserEmail] = useState('');
+  const [formUserPhone, setFormUserPhone] = useState('');
+  const [formUserPassword, setFormUserPassword] = useState('');
+  // Same phone may not be used by two accounts (it is a login name)
+  const checkPhone = (raw: string, selfId: string | null): string | null => {
+    const norm = (v: string) => {
+      let d = v.replace(/[០-៩]/g, (c) => String('០១២៣៤៥៦៧៨៩'.indexOf(c))).replace(/\D/g, '');
+      if (d.startsWith('855')) d = '0' + d.slice(3);
+      else if (d && !d.startsWith('0')) d = '0' + d;
+      return d;
+    };
+    const p = norm(raw || '');
+    if (!p) return null;
+    if (p.length < 8) return 'លេខទូរស័ព្ទមិនត្រឹមត្រូវ';
+    const dup = (allUsers || []).find((u: any) => u.id !== selfId && u.phone && norm(u.phone) === p);
+    return dup ? `លេខទូរស័ព្ទនេះត្រូវបានប្រើដោយគណនី ${dup.khmerName || dup.username} រួចហើយ` : null;
+  };
   const [formUserClassId, setFormUserClassId] = useState('');
 
   // Telegram states
@@ -2532,6 +2548,8 @@ export const SystemSettingsView: React.FC = () => {
                     setFormUserUsername('');
                     setFormUserRole('teacher');
                     setFormUserEmail('');
+                    setFormUserPhone('');
+                    setFormUserPassword('');
                     setFormUserClassId('');
                     setIsAddUserModalOpen(true);
                   }}
@@ -2552,7 +2570,7 @@ export const SystemSettingsView: React.FC = () => {
                     <th className="py-2.5 px-3">ឈ្មោះអ្នកប្រើប្រាស់</th>
                     <th className="py-2.5 px-3">Username</th>
                     <th className="py-2.5 px-3">តួនាទី (Role)</th>
-                    <th className="py-2.5 px-3">អ៊ីមែល (Email)</th>
+                    <th className="py-2.5 px-3">អ៊ីមែល / ទូរស័ព្ទ</th>
                     <th className="py-2.5 px-3 text-center">សកម្មភាព</th>
                   </tr>
                 </thead>
@@ -2599,6 +2617,7 @@ export const SystemSettingsView: React.FC = () => {
                       </td>
                       <td className="py-2.5 px-3 font-mono text-slate-500">
                         {u.email}
+                        {u.phone && <div className="text-[10px] text-teal-700">📱 {u.phone}{u.password ? '' : ' (គ្មានពាក្យសម្ងាត់)'}</div>}
                       </td>
                       <td className="py-2.5 px-3 text-center">
                         <div className="flex items-center justify-center gap-1">
@@ -2613,6 +2632,8 @@ export const SystemSettingsView: React.FC = () => {
                                   setFormUserUsername(u.username);
                                   setFormUserRole(u.role);
                                   setFormUserEmail(u.email);
+                                  setFormUserPhone(u.phone || '');
+                                  setFormUserPassword('');
                                   setFormUserClassId(u.classId || '');
                                   setIsEditUserModalOpen(true);
                                 }}
@@ -2723,7 +2744,15 @@ export const SystemSettingsView: React.FC = () => {
               onSubmit={(e) => {
                 e.preventDefault();
                 if (!formUserName.trim() || !formUserUsername.trim()) return;
+                const phoneErr = checkPhone(formUserPhone, null);
+                if (phoneErr) { alert(phoneErr); return; }
+                if (formUserPhone.trim() && formUserPassword.trim().length < 6) {
+                  alert('សូមកំណត់ពាក្យសម្ងាត់យ៉ាងតិច ៦ ខ្ទង់ សម្រាប់ចូលតាមលេខទូរស័ព្ទ');
+                  return;
+                }
                 addUser({
+                  phone: formUserPhone.trim() || undefined,
+                  ...(formUserPassword.trim() ? { password: formUserPassword.trim() } : {}),
                   name: formUserName.trim(),
                   khmerName: formUserKhmerName.trim() || formUserName.trim(),
                   username: formUserUsername.trim().toLowerCase(),
@@ -2794,6 +2823,34 @@ export const SystemSettingsView: React.FC = () => {
                     <option value="teacher">Teacher (គ្រូ · មើលបញ្ជីសិស្ស + ស្រង់វត្តមាន)</option>
                     <option value="student">Student (សិស្ស)</option>
                   </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1 font-khmer">
+                    លេខទូរស័ព្ទ (ចូលប្រព័ន្ធ)
+                  </label>
+                  <input
+                    type="tel"
+                    placeholder="012 345 678"
+                    value={formUserPhone}
+                    onChange={(e) => setFormUserPhone(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1 font-khmer">
+                    ពាក្យសម្ងាត់ (យ៉ាងតិច ៦ ខ្ទង់)
+                  </label>
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder="••••••"
+                    value={formUserPassword}
+                    onChange={(e) => setFormUserPassword(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-mono"
+                  />
                 </div>
               </div>
 
@@ -2870,7 +2927,20 @@ export const SystemSettingsView: React.FC = () => {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
+                const phoneErr = checkPhone(formUserPhone, editingUserId);
+                if (phoneErr) { alert(phoneErr); return; }
+                const editing = (allUsers || []).find((x: any) => x.id === editingUserId);
+                if (formUserPhone.trim() && !editing?.password && formUserPassword.trim().length < 6) {
+                  alert('សូមកំណត់ពាក្យសម្ងាត់យ៉ាងតិច ៦ ខ្ទង់ សម្រាប់ចូលតាមលេខទូរស័ព្ទ');
+                  return;
+                }
+                if (formUserPassword.trim() && formUserPassword.trim().length < 6) {
+                  alert('ពាក្យសម្ងាត់ត្រូវមានយ៉ាងតិច ៦ ខ្ទង់');
+                  return;
+                }
                 updateUser(editingUserId, {
+                  phone: formUserPhone.trim() || undefined,
+                  ...(formUserPassword.trim() ? { password: formUserPassword.trim() } : {}),
                   name: formUserName.trim(),
                   khmerName: formUserKhmerName.trim(),
                   username: formUserUsername.trim().toLowerCase(),
@@ -2938,6 +3008,34 @@ export const SystemSettingsView: React.FC = () => {
                     <option value="teacher">Teacher (គ្រូ · មើលបញ្ជីសិស្ស + ស្រង់វត្តមាន)</option>
                     <option value="student">Student (សិស្ស)</option>
                   </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1 font-khmer">
+                    លេខទូរស័ព្ទ (ចូលប្រព័ន្ធ)
+                  </label>
+                  <input
+                    type="tel"
+                    placeholder="012 345 678"
+                    value={formUserPhone}
+                    onChange={(e) => setFormUserPhone(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1 font-khmer">
+                    ពាក្យសម្ងាត់ (ទុកទទេ = មិនប្តូរ)
+                  </label>
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder="ពាក្យសម្ងាត់ថ្មី"
+                    value={formUserPassword}
+                    onChange={(e) => setFormUserPassword(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-mono"
+                  />
                 </div>
               </div>
 

@@ -10,6 +10,7 @@ export interface UserProfile {
   khmerName: string;
   role: UserRole;
   email: string;
+  phone?: string; // can be used to log in (with the account's own password)
   password?: string;
   avatar?: string;
   studentId?: number;
