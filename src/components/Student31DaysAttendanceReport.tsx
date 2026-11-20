@@ -370,49 +370,51 @@ export const Student31DaysAttendanceReport: React.FC<Student31DaysAttendanceRepo
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Top Banner Toolbar */}
-      <div className="bg-white rounded-2xl shadow-xs border border-slate-200/80 p-5 sm:p-6 no-print">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white rounded-2xl shadow-xs border border-slate-200/80 p-3 sm:p-6 no-print">
+        <div className="flex flex-row items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2.5">
-              <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold">
+              <div className="hidden sm:flex w-10 h-10 rounded-xl bg-indigo-50 text-indigo-700 items-center justify-center font-bold">
                 <Calendar className="w-5 h-5 text-indigo-600" />
               </div>
               <div>
-                <h1 className="text-xl font-bold font-khmer text-slate-900">
-                  របាយការណ៍ស្រង់វត្តមានសិស្ស ៣១ ថ្ងៃ (31 Days Student Attendance Report)
+                <h1 className="text-sm sm:text-xl font-bold font-khmer text-slate-900">
+                  {t('វត្តមានប្រចាំខែ', 'Monthly Attendance')}
                 </h1>
-                <p className="text-xs text-slate-500 font-khmer mt-0.5">
+                <p className="hidden sm:block text-xs text-slate-500 font-khmer mt-0.5">
                   តារាងវត្តមានប្រចាំខែពេញ ៣១ ថ្ងៃ គណនាផលបូកវត្តមាន អវត្តមាន និងអត្រាភាគរយដោយស្វ័យប្រវត្តិ
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={handleExportCSV}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold font-khmer transition-all"
+              title={t('នាំចេញជា Excel / CSV', 'Export CSV')}
+              className="flex items-center gap-1.5 p-2.5 sm:px-3.5 sm:py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold font-khmer transition-all"
             >
               <Download className="w-4 h-4 text-slate-600" />
-              <span>{t('នាំចេញជា Excel / CSV', 'Export CSV')}</span>
+              <span className="hidden sm:inline">Excel / CSV</span>
             </button>
             <button
               onClick={handlePrint}
-              className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold font-khmer shadow-xs transition-all"
+              title={t('បោះពុម្ពតារាង ៣១ ថ្ងៃ (A4)', 'Print Official Sheet')}
+              className="flex items-center gap-1.5 p-2.5 sm:px-4 sm:py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold font-khmer shadow-xs transition-all"
             >
               <Printer className="w-4 h-4" />
-              <span>{t('បោះពុម្ពតារាង ៣១ ថ្ងៃ (Print A4)', 'Print Official Sheet')}</span>
+              <span className="hidden sm:inline">{t('បោះពុម្ព A4', 'Print A4')}</span>
             </button>
           </div>
         </div>
 
         {/* Filter Toolbar */}
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mt-6 pt-4 border-t border-slate-100">
-          <div>
-            <label className="block text-xs font-bold text-slate-700 font-khmer mb-1">
-              ជ្រើសរើសថ្នាក់រៀន (Class)
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mt-3 sm:mt-6 pt-3 sm:pt-4 border-t border-slate-100">
+          <div className="col-span-2 sm:col-span-1">
+            <label className="block text-[11px] font-bold text-slate-500 font-khmer mb-1">
+              ថ្នាក់
             </label>
             <select
               value={activeClassId}
@@ -424,15 +426,15 @@ export const Student31DaysAttendanceReport: React.FC<Student31DaysAttendanceRepo
             >
               {orderedClassList.map((c) => (
                 <option key={c.classId} value={c.classId}>
-                  {c.className} ({c.period}) · {c.students.length} សិស្ស
+                  {c.className} · {c.students.length} សិស្ស
                 </option>
               ))}
             </select>
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 font-khmer mb-1">
-              ខែសិក្សា (Month)
+            <label className="block text-[11px] font-bold text-slate-500 font-khmer mb-1">
+              ខែ
             </label>
             <select
               value={selectedMonth}
@@ -448,8 +450,8 @@ export const Student31DaysAttendanceReport: React.FC<Student31DaysAttendanceRepo
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 font-khmer mb-1">
-              ឆ្នាំសិក្សា (Year)
+            <label className="block text-[11px] font-bold text-slate-500 font-khmer mb-1">
+              ឆ្នាំ
             </label>
             <select
               value={selectedYear}
@@ -464,15 +466,15 @@ export const Student31DaysAttendanceReport: React.FC<Student31DaysAttendanceRepo
             </select>
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-slate-700 font-khmer mb-1">
-              ស្វែងរកសិស្ស (Search)
+          <div className="col-span-2 sm:col-span-1">
+            <label className="block text-[11px] font-bold text-slate-500 font-khmer mb-1">
+              ស្វែងរក
             </label>
             <div className="relative">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
               <input
                 type="text"
-                placeholder="ស្វែងរកតាមឈ្មោះ ឬកូដ..."
+                placeholder="ឈ្មោះ ឬកូដ..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl text-xs font-khmer bg-slate-50 focus:bg-white"
@@ -484,7 +486,7 @@ export const Student31DaysAttendanceReport: React.FC<Student31DaysAttendanceRepo
         {/* Quick Batch Bar */}
         <div className="flex flex-wrap items-center justify-between gap-3 mt-4 pt-3 border-t border-slate-100 text-xs font-khmer">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-slate-600 font-bold">ឧបករណ៍រហ័ស៖</span>
+            <span className="hidden sm:inline text-slate-600 font-bold">ឧបករណ៍រហ័ស៖</span>
             <div className="flex items-center gap-1.5">
               <span className="text-slate-500">ថ្ងៃទី</span>
               <select
@@ -503,7 +505,7 @@ export const Student31DaysAttendanceReport: React.FC<Student31DaysAttendanceRepo
                 onClick={() => handleMarkDayAllPresent(activeDayQuick)}
                 className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg font-bold text-[11px] transition-all"
               >
-                ✓ មានវត្តមានទាំងអស់ថ្ងៃ {activeDayQuick}
+                ✓ មកទាំងអស់
               </button>
             </div>
 
@@ -513,80 +515,80 @@ export const Student31DaysAttendanceReport: React.FC<Student31DaysAttendanceRepo
               className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-lg text-[11px] transition-all flex items-center gap-1"
             >
               <RotateCcw className="w-3 h-3 text-slate-500" />
-              <span>បំពេញវត្តមានឡើងវិញ (Reset Baseline)</span>
+              <span>Reset</span>
             </button>
           </div>
 
           {/* Legend Help Indicator */}
-          <div className="flex items-center gap-3 text-[11px] text-slate-600">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] sm:text-[11px] text-slate-600">
             <span className="flex items-center gap-1">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />
-              <span>✓ / P: វត្តមាន</span>
+              <span>P មក</span>
             </span>
             <span className="flex items-center gap-1">
               <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block" />
-              <span>A: ច្បាប់</span>
+              <span>A ច្បាប់</span>
             </span>
             <span className="flex items-center gap-1">
               <span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block" />
-              <span>O: ឥតច្បាប់</span>
+              <span>O អត់ច្បាប់</span>
             </span>
             <span className="flex items-center gap-1">
               <span className="w-2.5 h-2.5 rounded-full bg-purple-500 inline-block" />
-              <span>L: យឺត</span>
+              <span>L យឺត</span>
             </span>
             <span className="flex items-center gap-1">
               <span className="w-2.5 h-2.5 rounded-full bg-slate-300 inline-block" />
-              <span>-: ឈប់សម្រាក</span>
+              <span>- សម្រាក</span>
             </span>
           </div>
         </div>
       </div>
 
       {/* KPI Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 no-print">
-        <div className="bg-white p-3.5 rounded-xl border border-slate-200/90 shadow-2xs">
-          <div className="text-[11px] text-slate-500 font-khmer">សិស្សសរុបក្នុងថ្នាក់</div>
-          <div className="text-xl font-bold font-mono text-slate-900 mt-1">
+      <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-3 no-print">
+        <div className="bg-white p-2 sm:p-3.5 rounded-xl border border-slate-200/90 shadow-2xs">
+          <div className="text-[10px] sm:text-[10px] sm:text-[11px] text-slate-500 font-khmer">សិស្សសរុប</div>
+          <div className="text-base sm:text-xl font-bold font-mono text-slate-900 sm:mt-1">
             {classSummary.studentCount} <span className="text-xs font-khmer font-normal text-slate-500">នាក់</span>
           </div>
         </div>
 
-        <div className="bg-white p-3.5 rounded-xl border border-emerald-200/90 shadow-2xs">
-          <div className="text-[11px] text-emerald-700 font-khmer font-bold flex items-center gap-1">
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>សរុបវត្តមាន (Total P)</span>
+        <div className="bg-white p-2 sm:p-3.5 rounded-xl border border-emerald-200/90 shadow-2xs">
+          <div className="text-[10px] sm:text-[11px] text-emerald-700 font-khmer font-bold flex items-center gap-1">
+            <CheckCircle2 className="hidden sm:block w-3.5 h-3.5" />
+            <span>មក (P)</span>
           </div>
-          <div className="text-xl font-bold font-mono text-emerald-700 mt-1">
+          <div className="text-base sm:text-xl font-bold font-mono text-emerald-700 sm:mt-1">
             {classSummary.totalP}
           </div>
         </div>
 
-        <div className="bg-white p-3.5 rounded-xl border border-amber-200/90 shadow-2xs">
-          <div className="text-[11px] text-amber-700 font-khmer font-bold flex items-center gap-1">
-            <Clock className="w-3.5 h-3.5" />
-            <span>សរុបសុំច្បាប់ (Total A)</span>
+        <div className="bg-white p-2 sm:p-3.5 rounded-xl border border-amber-200/90 shadow-2xs">
+          <div className="text-[10px] sm:text-[11px] text-amber-700 font-khmer font-bold flex items-center gap-1">
+            <Clock className="hidden sm:block w-3.5 h-3.5" />
+            <span>ច្បាប់ (A)</span>
           </div>
-          <div className="text-xl font-bold font-mono text-amber-700 mt-1">
+          <div className="text-base sm:text-xl font-bold font-mono text-amber-700 sm:mt-1">
             {classSummary.totalA}
           </div>
         </div>
 
-        <div className="bg-white p-3.5 rounded-xl border border-rose-200/90 shadow-2xs">
-          <div className="text-[11px] text-rose-700 font-khmer font-bold flex items-center gap-1">
-            <XCircle className="w-3.5 h-3.5" />
-            <span>សរុបឥតច្បាប់ (Total O)</span>
+        <div className="bg-white p-2 sm:p-3.5 rounded-xl border border-rose-200/90 shadow-2xs">
+          <div className="text-[10px] sm:text-[11px] text-rose-700 font-khmer font-bold flex items-center gap-1">
+            <XCircle className="hidden sm:block w-3.5 h-3.5" />
+            <span>អត់ច្បាប់ (O)</span>
           </div>
-          <div className="text-xl font-bold font-mono text-rose-700 mt-1">
+          <div className="text-base sm:text-xl font-bold font-mono text-rose-700 sm:mt-1">
             {classSummary.totalO}
           </div>
         </div>
 
-        <div className="bg-white p-3.5 rounded-xl border border-blue-200/90 shadow-2xs col-span-2 sm:col-span-1">
-          <div className="text-[11px] text-blue-700 font-khmer font-bold">
-            អត្រាមធ្យមវត្តមាន
+        <div className="bg-white p-2 sm:p-3.5 rounded-xl border border-blue-200/90 shadow-2xs ">
+          <div className="text-[10px] sm:text-[11px] text-blue-700 font-khmer font-bold">
+            អត្រាវត្តមាន
           </div>
-          <div className="text-xl font-bold font-mono text-blue-700 mt-1">
+          <div className="text-base sm:text-xl font-bold font-mono text-blue-700 sm:mt-1">
             {classSummary.avgRate}%
           </div>
         </div>
