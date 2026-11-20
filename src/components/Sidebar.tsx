@@ -289,7 +289,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {
           id: 'teacher_checkin' as NavTab,
           label: 'Attendance Check In',
-          labelKhmer: 'ចុះវត្តមានគ្រូ (Check In)',
+          labelKhmer: 'ចុះវត្តមាន (Check In)',
           icon: Clock,
           activeMatch: ['teacher_checkin'],
         },
@@ -419,7 +419,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     .map((sec) => ({ ...sec, items: sec.items.filter((it) => canOpenTab(currentUser.role, it.id)) }))
     .filter((sec) => sec.items.length > 0)
     // A teacher's own tools (Check In, Leave Request) come first as "My work"
-    .map((sec) => (currentUser.role === 'teacher' && sec.id === 'teacher' ? { ...sec, id: 'mine', title: 'My Work', titleKhmer: 'ការងាររបស់ខ្ញុំ' } : sec))
+    .map((sec) => ((currentUser.role === 'teacher' || currentUser.role === 'cashier') && sec.id === 'teacher' ? { ...sec, id: 'mine', title: 'My Work', titleKhmer: 'ការងាររបស់ខ្ញុំ' } : sec))
     .sort((a, b) => (a.id === 'mine' ? -1 : b.id === 'mine' ? 1 : 0));
 
   return (

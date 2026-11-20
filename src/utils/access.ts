@@ -30,7 +30,7 @@ const MONTHLY_REPORTS: NavTab[] = ['report_tuition', 'report_uniform', 'report_t
 /** Pages each role may open. `null` = every page. */
 export const ROLE_TABS: Record<UserRole, NavTab[] | null> = {
   admin: null,
-  cashier: ['overview', ...STUDENT_MGMT, ...REVENUE, 'daily_report'],
+  cashier: ['overview', 'teacher_checkin', 'teacher_leave', ...STUDENT_MGMT, ...REVENUE, 'daily_report'],
   accountant: ['overview', ...TEACHER_MGMT, ...MONTHLY_REPORTS, 'income_statistics', 'system_settings'],
   // Teacher: Check In is the front page; only their own class and their own records
   teacher: ['teacher_checkin', 'teacher_leave', 'student_list', 'official_roster', 'student_attendance', 'student_info', 'student_portal'],

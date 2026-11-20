@@ -281,7 +281,7 @@ interface AppContextType {
   setScheduleTimePeriods: (periods: ScheduleTimePeriod[]) => void;
   teacherCheckIn: TeacherCheckInData;
   setTeacherCheckIn: React.Dispatch<React.SetStateAction<TeacherCheckInData>>;
-  /** The TeacherRecord linked to the logged-in Teacher account (undefined for other roles) */
+  /** The staff record (teacher list) linked to the logged-in account, used for own Check In / Leave */
   linkedTeacher?: TeacherRecord;
   /** Classes a Teacher account may see (null = every class, for other roles) */
   teacherClassIds: string[] | null;
@@ -468,6 +468,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return INITIAL_USERS[0];
   });
 
+  // Keep the logged-in account up to date when an admin edits it (role, class, staff link…)
+  useEffect(() => {
+    const latest = users.find((u) => u.id === currentUser.id);
+    if (latest && JSON.stringify(latest) !== JSON.stringify(currentUser)) {
+      setCurrentUser(latest);
+      try {
+        localStorage.setItem(`${STORAGE_PREFIX}_CURRENT_USER`, JSON.stringify(latest));
+        localStorage.setItem('BIM_RANGSEI_PERMANENT_CURRENT_USER', JSON.stringify(latest));
+      } catch {}
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [users]);
+
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     try {
       if (typeof window === 'undefined') return true;
@@ -478,10 +491,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (explicitLogout) {
         return false;
       }
-      // If session exists or user is saved, or default for active applet session
-      return true;
+      // Only a login made on THIS device opens the app (no automatic login on a new device)
+      return (
+        localStorage.getItem(`${STORAGE_PREFIX}_AUTH_SESSION`) === 'true' ||
+        localStorage.getItem('BIM_RANGSEI_PERMANENT_AUTH_SESSION') === 'true'
+      );
     } catch {
-      return true;
+      return false;
     }
   });
 
@@ -1324,11 +1340,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (serverData.busAttendance && Array.isArray(serverData.busAttendance)) {
             setBusAttendance(serverData.busAttendance);
           }
-          if (serverData.currentUser && serverData.currentUser.id) {
-            setCurrentUser(serverData.currentUser);
-            localStorage.setItem(`${STORAGE_PREFIX}_CURRENT_USER`, JSON.stringify(serverData.currentUser));
-            localStorage.setItem('BIM_RANGSEI_PERMANENT_CURRENT_USER', JSON.stringify(serverData.currentUser));
-          }
+          // The logged-in account belongs to this device only: never take it from the shared server state
           if (serverData.settings) {
             setSettings(serverData.settings);
           }
@@ -5228,9 +5240,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // ---- Teacher accounts only see their own work ----
   const linkedTeacher = useMemo<TeacherRecord | undefined>(() => {
-    if (currentUser.role !== 'teacher') return undefined;
+    // Any staff account (teacher, cashier, accounting, admin) can be linked to a staff record for Check In / Leave
+    const byLink = teachers.find((t) => t.id === currentUser.teacherId);
+    if (byLink || currentUser.role !== 'teacher') return byLink;
     return (
-      teachers.find((t) => t.id === currentUser.teacherId) ||
       teachers.find(
         (t) =>
           !!currentUser.khmerName &&

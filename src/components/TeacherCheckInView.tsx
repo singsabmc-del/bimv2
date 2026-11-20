@@ -38,8 +38,9 @@ const mirrorToAttendanceSheet = (date: string, teacherId: string, status: Teache
 export const TeacherCheckInView: React.FC = () => {
   const { teachers, teacherCheckIn, setTeacherCheckIn, currentUser, settings, showNotification, linkedTeacher, sendTelegramAlert } = useApp() as any;
   const canManage = currentUser.role === 'admin' || currentUser.role === 'accountant';
-  // A Teacher account can only check in / out for itself
-  const selfOnly = currentUser.role === 'teacher';
+  // Staff check in / out only for themselves; Admin & Accounting can also manage everyone
+  const [mode, setMode] = useState<'me' | 'manage'>(canManage ? 'manage' : 'me');
+  const selfOnly = !canManage || mode === 'me';
 
   const [now, setNow] = useState(new Date());
   useEffect(() => {
@@ -191,10 +192,15 @@ export const TeacherCheckInView: React.FC = () => {
     const firstName = (selected?.nameKhmer || currentUser.khmerName || '').split('(')[0].trim();
     return (
       <div className="mx-auto max-w-xl space-y-4 font-khmer">
+        {canManage && (
+          <button onClick={() => setMode('manage')} className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50">
+            ← គ្រប់គ្រងវត្តមានបុគ្គលិកទាំងអស់
+          </button>
+        )}
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#1b2a52] via-[#1e3166] to-[#24407e] p-5 text-white shadow-xl">
           <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-white/5" />
           <div className="pointer-events-none absolute -bottom-20 -left-10 h-56 w-56 rounded-full bg-white/5" />
-          <div className="relative text-lg font-bold">សួស្តី, {firstName || 'គ្រូ'}</div>
+          <div className="relative text-lg font-bold">សួស្តី, {firstName || 'បុគ្គលិក'}</div>
           <div className="relative text-[11px] text-blue-100">{dateLabel}</div>
           <div className="relative mt-4 flex items-center justify-between gap-3">
             <div>
@@ -239,7 +245,7 @@ export const TeacherCheckInView: React.FC = () => {
             { label: 'បញ្ជីសិស្ស', en: 'Student List', Icon: Users, onClick: () => go('student_list') },
             { label: 'ព័ត៌មានសិស្ស', en: 'Student Info', Icon: ListChecks, onClick: () => go('student_info') },
             { label: 'សរុបខែនេះ', en: 'This month', Icon: CalendarDays, onClick: () => setTab('month') },
-          ].map(({ label, en, Icon, onClick, badge }) => (
+          ].filter((x) => currentUser.role === 'teacher' || !['Student Attendance', 'Student List', 'Student Info'].includes(x.en)).map(({ label, en, Icon, onClick, badge }) => (
             <button key={en} type="button" onClick={onClick} className="relative flex flex-col items-center gap-1.5 border-b border-r border-white/15 px-2 py-5 hover:bg-white/5">
               <Icon className="h-8 w-8" strokeWidth={1.8} />
               <span className="text-sm font-bold">{label}</span>
@@ -309,6 +315,15 @@ export const TeacherCheckInView: React.FC = () => {
               </button>
             ))}
           </div>
+          {canManage && (
+            <button
+              onClick={() => { setMode('me'); setDate(isoOf(new Date())); }}
+              className="rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white hover:bg-indigo-700"
+              title={linkedTeacher ? '' : 'គណនីនេះមិនទាន់ភ្ជាប់ឈ្មោះក្នុងបញ្ជីបុគ្គលិក'}
+            >
+              Check In ខ្លួនឯង
+            </button>
+          )}
           {canManage && (
             <button onClick={() => setShowSettings((v) => !v)} className="rounded-xl border border-slate-200 p-2 text-slate-500 hover:bg-slate-50" title="កំណត់ម៉ោង">
               <Settings2 className="h-4 w-4" />
