@@ -542,8 +542,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             );
           })}
 
-          {/* System */}
-          <div>
+          {/* System (hidden for teacher accounts: none of these tools apply) */}
+          {currentUser.role !== 'teacher' && currentUser.role !== 'student' && <div>
             <div className={`px-2 pb-1 text-[11px] font-semibold text-slate-400 ${language === 'km' ? 'font-khmer' : 'uppercase tracking-wider'}`}>
               {language === 'km' ? 'ប្រព័ន្ធ' : 'System'}
             </div>
@@ -596,7 +596,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </button>
               ))}
             </div>
-          </div>
+          </div>}
         </div>
 
         {/* Footer */}
