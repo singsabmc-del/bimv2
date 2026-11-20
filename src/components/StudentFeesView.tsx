@@ -642,6 +642,33 @@ export const StudentFeesView: React.FC<StudentFeesViewProps> = ({ onPrintReport,
 
   const studentToolButtons = (
     <>
+      {permissions.canEdit && (
+        <button
+          type="button"
+          onClick={() => setIsNewClassModalOpen(true)}
+          className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-2 sm:py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-900 rounded-xl border border-amber-300/80 transition-colors text-xs font-bold font-khmer shadow-2xs cursor-pointer"
+          title={t('បង្កើតថ្នាក់ថ្មី', 'Create New Class')}
+        >
+          <Plus className="w-4 h-4 text-amber-700 shrink-0" />
+          <span className="hidden sm:inline">{t('បង្កើតថ្នាក់ថ្មី', 'New Class')}</span>
+        </button>
+      )}
+
+      {permissions.canEdit && (
+        <button
+          type="button"
+          onClick={() => {
+            setManagerInitialTab('classes');
+            setIsManagerModalOpen(true);
+          }}
+          className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-2 sm:py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl border border-slate-200 transition-colors text-xs font-bold font-khmer shadow-2xs cursor-pointer"
+          title={t('រៀបចំថ្នាក់ (ប្តូរឈ្មោះ លុប តម្រៀប)', 'Manage Classes')}
+        >
+          <SlidersHorizontal className="w-4 h-4 text-slate-500 shrink-0" />
+          <span className="hidden sm:inline">{t('រៀបចំថ្នាក់', 'Manage Classes')}</span>
+        </button>
+      )}
+
       {onOpenOfficialRoster && (
         <button
           onClick={onOpenOfficialRoster}
@@ -729,6 +756,64 @@ export const StudentFeesView: React.FC<StudentFeesViewProps> = ({ onPrintReport,
 
   const studentToolModals = (
     <>
+    {/* CREATE NEW CLASS MODAL */}
+    {isNewClassModalOpen && (
+      <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 text-xs">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <h3 className="font-bold text-slate-900 text-base font-khmer">
+              {t('បង្កើតថ្នាក់រៀនថ្មី', 'Create New Class')}
+            </h3>
+            <button onClick={() => setIsNewClassModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <form onSubmit={handleCreateClass} className="mt-4 space-y-3.5">
+            <div>
+              <label className="block text-slate-700 font-semibold mb-1 font-khmer">ឈ្មោះថ្នាក់រៀន *</label>
+              <input
+                type="text"
+                value={newClassName}
+                onChange={(e) => setNewClassName(e.target.value)}
+                placeholder="ឧ. ថ្នាក់ទី ២A (Grade 2A)"
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg font-khmer font-bold"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-slate-700 font-semibold mb-1">Period (កាលបរិច្ឆេទសិក្សា)</label>
+              <input
+                type="text"
+                value={newClassPeriod}
+                onChange={(e) => setNewClassPeriod(e.target.value)}
+                placeholder="01.10.2026 _ 31.10.2026"
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg font-mono"
+                required
+              />
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIsNewClassModalOpen(false)}
+                className="px-4 py-2 text-slate-600 font-khmer"
+              >
+                បោះបង់
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-bold font-khmer"
+              >
+                បង្កើតថ្នាក់
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    )}
+
     {/* ADD / ENROLL STUDENT MODAL (Correct input types) */}
     {isAddModalOpen && (
       <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
@@ -2862,63 +2947,6 @@ export const StudentFeesView: React.FC<StudentFeesViewProps> = ({ onPrintReport,
         </div>
       )}
 
-      {/* CREATE NEW CLASS MODAL */}
-      {isNewClassModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 text-xs">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="font-bold text-slate-900 text-base font-khmer">
-                {t('បង្កើតថ្នាក់រៀនថ្មី', 'Create New Class')}
-              </h3>
-              <button onClick={() => setIsNewClassModalOpen(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateClass} className="mt-4 space-y-3.5">
-              <div>
-                <label className="block text-slate-700 font-semibold mb-1 font-khmer">ឈ្មោះថ្នាក់រៀន *</label>
-                <input
-                  type="text"
-                  value={newClassName}
-                  onChange={(e) => setNewClassName(e.target.value)}
-                  placeholder="ឧ. ថ្នាក់ទី ២A (Grade 2A)"
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg font-khmer font-bold"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-700 font-semibold mb-1">Period (កាលបរិច្ឆេទសិក្សា)</label>
-                <input
-                  type="text"
-                  value={newClassPeriod}
-                  onChange={(e) => setNewClassPeriod(e.target.value)}
-                  placeholder="01.10.2026 _ 31.10.2026"
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg font-mono"
-                  required
-                />
-              </div>
-
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsNewClassModalOpen(false)}
-                  className="px-4 py-2 text-slate-600 font-khmer"
-                >
-                  បោះបង់
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-bold font-khmer"
-                >
-                  បង្កើតថ្នាក់
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
 
 
