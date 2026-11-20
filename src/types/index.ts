@@ -668,7 +668,11 @@ export interface TeacherLeaveRequest {
   teacherName: string;
   fromDate: string; // YYYY-MM-DD
   toDate: string; // YYYY-MM-DD
-  type: 'sick' | 'personal' | 'family' | 'other';
+  type: string; // leave type key, e.g. 'annual' | 'sick' | 'personal' | 'family' | 'other'
+  unit?: 'day' | 'hour'; // whole days, or a few hours on one day
+  fromTime?: string; // HH:MM when unit = 'hour'
+  toTime?: string; // HH:MM when unit = 'hour'
+  hours?: number; // total hours requested (days × hoursPerDay, or the hour range)
   reason: string;
   status: 'pending' | 'approved' | 'rejected';
   requestedAt: string; // ISO
@@ -683,6 +687,10 @@ export interface TeacherCheckInData {
   endTime: string; // school end, e.g. "16:00"
   lateGraceMinutes: number; // minutes after start before "late"
   leaveRequests?: TeacherLeaveRequest[];
+  /** Leave allowance per type per year, in days (0 = no limit) */
+  leaveQuotas?: Record<string, number>;
+  /** Working hours in one day (to turn hours into days) */
+  hoursPerDay?: number;
 }
 
 export interface SubjectItem {

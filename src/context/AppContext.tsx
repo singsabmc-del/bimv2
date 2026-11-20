@@ -281,7 +281,7 @@ interface AppContextType {
   setScheduleTimePeriods: (periods: ScheduleTimePeriod[]) => void;
   teacherCheckIn: TeacherCheckInData;
   setTeacherCheckIn: React.Dispatch<React.SetStateAction<TeacherCheckInData>>;
-  /** The TeacherRecord linked to the logged-in Teacher account (undefined for other roles) */
+  /** The staff record (teacher list) linked to the logged-in account, used for own Check In / Leave */
   linkedTeacher?: TeacherRecord;
   /** Classes a Teacher account may see (null = every class, for other roles) */
   teacherClassIds: string[] | null;
@@ -5228,9 +5228,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // ---- Teacher accounts only see their own work ----
   const linkedTeacher = useMemo<TeacherRecord | undefined>(() => {
-    if (currentUser.role !== 'teacher') return undefined;
+    // Any staff account (teacher, cashier, accounting, admin) can be linked to a staff record for Check In / Leave
+    const byLink = teachers.find((t) => t.id === currentUser.teacherId);
+    if (byLink || currentUser.role !== 'teacher') return byLink;
     return (
-      teachers.find((t) => t.id === currentUser.teacherId) ||
       teachers.find(
         (t) =>
           !!currentUser.khmerName &&

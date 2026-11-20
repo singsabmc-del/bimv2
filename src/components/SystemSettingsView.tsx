@@ -2763,7 +2763,7 @@ export const SystemSettingsView: React.FC = () => {
                   role: formUserRole,
                   email: formUserEmail.trim() || `${formUserUsername.trim().toLowerCase()}@bimrangsei.edu.kh`,
                   classId: formUserClassId || undefined,
-                  teacherId: formUserRole === 'teacher' ? formUserTeacherId || undefined : undefined,
+                  teacherId: formUserRole !== 'student' ? formUserTeacherId || undefined : undefined,
                 });
                 setIsAddUserModalOpen(false);
                 showNotification('បានបន្ថែមអ្នកប្រើប្រាស់ជោគជ័យ!');
@@ -2872,10 +2872,10 @@ export const SystemSettingsView: React.FC = () => {
                 />
               </div>
 
-              {formUserRole === 'teacher' && (
+              {formUserRole !== 'student' && (
                 <div>
                   <label className="block text-slate-700 font-semibold mb-1 font-khmer">
-                    ឈ្មោះគ្រូក្នុងបញ្ជីគ្រូ (សម្រាប់ Check In ខ្លួនឯង)
+                    ឈ្មោះក្នុងបញ្ជីបុគ្គលិក (សម្រាប់ Check In & សុំច្បាប់ខ្លួនឯង)
                   </label>
                   <select
                     value={formUserTeacherId}
@@ -2887,7 +2887,7 @@ export const SystemSettingsView: React.FC = () => {
                     }}
                     className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-khmer"
                   >
-                    <option value="">-- ជ្រើសរើសគ្រូ --</option>
+                    <option value="">-- ជ្រើសរើសបុគ្គលិក --</option>
                     {(teachers || []).map((tch: any) => (
                       <option key={tch.id} value={tch.id}>
                         {tch.nameKhmer} · {tch.position || tch.homeroomClassName || tch.teacherCode}
@@ -2977,7 +2977,7 @@ export const SystemSettingsView: React.FC = () => {
                   role: formUserRole,
                   email: formUserEmail.trim(),
                   classId: formUserClassId || undefined,
-                  teacherId: formUserRole === 'teacher' ? formUserTeacherId || undefined : undefined,
+                  teacherId: formUserRole !== 'student' ? formUserTeacherId || undefined : undefined,
                 });
                 setIsEditUserModalOpen(false);
                 showNotification('បានកែប្រែព័ត៌មានអ្នកប្រើប្រាស់ជោគជ័យ!');
@@ -3082,10 +3082,10 @@ export const SystemSettingsView: React.FC = () => {
                 />
               </div>
 
-              {formUserRole === 'teacher' && (
+              {formUserRole !== 'student' && (
                 <div>
                   <label className="block text-slate-700 font-semibold mb-1 font-khmer">
-                    ឈ្មោះគ្រូក្នុងបញ្ជីគ្រូ (សម្រាប់ Check In ខ្លួនឯង)
+                    ឈ្មោះក្នុងបញ្ជីបុគ្គលិក (សម្រាប់ Check In & សុំច្បាប់ខ្លួនឯង)
                   </label>
                   <select
                     value={formUserTeacherId}
@@ -3097,7 +3097,7 @@ export const SystemSettingsView: React.FC = () => {
                     }}
                     className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-khmer"
                   >
-                    <option value="">-- ជ្រើសរើសគ្រូ --</option>
+                    <option value="">-- ជ្រើសរើសបុគ្គលិក --</option>
                     {(teachers || []).map((tch: any) => (
                       <option key={tch.id} value={tch.id}>
                         {tch.nameKhmer} · {tch.position || tch.homeroomClassName || tch.teacherCode}
