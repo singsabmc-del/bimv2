@@ -50,6 +50,8 @@ import {
 } from 'lucide-react';
 import { ExcelStudentImportModal } from './ExcelStudentImportModal';
 import { StudentGeneralInfoDocument } from './StudentGeneralInfoDocument';
+import { StudentDataGrid } from './StudentDataGrid';
+import { StudentAdmissionModal } from './StudentAdmissionModal';
 
 export interface RosterStudentRow {
   id: number;
@@ -135,6 +137,8 @@ export const OfficialClassRosterView: React.FC = () => {
   const canSeePayments = canOpenTab(currentUser.role, 'student_payment_history');
   // Teacher accounts get a simplified, mobile-friendly layout (own classes only, no admin tools)
   const isTeacher = currentUser.role === 'teacher';
+  // Student being edited from the data grid (opens the admission form)
+  const [editStudent, setEditStudent] = useState<StudentFeeRecord | null>(null);
   const [payHistoryStudent, setPayHistoryStudent] = useState<any>(null);
 
   // Mode: 'official_image' (the 15 students uploaded by user), or classId (1A, 1B, 2A...)
@@ -863,8 +867,55 @@ export const OfficialClassRosterView: React.FC = () => {
             </div>
           </div>
 
-          {/* Roster Table Container matching Uploaded Image exact headers and style */}
-          <div className="bg-white rounded-2xl border border-slate-300 shadow-sm overflow-hidden print:border-none print:shadow-none">
+          {/* Full student data grid (all admission-form fields) — screen only */}
+          <div className="no-print">
+            <StudentDataGrid
+              students={filteredStudents.map(
+                (r) =>
+                  r.originalStudent ||
+                  ({
+                    id: r.id,
+                    studentCode: r.studentCode || '',
+                    name: r.name,
+                    latinName: r.latinName,
+                    gender: r.gender,
+                    dob: r.dob,
+                    address: r.address,
+                    phone: r.phone,
+                    guardianName: r.guardianName,
+                    admissionData: r.admissionData,
+                    note: 'Old',
+                    feesGroup: '',
+                    startDate: '',
+                    paymentDate: '',
+                    caseType: 'Full',
+                    paidBy: 'Cash',
+                    cash: 0,
+                  } as StudentFeeRecord)
+              )}
+              exportName={`students_${classNameTitle}`}
+              emptyText={searchFilter ? 'រកមិនឃើញសិស្ស' : 'មិនទាន់មានសិស្សក្នុងថ្នាក់នេះ'}
+              canEdit={!!permissions?.canEdit && !isArchiveView && selectedRosterSource !== 'official_image'}
+              canDelete={canDeleteHere}
+              canSeePayments={canSeePayments && selectedRosterSource !== 'official_image'}
+              onView={(st) => {
+                const row = activeStudents.find((r) => r.id === st.id);
+                if (row) setSelectedStudentForAdmission(row);
+              }}
+              onEdit={(st) => setEditStudent(st)}
+              onPayHistory={(st) => setPayHistoryStudent(st)}
+              onDelete={(st) => {
+                if (!window.confirm(`តើអ្នកពិតជាចង់លុបសិស្ស «${st.name}» (${st.studentCode || ''}) ចេញពីថ្នាក់នេះមែនទេ?\n\nប្រវត្តិបង់ប្រាក់របស់សិស្សនេះក៏នឹងត្រូវលុបដែរ។`)) return;
+                if (deleteStudent(rosterSourceClassId, st.id)) showNotification?.(`បានលុបសិស្ស ${st.name}`, 'success');
+              }}
+            />
+            <p className="mt-1.5 text-[11px] text-slate-400 font-khmer">
+              ចុចលើក្បាលជួរឈរដើម្បីតម្រៀប · បញ្ជីនាមសិស្សតាមថ្នាក់ (ទម្រង់ផ្លូវការ) នឹងចេញតែពេលចុច «បោះពុម្ពបញ្ជី»
+            </p>
+          </div>
+
+          {/* Official class roster sheet — printed only */}
+          <div className="hidden print:block bg-white rounded-2xl border border-slate-300 shadow-sm overflow-hidden print:border-none print:shadow-none">
             
             {/* ================= OFFICIAL HEADER (ក្បាលបញ្ជីនាមសិស្ស) ================= */}
             {showHeader && (
@@ -1818,6 +1869,16 @@ export const OfficialClassRosterView: React.FC = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {editStudent && (
+        <StudentAdmissionModal
+          isOpen
+          onClose={() => setEditStudent(null)}
+          targetClassId={rosterSourceClassId}
+          existingStudent={editStudent}
+          onStudentSaved={() => setEditStudent(null)}
+        />
       )}
 
       {/* Excel Student Import Modal */}
