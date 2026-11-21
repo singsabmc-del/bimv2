@@ -279,27 +279,7 @@ export const StudentPortalView: React.FC = () => {
             <span>{t('សេវារថយន្តសាលា (School Bus)', 'Bus Service')}</span>
           </button>
 
-          <button
-            onClick={() => setActivePortalTab('id_card')}
-            className={`px-3 py-1.5 rounded-lg font-khmer font-medium transition-all ${
-              activePortalTab === 'id_card'
-                ? 'bg-slate-900 text-white font-bold'
-                : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            {t('ប័ណ្ណសិស្ស (Student ID Card)', 'Digital ID Card')}
-          </button>
 
-          <button
-            onClick={() => setActivePortalTab('submit_slip')}
-            className={`px-3 py-1.5 rounded-lg font-khmer font-medium transition-all ${
-              activePortalTab === 'submit_slip'
-                ? 'bg-amber-500 text-slate-950 font-bold'
-                : 'text-amber-800 bg-amber-50 hover:bg-amber-100'
-            }`}
-          >
-            {t('ផ្ញើវិក្កយបត្រ ABA (Submit Slip)', 'Submit Payment Slip')}
-          </button>
         </div>
       </div>
 
