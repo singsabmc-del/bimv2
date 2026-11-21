@@ -291,18 +291,6 @@ export const StudentPortalView: React.FC = () => {
           </button>
 
           <button
-            onClick={() => setActivePortalTab('admission_dossier')}
-            className={`px-3 py-1.5 rounded-lg font-khmer font-medium transition-all flex items-center gap-1.5 ${
-              activePortalTab === 'admission_dossier'
-                ? 'bg-blue-600 text-white font-bold'
-                : 'text-blue-700 bg-blue-50/70 hover:bg-blue-100'
-            }`}
-          >
-            <FileText className="w-3.5 h-3.5" />
-            <span>{t('សំណុំឯកសារចូលរៀន (Admission Form)', 'Admission Dossier')}</span>
-          </button>
-
-          <button
             onClick={() => setActivePortalTab('submit_slip')}
             className={`px-3 py-1.5 rounded-lg font-khmer font-medium transition-all ${
               activePortalTab === 'submit_slip'
