@@ -318,8 +318,8 @@ export const StudentPortalView: React.FC = () => {
       {/* Main Content by Tab */}
       {activePortalTab === 'profile' && (
         <div className="space-y-4">
-          {/* Sub-view switcher between Official Document & Summary Cards */}
-          <div className="no-print flex items-center justify-between gap-3 bg-white border border-slate-200 rounded-xl px-4 py-2.5 shadow-2xs">
+          {/* Sub-view switcher (top bar; on wide screens it moves into the form's side panel) */}
+          <div className={`no-print flex items-center justify-between gap-3 bg-white border border-slate-200 rounded-xl px-4 py-2.5 shadow-2xs ${profileViewMode === 'official_document' ? 'xl:hidden' : ''}`}>
             <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-lg">
               <button
                 type="button"
@@ -358,6 +358,42 @@ export const StudentPortalView: React.FC = () => {
               student={currentStudent}
               className={currentStudentClass?.className || '1A'}
               allowEdit={permissions.canEdit}
+              sideTop={
+                <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs space-y-3">
+                  <div className="font-khmer">
+                    <div className="text-[11px] text-slate-500">សិស្ស</div>
+                    <div className="text-sm font-bold text-slate-900">{currentStudent.name}</div>
+                    <div className="text-[11px] text-slate-500">{currentStudent.studentCode} · ថ្នាក់ {currentStudentClass?.className || '1A'}</div>
+                  </div>
+                  <div className="flex flex-col gap-1 p-1 bg-slate-100 rounded-lg">
+              <button
+                type="button"
+                onClick={() => setProfileViewMode('official_document')}
+                className={`w-full flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-khmer font-bold transition-all cursor-pointer ${
+                  profileViewMode === 'official_document'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>{t('ទម្រង់ពាក្យសុំផ្លូវការ (Official Form)', 'Official Registration Form')}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setProfileViewMode('cards')}
+                className={`w-full flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-khmer font-bold transition-all cursor-pointer ${
+                  profileViewMode === 'cards'
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <User className="w-3.5 h-3.5" />
+                <span>{t('សង្ខេប & ការទូទាត់ (Tuition & Cards)', 'Summary Cards & Overview')}</span>
+              </button>
+                  </div>
+                </div>
+              }
               onUpdateStudent={(updated) => {
                 if (currentStudentClass) {
                   updateStudentFee(currentStudentClass.classId, currentStudent.id, updated);
