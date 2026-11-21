@@ -25,7 +25,6 @@ import {
   Calendar,
   Layers,
   ChevronDown,
-  Sparkles,
   UserCheck,
   Settings,
   Upload,
@@ -70,23 +69,6 @@ export interface RosterStudentRow {
 }
 
 // 15 Students Transcribed Faithfully from User Uploaded Image
-export const OFFICIAL_USER_IMAGE_STUDENTS: RosterStudentRow[] = [
-  { id: 1, studentCode: 'BIM-2020-001', name: 'ផេក ស៊ីវម៉ិញ', latinName: 'PHEK SIVMINH', gender: 'Man', dob: '6/26/2020', age: 6, address: 'អូរខាវ', phone: '0313033311', guardianName: 'ម៉ែន ប៉ិកា', note: '' },
-  { id: 2, studentCode: 'BIM-2020-002', name: 'ហាក់ សៀវម៉ិញ', latinName: 'HAK SIEVMINH', gender: 'Female', dob: '11/9/2020', age: 6, address: 'អូរឫស្សី', phone: '0883646145', guardianName: 'ហាក់ ប៊ុនសេង', note: '' },
-  { id: 3, studentCode: 'BIM-2020-003', name: 'សេង ម៉េងហួរ', latinName: 'SENG MENGHOUR', gender: 'Man', dob: '5/20/2020', age: 6, address: 'អូរឫស្សី', phone: '0762841041', guardianName: 'សេង ថិន', note: '' },
-  { id: 4, studentCode: 'BIM-2020-004', name: 'ណាប់ ផានុន', latinName: 'NAP PHANUN', gender: 'Man', dob: '3/5/2020', age: 6, address: 'សិលាខ្មែរ', phone: '095251089', guardianName: 'ប៉ាង ចំណាប់', note: '' },
-  { id: 5, studentCode: 'BIM-2020-005', name: 'បញ្ញា ខេម៉ា', latinName: 'PANHA KHEMA', gender: 'Man', dob: '2/29/2020', age: 6, address: 'អូរឫស្សី', phone: '099549553', guardianName: 'ឆាន បញ្ញា', note: '' },
-  { id: 6, studentCode: 'BIM-2020-006', name: 'ប្រុស សោភា', latinName: 'PROS SOPHEA', gender: 'Female', dob: '09/09/2020', age: 6, address: 'សិលាខ្មែរ', phone: '069690397', guardianName: 'ឡាង ប្រុស', note: '' },
-  { id: 7, studentCode: 'BIM-2020-007', name: 'ហឿន មេត្តា', latinName: 'HOEUN METTA', gender: 'Man', dob: '06/08/2020', age: 6, address: 'ទួលពង្រ', phone: '077494981', guardianName: 'យាង មេក', note: '' },
-  { id: 8, studentCode: 'BIM-2020-008', name: 'ឡន ស្រីលាភ', latinName: 'LORN SREYLEAP', gender: 'Female', dob: '03/13/2020', age: 6, address: 'ទួលពង្រ', phone: 'No', guardianName: 'លឹម លឹម', note: '' },
-  { id: 9, studentCode: 'BIM-2020-009', name: 'វីរៈ ចំរ៉ុង', latinName: 'VIRAK CHAMROEUN', gender: 'Man', dob: '06/23/2020', age: 6, address: 'ទួលពង្រ', phone: '0884147151', guardianName: 'ប៊ុន វីរៈ', note: '' },
-  { id: 10, studentCode: 'BIM-2020-010', name: 'វុត ភា', latinName: 'VUT PHEA', gender: 'Man', dob: '04/04/2020', age: 6, address: 'ទួលពង្រ', phone: '0883827668', guardianName: 'ជា វុត', note: '' },
-  { id: 11, studentCode: 'BIM-2020-011', name: 'ភ្ញៀច សីលៀង', latinName: 'PHNJECH SEYLEANG', gender: 'Female', dob: '10/29/2019', age: 7, address: 'អូរឫស្សី', phone: 'No', guardianName: 'វិច ភ្ញៀច', note: '' },
-  { id: 12, studentCode: 'BIM-2020-012', name: 'ប៉ោយ ម៉ាយុ', latinName: 'POY MAYU', gender: 'Female', dob: '06/09/2020', age: 6, address: 'ទួលពង្រ', phone: '0973611517', guardianName: 'ឆៃ ថិន', note: '' },
-  { id: 13, studentCode: 'BIM-2020-013', name: 'វឿន ណារ៉ិទ្ធី', latinName: 'VOEUN NARITTHY', gender: 'Man', dob: '12/03/2020', age: 5, address: 'ទួលពង្រ', phone: '070935208', guardianName: 'លី សាឌឿន', note: '' },
-  { id: 14, studentCode: 'BIM-2020-014', name: 'សុវត្ថិ ដេននី', latinName: 'SOVATH DENNY', gender: 'Man', dob: '12/06/2020', age: 5, address: 'ទួលពង្រ', phone: '0965599919', guardianName: 'ញាន សុវត្ថិ', note: '' },
-  { id: 15, studentCode: 'BIM-2020-015', name: 'ក្រូចចាន់ លីហួត', latinName: 'KROUCHCHAN LYHUOT', gender: 'Man', dob: '2/13/2020', age: 6, address: 'ទួលពង្រ', phone: 'No', guardianName: 'ឡាង ក្រូច', note: '' },
-];
 
 export const OfficialClassRosterView: React.FC = () => {
   const {
@@ -243,9 +225,7 @@ export const OfficialClassRosterView: React.FC = () => {
 
   // Convert current student records into RosterStudentRow structure
   const activeStudents: RosterStudentRow[] = useMemo(() => {
-    if (selectedRosterSource === 'official_image') {
-      return OFFICIAL_USER_IMAGE_STUDENTS;
-    }
+    if (selectedRosterSource === 'official_image') return [];
     const cls = rosterClassData[selectedRosterSource] || rosterClassList[0] || Object.values(rosterClassData)[0];
     if (!cls) return [];
 
@@ -377,9 +357,9 @@ export const OfficialClassRosterView: React.FC = () => {
     );
   };
 
-  // Teachers never see the sample image roster — open their first class
+  // No sample roster any more — always open a real class (the first one)
   useEffect(() => {
-    if (isTeacher && selectedRosterSource === 'official_image' && rosterClassList[0]) {
+    if (selectedRosterSource === 'official_image' && rosterClassList[0]) {
       handleSelectSource(rosterClassList[0].classId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -720,31 +700,6 @@ export const OfficialClassRosterView: React.FC = () => {
 
                 {/* Class list vertical buttons */}
                 <div className="space-y-1.5 max-h-[calc(100vh-280px)] overflow-y-auto no-scrollbar pt-1">
-                  {/* Official User Image Roster (15 students) */}
-                  <div
-                    onClick={() => handleSelectSource('official_image')}
-                    className={`w-full p-2.5 rounded-xl border text-left transition-all flex items-center justify-between group cursor-pointer ${
-                      selectedRosterSource === 'official_image'
-                        ? 'bg-amber-500 border-amber-500 text-slate-950 font-bold shadow-xs'
-                        : 'bg-amber-50/50 border-amber-200 text-amber-950 hover:bg-amber-100/70'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Sparkles className="w-4 h-4 text-slate-950 shrink-0" />
-                      <div className="truncate">
-                        <div className="font-bold text-xs font-khmer">
-                          បញ្ជីសិស្សគំរូ (១៥ នាក់)
-                        </div>
-                        <div className={`text-[10px] ${selectedRosterSource === 'official_image' ? 'text-slate-900/80 font-medium' : 'text-amber-800'}`}>
-                          តាមរូបភាព Image Roster
-                        </div>
-                      </div>
-                    </div>
-                    <span className="px-1.5 py-0.5 rounded-md font-mono text-[10px] font-bold bg-white text-slate-950 shrink-0">
-                      15
-                    </span>
-                  </div>
-
                   {/* School Classes */}
                   {filteredClasses.map((cls, idx) => {
                     const isSelected = selectedRosterSource === cls.classId;
@@ -801,18 +756,6 @@ export const OfficialClassRosterView: React.FC = () => {
             ) : (
               /* Collapsed rail icons */
               <div className="space-y-1.5 flex flex-col items-center">
-                <button
-                  type="button"
-                  onClick={() => handleSelectSource('official_image')}
-                  className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs transition-all cursor-pointer ${
-                    selectedRosterSource === 'official_image'
-                      ? 'bg-amber-500 text-slate-950 shadow-xs'
-                      : 'bg-amber-100 text-amber-900 hover:bg-amber-200'
-                  }`}
-                  title="បញ្ជីសិស្សគំរូ (១៥ នាក់)"
-                >
-                  <Sparkles className="w-4 h-4" />
-                </button>
                 {rosterClassList.map((cls) => {
                   const isSelected = selectedRosterSource === cls.classId;
                   return (
