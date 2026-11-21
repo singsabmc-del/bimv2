@@ -24,6 +24,8 @@ interface StudentGeneralInfoDocumentProps {
   className?: string;
   onUpdateStudent?: (updated: Partial<StudentFeeRecord>) => void;
   allowEdit?: boolean;
+  /** Extra controls shown at the top of the left side panel on wide screens */
+  sideTop?: React.ReactNode;
 }
 
 export const StudentGeneralInfoDocument: React.FC<StudentGeneralInfoDocumentProps> = ({
@@ -31,9 +33,11 @@ export const StudentGeneralInfoDocument: React.FC<StudentGeneralInfoDocumentProp
   className,
   onUpdateStudent,
   allowEdit = true,
+  sideTop,
 }) => {
   const { settings, currentBranch, permissions, updateStudentFee } = useApp();
   const [isEditing, setIsEditing] = useState(false);
+  const side = !!sideTop; // side-panel layout only where the page asks for it
 
   // Form local state for editing
   const [formData, setFormData] = useState({
@@ -221,9 +225,12 @@ export const StudentGeneralInfoDocument: React.FC<StudentGeneralInfoDocumentProp
   };
 
   return (
-    <div className="space-y-4">
+    <div className={`space-y-4 ${side ? 'xl:space-y-0 xl:flex xl:items-start xl:gap-4' : ''}`}>
+      {/* Side panel on wide screens (uses the empty space left of the A4 sheet); top bar on smaller screens */}
+      <aside className={`no-print space-y-3 ${side ? 'xl:w-64 xl:shrink-0 xl:sticky xl:top-4' : ''}`}>
+      {sideTop && <div className="hidden xl:block">{sideTop}</div>}
       {/* Control Action Bar (Hidden on print) */}
-      <div className="no-print flex items-center justify-between gap-3 bg-white border border-slate-200 rounded-xl p-3 shadow-2xs">
+      <div className={`no-print flex items-center justify-between gap-3 bg-white border border-slate-200 rounded-xl p-3 shadow-2xs ${side ? 'xl:flex-col xl:items-stretch' : ''}`}>
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-900 flex items-center justify-center font-bold text-xs font-khmer">
             A4
@@ -238,12 +245,12 @@ export const StudentGeneralInfoDocument: React.FC<StudentGeneralInfoDocumentProp
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className={`flex items-center gap-2 ${side ? 'xl:flex-col xl:items-stretch' : ''}`}>
           {allowEdit && permissions.canEdit && !isEditing && (
             <button
               type="button"
               onClick={() => setIsEditing(true)}
-              className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold font-khmer flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold font-khmer flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
             >
               <Edit2 className="w-3.5 h-3.5" />
               <span>កែសម្រួលទិន្នន័យ (Edit)</span>
@@ -263,7 +270,7 @@ export const StudentGeneralInfoDocument: React.FC<StudentGeneralInfoDocumentProp
               <button
                 type="button"
                 onClick={handleSave}
-                className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold font-khmer flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
+                className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold font-khmer flex items-center justify-center gap-1.5 transition-colors shadow-xs cursor-pointer"
               >
                 <Save className="w-3.5 h-3.5" />
                 <span>រក្សាទុក (Save)</span>
@@ -274,13 +281,16 @@ export const StudentGeneralInfoDocument: React.FC<StudentGeneralInfoDocumentProp
           <button
             type="button"
             onClick={handlePrint}
-            className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold font-khmer flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
+            className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold font-khmer flex items-center justify-center gap-1.5 transition-colors shadow-xs cursor-pointer"
           >
             <Printer className="w-3.5 h-3.5" />
             <span>បោះពុម្ពទម្រង់ (Print A4)</span>
           </button>
         </div>
       </div>
+      </aside>
+
+      <div className="flex-1 min-w-0">
 
       {/* DOCUMENT SHEET (Exact Replication of Image image_1d7d19d3.png) */}
       <div className="bg-white border border-slate-300 shadow-md rounded-lg p-8 sm:p-10 max-w-[850px] mx-auto text-slate-900 font-sans print:border-none print:shadow-none print:p-0 print:m-0 print:max-w-none">
@@ -1593,6 +1603,7 @@ export const StudentGeneralInfoDocument: React.FC<StudentGeneralInfoDocumentProp
           </div>
         </div>
 
+      </div>
       </div>
     </div>
   );
