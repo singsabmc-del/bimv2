@@ -107,7 +107,7 @@ export const Student31DaysAttendanceReport: React.FC<Student31DaysAttendanceRepo
     const stored = syncedGet(storageKey);
     if (stored) return stored;
 
-    // Generate smart baseline attendance (weekdays mostly present, weekends holiday)
+    // New month: present on school days, off on Sundays and school holidays (no sample data)
     const initial: { [studentId: number]: { [day: number]: Attendance31DayCell } } = {};
     if (currentClass?.students) {
       currentClass.students.forEach((st) => {
@@ -122,18 +122,8 @@ export const Student31DaysAttendanceReport: React.FC<Student31DaysAttendanceRepo
             // Sunday is weekly off
             initial[st.id][d] = { status: 'holiday' };
           } else {
-            // Seed sample realistic attendance
-            const isUnpaid = st.feesGroup?.toLowerCase().includes('unpaid');
-            const isStopped = st.feesGroup?.toLowerCase().includes('stop');
-            if (isStopped && d > 10) {
-              initial[st.id][d] = { status: 'absent_no_permission' };
-            } else if (d === 15 && st.id % 5 === 0) {
-              initial[st.id][d] = { status: 'absent_permission' };
-            } else if (d === 7 && st.id % 7 === 0) {
-              initial[st.id][d] = { status: 'late' };
-            } else {
-              initial[st.id][d] = { status: 'present' };
-            }
+            // Not recorded yet: default to present (same as the daily sheet)
+            initial[st.id][d] = { status: 'present' };
           }
         }
       });
