@@ -19,6 +19,8 @@ import {
   ArrowDown,
 } from 'lucide-react';
 
+import { BulkBar, downloadCSV, useRowSelection } from './BulkBar';
+
 export const UniformSalesHistoryView: React.FC = () => {
   const {
     uniformSalesHistory,
@@ -161,6 +163,20 @@ export const UniformSalesHistoryView: React.FC = () => {
       return sortDirection === 'asc' ? result : -result;
     });
   }, [filteredHistory, sortField, sortDirection]);
+
+  // Bulk actions on ticked sales
+  const uSel = useRowSelection<string>(sortedHistory.map((tx) => tx.id));
+  const pickedTx = sortedHistory.filter((tx) => uSel.has(tx.id));
+  const bulkDeleteTx = () => {
+    if (!window.confirm(`លុបវិក្កយបត្រ ${pickedTx.length}?\n\n${pickedTx.slice(0, 10).map((x) => '• ' + x.receiptNo).join('\n')}`)) return;
+    pickedTx.forEach((tx) => deleteUniformSaleTransaction(tx.id));
+    uSel.clear();
+  };
+  const bulkExportTx = () =>
+    downloadCSV('uniform_sales_selected.csv', [
+      ['ល.រ', 'វិក្កយបត្រ', 'កាលបរិច្ឆេទ', 'ប្រភេទ', 'ទំហំ', 'ចំនួន', 'តម្លៃរាយ (៛)', 'សរុប (៛)', 'វិធីបង់', 'អ្នកទិញ', 'អ្នកកត់ត្រា'],
+      ...pickedTx.map((tx: any, i) => [i + 1, tx.receiptNo, tx.date, tx.typeNameKhmer || tx.type || '', tx.size, tx.quantity, tx.unitPriceKHR, tx.totalAmountKHR, tx.paymentMethod, tx.buyerName, tx.recordedBy]),
+    ]);
 
   const renderSortIndicator = (field: UniformSortField) => {
     if (sortField !== field) {
@@ -478,11 +494,25 @@ export const UniformSalesHistoryView: React.FC = () => {
       </div>
 
       {/* Main Full-Width Transaction Table */}
+      <BulkBar
+        count={uSel.ids.length}
+        total={sortedHistory.length}
+        all={uSel.all}
+        onToggleAll={uSel.toggleAll}
+        onClear={uSel.clear}
+        actions={[
+          { label: `⬇️ CSV (${uSel.ids.length})`, onClick: bulkExportTx },
+          { label: `🗑 លុប (${uSel.ids.length})`, onClick: bulkDeleteTx, tone: 'red', hidden: !permissions.canDelete },
+        ]}
+      />
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs w-full">
         <div className="overflow-x-auto w-full">
           <table className="w-full text-xs text-left border-collapse min-w-[850px]">
             <thead>
               <tr className="bg-indigo-600 text-white font-bold border-b border-indigo-700 select-none">
+                <th className="py-2.5 px-2 border-r border-indigo-500 text-center w-8 no-print">
+                  <input type="checkbox" className="accent-amber-400" checked={uSel.all} onChange={uSel.toggleAll} />
+                </th>
                 <th
                   onClick={() => handleSort('id')}
                   className="py-2.5 px-3 border-r border-indigo-500 text-center w-12 cursor-pointer hover:bg-indigo-700 transition-colors group"
@@ -599,7 +629,7 @@ export const UniformSalesHistoryView: React.FC = () => {
             <tbody className="divide-y divide-slate-200">
               {sortedHistory.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="py-12 text-center text-slate-400 font-khmer text-xs">
+                  <td colSpan={13} className="py-12 text-center text-slate-400 font-khmer text-xs">
                     មិនមានកំណត់ត្រាលក់ក្នុងលក្ខខណ្ឌតម្រងនេះទេ
                   </td>
                 </tr>
@@ -615,7 +645,10 @@ export const UniformSalesHistoryView: React.FC = () => {
                       : tx.type);
 
                   return (
-                    <tr key={tx.id} className="hover:bg-indigo-50/40 transition-colors">
+                    <tr key={tx.id} className={`${uSel.has(tx.id) ? 'bg-amber-50' : 'hover:bg-indigo-50/40'} transition-colors`}>
+                      <td className="py-2 px-2 border-r border-slate-200 text-center no-print">
+                        <input type="checkbox" className="accent-amber-600" checked={uSel.has(tx.id)} onChange={() => uSel.toggle(tx.id)} />
+                      </td>
                       <td className="py-2 px-3 border-r border-slate-200 text-center font-mono text-slate-500">
                         {idx + 1}
                       </td>
@@ -682,7 +715,7 @@ export const UniformSalesHistoryView: React.FC = () => {
             {filteredHistory.length > 0 ? (
               <tfoot>
                 <tr className="bg-indigo-50 font-bold border-t-2 border-indigo-200 text-slate-900">
-                  <td colSpan={5} className="py-2.5 px-4 text-right font-khmer">
+                  <td colSpan={6} className="py-2.5 px-4 text-right font-khmer">
                     សរុបទាំងអស់ (Total Filtered):
                   </td>
                   <td className="py-2.5 px-3 text-center font-mono font-black text-indigo-700">

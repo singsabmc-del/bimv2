@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { BusRoute, BusStudentEnrollment, BusPaymentRecord } from '../types';
 import { SearchableSelect, SearchOption } from './SearchableSelect';
+import { BulkBar, downloadCSV, useRowSelection } from './BulkBar';
 import {
   Bus,
   Users,
@@ -94,6 +95,8 @@ export const SchoolBusView: React.FC<SchoolBusViewProps> = ({ onPrintReport }) =
     globalMonth,
     globalYear,
     t,
+    sendTelegramAlert,
+    showNotification,
   } = useApp();
 
   // Active Tab: riders | routes | attendance | payments | report
@@ -236,6 +239,48 @@ export const SchoolBusView: React.FC<SchoolBusViewProps> = ({ onPrintReport }) =
     const matchesStatus = filterFeeStatus === 'all' || e.status === filterFeeStatus;
     return matchesSearch && matchesRoute && matchesStatus;
   });
+
+  // Bulk actions on ticked riders
+  const rSel = useRowSelection<string>(filteredEnrollments.map((e) => e.id));
+  const pickedRiders = filteredEnrollments.filter((e) => rSel.has(e.id));
+  const firstUnpaidBusMonth = (e: BusStudentEnrollment) => ACADEMIC_MONTHS.find((m) => !(e.paidMonths || []).includes(m)) || `${globalMonth} ${globalYear}`;
+  const [bulkBusMethod, setBulkBusMethod] = useState<'Cash' | 'ABA' | 'AC'>('Cash');
+  const [isBulkBusPayOpen, setIsBulkBusPayOpen] = useState(false);
+  const bulkBusTotal = pickedRiders.filter((e) => e.status !== 'waived').reduce((s, e) => s + (Number(e.monthlyFeeUSD) || 0), 0);
+  const bulkBusPay = () => {
+    const payable = pickedRiders.filter((e) => e.status !== 'waived');
+    if (!payable.length) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const lines = payable.map((e) => {
+      const m = firstUnpaidBusMonth(e);
+      recordBusPayment(e.id, { paidBy: bulkBusMethod, months: [m], paymentDate: today, silent: true });
+      return `• ${e.studentName} (${e.className}) — ${getKhmerMonthName(m)} $${Number(e.monthlyFeeUSD).toFixed(2)}`;
+    });
+    sendTelegramAlert?.(`🚌 បង់ថ្លៃរថយន្តជាក្រុម ${payable.length} នាក់`, [...lines, `សរុប៖ $${bulkBusTotal.toFixed(2)} · ${bulkBusMethod}`].join('\n'), 'system');
+    showNotification?.(`បានកត់ត្រាការបង់ថ្លៃរថយន្ត ${payable.length} នាក់`, 'success');
+    setIsBulkBusPayOpen(false);
+    rSel.clear();
+  };
+  const bulkBusRemind = () => {
+    const unpaid = pickedRiders.filter((e) => e.status !== 'waived');
+    if (!unpaid.length) return;
+    sendTelegramAlert?.(
+      `📨 រំលឹកបង់ថ្លៃរថយន្តសាលា (${unpaid.length} នាក់)`,
+      unpaid.map((e) => `• ${e.studentName} (${e.className}) — ${getKhmerMonthName(firstUnpaidBusMonth(e))} $${Number(e.monthlyFeeUSD).toFixed(2)} · ${e.pickupLocation}`).join('\n'),
+      'system'
+    );
+    showNotification?.(`បានផ្ញើការរំលឹក ${unpaid.length} នាក់ទៅ Telegram`, 'success');
+  };
+  const bulkBusRemove = () => {
+    if (!confirm(`ដកសិស្ស ${pickedRiders.length} នាក់ចេញពីរថយន្តសាលា?`)) return;
+    pickedRiders.forEach((e) => removeBusEnrollment(e.id));
+    rSel.clear();
+  };
+  const bulkBusExport = () =>
+    downloadCSV('bus_riders_selected.csv', [
+      ['ល.រ', 'កូដសិស្ស', 'ឈ្មោះ', 'ថ្នាក់', 'ខ្សែរត់', 'ទីតាំង', 'វេន', 'តម្លៃ/ខែ', 'ខែបានបង់', 'ស្ថានភាព'],
+      ...pickedRiders.map((e, i) => [i + 1, e.studentCode, e.studentName, e.className, busRoutes.find((r) => r.id === e.routeId)?.name || e.routeId, e.pickupLocation, e.shift, e.monthlyFeeUSD, (e.paidMonths || []).join(' / '), e.status]),
+    ]);
 
   // Filtered bus payments ledger
   const filteredBusPayments = useMemo(() => {
@@ -611,10 +656,54 @@ export const SchoolBusView: React.FC<SchoolBusViewProps> = ({ onPrintReport }) =
           </div>
 
           {/* Riders Table */}
+          <BulkBar
+            count={rSel.ids.length}
+            total={filteredEnrollments.length}
+            all={rSel.all}
+            onToggleAll={rSel.toggleAll}
+            onClear={rSel.clear}
+            actions={[
+              { label: `💵 បង់ ១ ខែ (${pickedRiders.filter((e) => e.status !== 'waived').length})`, onClick: () => setIsBulkBusPayOpen(true), tone: 'green', hidden: !permissions.canEdit },
+              { label: '📨 រំលឹក Telegram', onClick: bulkBusRemind, tone: 'blue' },
+              { label: '⬇️ CSV', onClick: bulkBusExport },
+              { label: `🗑 ដកចេញ (${rSel.ids.length})`, onClick: bulkBusRemove, tone: 'red', hidden: !permissions.canDelete },
+            ]}
+          />
+          {isBulkBusPayOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 no-print" onClick={() => setIsBulkBusPayOpen(false)}>
+              <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl font-khmer" onClick={(e) => e.stopPropagation()}>
+                <div className="text-base font-bold text-slate-900">🚌 បង់ថ្លៃរថយន្តជាក្រុម</div>
+                <p className="mt-1 text-xs text-slate-500">កត់ត្រា ១ ខែ (ខែមិនទាន់បង់ដំបូងគេ) សម្រាប់សិស្សម្នាក់ៗ តាមតម្លៃខ្សែរត់។ សិស្សលើកលែងត្រូវរំលង។</p>
+                <div className="mt-3 max-h-52 overflow-y-auto divide-y divide-slate-100 rounded-xl border border-slate-200 text-xs">
+                  {pickedRiders.filter((e) => e.status !== 'waived').map((e) => (
+                    <div key={e.id} className="flex justify-between px-3 py-1.5">
+                      <span className="font-bold">{e.studentName}</span>
+                      <span className="text-slate-600">{getKhmerMonthName(firstUnpaidBusMonth(e))} · <b className="font-mono">${Number(e.monthlyFeeUSD).toFixed(2)}</b></span>
+                    </div>
+                  ))}
+                </div>
+                <label className="mt-3 flex flex-col gap-1 text-xs font-bold text-slate-600">វិធីបង់
+                  <select value={bulkBusMethod} onChange={(e) => setBulkBusMethod(e.target.value as any)} className="rounded-lg border border-slate-200 px-2 py-2">
+                    <option value="Cash">Cash</option><option value="ABA">ABA</option><option value="AC">AC</option>
+                  </select>
+                </label>
+                <div className="mt-3 flex items-center justify-between rounded-xl bg-emerald-50 px-3 py-2 text-sm">
+                  <span>សរុប</span><b className="font-mono text-emerald-800">${bulkBusTotal.toFixed(2)}</b>
+                </div>
+                <div className="mt-3 flex gap-2">
+                  <button onClick={() => setIsBulkBusPayOpen(false)} className="flex-1 rounded-xl border border-slate-200 py-2 text-sm font-bold text-slate-600">បោះបង់</button>
+                  <button onClick={bulkBusPay} className="flex-1 rounded-xl bg-emerald-600 py-2 text-sm font-bold text-white hover:bg-emerald-700">បញ្ជាក់ការបង់</button>
+                </div>
+              </div>
+            </div>
+          )}
           <div className="overflow-x-auto w-full border border-slate-200 rounded-xl">
             <table className="w-full text-xs text-left border-collapse min-w-[850px]">
               <thead>
                 <tr className="bg-amber-400 text-slate-900 font-bold border-b border-amber-500 font-khmer">
+                  <th className="py-2.5 px-2 border-r border-amber-500 text-center w-8 no-print">
+                    <input type="checkbox" className="accent-slate-900" checked={rSel.all} onChange={rSel.toggleAll} />
+                  </th>
                   <th className="py-2.5 px-3 border-r border-amber-500 text-center w-12">ល.រ</th>
                   <th className="py-2.5 px-3 border-r border-amber-500 font-mono">កូដសិស្ស</th>
                   <th className="py-2.5 px-4 border-r border-amber-500">ឈ្មោះសិស្ស (Name)</th>
@@ -631,7 +720,7 @@ export const SchoolBusView: React.FC<SchoolBusViewProps> = ({ onPrintReport }) =
               <tbody className="divide-y divide-slate-100 font-khmer text-xs">
                 {filteredEnrollments.length === 0 ? (
                   <tr>
-                    <td colSpan={11} className="py-8 text-center text-slate-400">
+                    <td colSpan={12} className="py-8 text-center text-slate-400">
                       មិនមានទិន្នន័យសិស្សជិះរថយន្តឡើយ (No riders found)
                     </td>
                   </tr>
@@ -642,7 +731,10 @@ export const SchoolBusView: React.FC<SchoolBusViewProps> = ({ onPrintReport }) =
                     const riderLastPayment = busPayments.find((p) => p.enrollmentId === enr.id);
 
                     return (
-                      <tr key={enr.id} className="hover:bg-amber-50/40 transition-colors">
+                      <tr key={enr.id} className={`${rSel.has(enr.id) ? 'bg-amber-50' : 'hover:bg-amber-50/40'} transition-colors`}>
+                        <td className="py-2.5 px-2 border-r border-slate-100 text-center no-print">
+                          <input type="checkbox" className="accent-amber-600" checked={rSel.has(enr.id)} onChange={() => rSel.toggle(enr.id)} />
+                        </td>
                         <td className="py-2.5 px-3 border-r border-slate-100 text-center text-slate-500 font-mono">
                           {idx + 1}
                         </td>
