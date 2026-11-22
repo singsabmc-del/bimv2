@@ -19,6 +19,7 @@ import { MonthlyExcelReportView } from './components/reports/MonthlyExcelReportV
 import { canOpenTab, homeTabFor } from './utils/access';
 import { TeacherCheckInView } from './components/TeacherCheckInView';
 import { TeacherLeaveRequestView } from './components/TeacherLeaveRequestView';
+import { MyScheduleView } from './components/MyScheduleView';
 import { StudentPaymentHistoryView } from './components/StudentPaymentHistoryView';
 import { StaffShiftsView } from './components/StaffShiftsView';
 import { SystemSettingsView } from './components/SystemSettingsView';
@@ -298,6 +299,7 @@ function MainApp() {
           {activeTab === 'teacher_checkin' && <TeacherCheckInView />}
           {activeTab === 'teacher_shifts' && <StaffShiftsView />}
           {activeTab === 'teacher_leave' && <TeacherLeaveRequestView />}
+          {activeTab === 'my_schedule' && <MyScheduleView />}
 
           {activeTab === 'teacher_attendance' && (
             <TeacherManagementView initialSubTab="teacher_attendance" />
@@ -380,10 +382,11 @@ function MainApp() {
         >
           {(currentUser.role === 'teacher'
             ? ([
-                { tab: 'teacher_checkin', label: 'Check In', Icon: Clock, center: true },
+                { tab: 'my_schedule', label: 'កាលវិភាគ', Icon: CalendarDays },
                 { tab: 'student_attendance', label: 'វត្តមានសិស្ស', Icon: CheckCircle2 },
+                { tab: 'teacher_checkin', label: 'Check In', Icon: Clock, center: true },
                 { tab: 'student_list', label: 'បញ្ជីសិស្ស', Icon: Users },
-                { tab: 'teacher_leave', label: 'សុំច្បាប់', Icon: CalendarDays },
+                { tab: 'teacher_leave', label: 'សុំច្បាប់', Icon: Send },
               ] as { tab: NavTab; label: string; Icon: any; center?: boolean }[])
             : ([
                 { tab: 'overview', label: 'ទូទៅ', Icon: LayoutDashboard },

@@ -89,6 +89,7 @@ export const NAV_TAB_IDS = [
   'teacher_leave',
   'student_payment_history',
   'teacher_shifts',
+  'my_schedule',
 ] as const;
 
 export type NavTab = (typeof NAV_TAB_IDS)[number];
@@ -274,6 +275,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           labelKhmer: 'កាលវិភាគបង្រៀន',
           icon: Calendar,
           activeMatch: ['teaching_schedule'],
+        },
+        {
+          id: 'my_schedule' as NavTab,
+          label: 'My schedule',
+          labelKhmer: 'កាលវិភាគរបស់ខ្ញុំ',
+          icon: CalendarDays,
+          activeMatch: ['my_schedule'],
         },
         {
           id: 'teacher_subject' as NavTab,
