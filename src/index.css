@@ -383,15 +383,24 @@ html[data-sidebar-tone='dark'][data-icon-chips='on'] .app-sidebar .nav-icon { ba
   html.is-phone main .grid.grid-cols-1:has(> * > select) > :has(input[type='text'], input[type='search'], input:not([type])) { grid-column: 1 / -1; }
   html.is-phone main label { font-size: 11px; }
 
-  /* long button rows scroll sideways like app chips instead of stacking */
-  html.is-phone main .flex.flex-wrap:has(> button:nth-of-type(4)) {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
+  /* button groups: equal-width buttons that fill the screen width (auto rows) */
+  html.is-phone main :is(.flex, .inline-flex):has(> :is(button, a) + :is(button, a)):not(:has(> :not(button, a))):not(.flex-col):not(.overflow-x-auto):not(td *):not(th *):not([role='tablist']) {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
+    gap: 0.5rem;
+    width: 100%;
   }
-  html.is-phone main .flex.flex-wrap:has(> button:nth-of-type(4))::-webkit-scrollbar { display: none; }
-  html.is-phone main .flex.flex-wrap:has(> button:nth-of-type(4)) > * { flex-shrink: 0; }
+  html.is-phone main :is(.flex, .inline-flex):has(> :is(button, a) + :is(button, a)):not(:has(> :not(button, a))):not(.flex-col):not(.overflow-x-auto):not(td *):not(th *):not([role='tablist']) > :is(button, a) {
+    width: 100%;
+    min-width: 0;
+    justify-content: center;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  /* section tab strips keep scrolling sideways */
+  html.is-phone main .overflow-x-auto > :is(button, a) { flex-shrink: 0; }
 
   /* tables → stacked cards */
   html.is-phone table.m-cards { min-width: 0 !important; width: 100%; display: block; }
