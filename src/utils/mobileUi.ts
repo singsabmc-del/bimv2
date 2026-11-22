@@ -43,6 +43,9 @@ const labelTables = (root: ParentNode) => {
       for (let i = 0; i < span; i++) labels.push((c.textContent || '').trim());
     });
     if (labels.length < 3 || labels.length > MAX_CARD_COLUMNS) return;
+    // timetables / matrices: centred grids, merged cells or stacked blocks inside cells stay as tables
+    if (tbl.classList.contains('text-center')) return;
+    if (tbl.querySelector('td[rowspan]:not([rowspan="1"]), td .absolute, th[rowspan]:not([rowspan="1"])')) return;
     tbl.classList.add('m-cards');
     Array.from(tbl.tBodies).forEach((tb) =>
       Array.from(tb.rows).forEach((row) => {
