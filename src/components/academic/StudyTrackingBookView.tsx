@@ -8,6 +8,8 @@ import {
   attendanceSummary,
   classSubjects,
   computePeriodResults,
+  subjectCfg,
+  toPct,
   fmt,
   level10,
   LEVELS_10,
@@ -78,7 +80,7 @@ const TrackingPage: React.FC<{
         </thead>
         <tbody>
           {subs.map((s) => {
-            const v10 = to10(row[s.id] ?? null);
+            const v10 = to10(toPct(row[s.id] ?? null, subjectCfg(cls, s.id).max));
             const l = level10(v10);
             return (
               <tr key={s.id} className="h-9">
@@ -148,7 +150,7 @@ export const StudyTrackingBookView: React.FC = () => {
   const subs = classSubjects(cls, subjects);
   const students = activeStudents(cls);
   const results = useMemo(
-    () => computePeriodResults(students, subs.map((s) => s.id), cls?.scores?.[periodKey]),
+    () => computePeriodResults(students, subs.map((s) => s.id), cls?.scores?.[periodKey], cls),
     [cls, periodKey, subjects] // eslint-disable-line react-hooks/exhaustive-deps
   );
   const student = students.find((s) => s.id === studentId);

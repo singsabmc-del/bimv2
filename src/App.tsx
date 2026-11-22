@@ -25,6 +25,7 @@ import { StudentPaymentHistoryView } from './components/StudentPaymentHistoryVie
 import { StaffShiftsView } from './components/StaffShiftsView';
 import { SystemSettingsView } from './components/SystemSettingsView';
 import { useMobileUi } from './utils/mobileUi';
+import { setGradeScale } from './utils/academic';
 import { OfficialPrintReport } from './components/OfficialPrintReport';
 import { OfficialClassRosterView } from './components/OfficialClassRosterView';
 import { UserRoleModal } from './components/UserRoleModal';
@@ -100,6 +101,8 @@ function MainApp() {
   } = useApp();
   // Phone: shorter labels, tables as cards, even button heights
   useMobileUi(isAuthenticated);
+  // School grade scale (A–F, remarks) used by every score view
+  setGradeScale(settings?.gradeScale);
 
   // A teacher account with no class assigned has nothing to show on class pages
   const CLASS_PAGES: NavTab[] = ['student_list', 'official_roster', 'student_attendance', 'student_info', 'student_portal'];
