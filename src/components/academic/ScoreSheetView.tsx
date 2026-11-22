@@ -1,6 +1,7 @@
 // បញ្ជីស្រង់ពិន្ទុសិស្ស — monthly / semester score sheet with grades (A–F) and ranks.
 import React, { useEffect, useMemo, useState } from 'react';
-import { BookOpen, Printer, Settings2, ListOrdered, CheckSquare } from 'lucide-react';
+import { BookOpen, Printer, Settings2, ListOrdered, CheckSquare, Scale } from 'lucide-react';
+import type { GradeDef } from '../../types';
 import { useApp } from '../../context/AppContext';
 import {
   academicPeriods,
@@ -10,7 +11,12 @@ import {
   defaultSubjectIdsForClass,
   fmt,
   gradeLetter,
-  GRADE_SCALE_100,
+  gradeRemark,
+  getGradeScale,
+  DEFAULT_GRADE_SCALE,
+  scaleAvg,
+  subjectCfg,
+  toPct,
   periodLabel,
   subjectLabel,
   toKh,
@@ -59,7 +65,14 @@ export const ScoreSheetView: React.FC = () => {
   const subIds = subs.map((s) => s.id);
   const students = activeStudents(cls);
   const periodScores = cls?.scores?.[periodKey];
-  const results = useMemo(() => computePeriodResults(students, subIds, periodScores), [students, subIds.join(), periodScores]);
+  const results = useMemo(() => computePeriodResults(students, subIds, periodScores, cls), [students, subIds.join(), periodScores, cls?.subjectConfig]);
+  const outOf = settings.averageOutOf || 100;
+  const scale = getGradeScale();
+  const cfg = (sid: string) => subjectCfg(cls, sid);
+  const [showScoring, setShowScoring] = useState(false);
+  const [scaleDraft, setScaleDraft] = useState<GradeDef[] | null>(null);
+  const setSubjectCfg = (sid: string, patch: { max?: number; coef?: number }) =>
+    updateClassAcademic(classId, (c) => ({ subjectConfig: { ...(c.subjectConfig || {}), [sid]: { ...(c.subjectConfig?.[sid] || {}), ...patch } } }));
 
   const rows = useMemo(() => {
     const list = [...students];
@@ -68,7 +81,7 @@ export const ScoreSheetView: React.FC = () => {
   }, [students, results, sortByRank]);
 
   const setScore = (studentId: number, subjectId: string, raw: string) => {
-    const v = raw.trim() === '' ? null : Math.max(0, Math.min(100, Number(raw)));
+    const v = raw.trim() === '' ? null : Math.max(0, Math.min(subjectCfg(cls, subjectId).max, Number(raw)));
     if (v !== null && Number.isNaN(v)) return;
     updateClassAcademic(classId, (c) => {
       const book = { ...(c.scores || {}) };
@@ -103,7 +116,7 @@ export const ScoreSheetView: React.FC = () => {
     const v = Object.values(results).map((r) => r.average).filter((x): x is number => x !== null);
     return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
   })();
-  const dist = GRADE_SCALE_100.map((g) => ({
+  const dist = scale.map((g) => ({
     g: g.letter,
     n: Object.values(results).filter((r) => gradeLetter(r.average) === g.letter).length,
   }));
@@ -143,6 +156,11 @@ export const ScoreSheetView: React.FC = () => {
           <button onClick={() => setSortByRank((v) => !v)} className={`flex items-center gap-1 rounded-xl border px-3 py-2 text-sm ${sortByRank ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-700'}`}>
             <ListOrdered className="h-4 w-4" /> {sortByRank ? 'តម្រៀបតាមចំណាត់ថ្នាក់' : 'តម្រៀបតាមបញ្ជី'}
           </button>
+          {permissions.canEdit && (
+            <button onClick={() => { setShowScoring((v) => !v); setScaleDraft(null); }} className={`flex items-center gap-1 rounded-xl border px-3 py-2 text-sm ${showScoring ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-700'}`}>
+              <Scale className="h-4 w-4" /> មេគុណ & និទ្ទេស
+            </button>
+          )}
           <button onClick={() => setShowSubjectPicker((v) => !v)} className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
             <CheckSquare className="h-4 w-4" /> មុខវិជ្ជា ({toKh(subs.length)})
           </button>
@@ -178,6 +196,81 @@ export const ScoreSheetView: React.FC = () => {
         </PanelCard>
       )}
 
+      {showScoring && permissions.canEdit && (
+        <PanelCard title={`ពិន្ទុខ្ពស់បំផុត & មេគុណ · ${cls.className}`}>
+          <div className="overflow-x-auto">
+            <table data-no-cards className="w-full min-w-[420px] text-xs">
+              <thead>
+                <tr className="text-left text-slate-500">
+                  <th className="py-1 pr-2">មុខវិជ្ជា</th>
+                  <th className="py-1 pr-2">ពិន្ទុខ្ពស់បំផុត</th>
+                  <th className="py-1 pr-2">មេគុណ</th>
+                  <th className="py-1">ពិន្ទុសរុបអតិបរមា</th>
+                </tr>
+              </thead>
+              <tbody>
+                {subs.map((x) => {
+                  const c = cfg(x.id);
+                  return (
+                    <tr key={x.id} className="border-t border-slate-100">
+                      <td className="py-1.5 pr-2 font-bold text-slate-800">{subjectLabel(x)}</td>
+                      <td className="py-1.5 pr-2">
+                        <input type="number" min={1} value={c.max} onChange={(e) => setSubjectCfg(x.id, { max: Math.max(1, Number(e.target.value) || 100) })} className="w-20 rounded-lg border border-slate-200 px-2 py-1 text-center font-mono" />
+                      </td>
+                      <td className="py-1.5 pr-2">
+                        <input type="number" min={0.5} step={0.5} value={c.coef} onChange={(e) => setSubjectCfg(x.id, { coef: Math.max(0.5, Number(e.target.value) || 1) })} className="w-16 rounded-lg border border-slate-200 px-2 py-1 text-center font-mono" />
+                      </td>
+                      <td className="py-1.5 font-mono text-slate-600">{fmt(c.max * c.coef, 1)}</td>
+                    </tr>
+                  );
+                })}
+                <tr className="border-t-2 border-slate-200 font-bold">
+                  <td className="py-1.5">សរុប</td>
+                  <td />
+                  <td className="py-1.5 font-mono">{fmt(subs.reduce((a, x) => a + cfg(x.id).coef, 0), 1)}</td>
+                  <td className="py-1.5 font-mono">{fmt(subs.reduce((a, x) => a + cfg(x.id).max * cfg(x.id).coef, 0), 1)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-1 text-[11px] text-slate-500">មធ្យមភាគ = Σ(ពិន្ទុ ÷ ពិន្ទុខ្ពស់បំផុត × មេគុណ) ÷ Σមេគុណ · ចំណាត់ថ្នាក់តាមមធ្យមភាគ (ពិន្ទុស្មើ = ចំណាត់ថ្នាក់ដូចគ្នា)</p>
+
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+            <div className="text-xs font-bold text-slate-700">និទ្ទេស & មូលវិចារណ៍ (ប្រើគ្រប់ថ្នាក់)</div>
+            <label className="flex items-center gap-1.5 text-xs text-slate-600">
+              បង្ហាញមធ្យមភាគលើ
+              <select value={outOf} onChange={(e) => updateSettings({ averageOutOf: Number(e.target.value) })} className="rounded-lg border border-slate-200 px-2 py-1">
+                {[10, 20, 50, 100].map((n) => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </label>
+          </div>
+          {(() => {
+            const draft = scaleDraft || scale.map((g) => ({ ...g }));
+            const upd = (i: number, patch: Partial<GradeDef>) => setScaleDraft(draft.map((g, j) => (j === i ? { ...g, ...patch } : g)));
+            return (
+              <div className="mt-2 space-y-1.5">
+                {draft.map((g, i) => (
+                  <div key={i} className="grid grid-cols-[3rem_4.5rem_1fr] gap-1.5 sm:grid-cols-[3rem_4.5rem_8rem_1fr_2rem]">
+                    <input value={g.letter} onChange={(e) => upd(i, { letter: e.target.value })} className="rounded-lg border border-slate-200 px-1 py-1 text-center text-xs font-bold" />
+                    <label className="flex items-center gap-1 text-[11px] text-slate-500">≥<input type="number" min={0} max={100} value={g.min} onChange={(e) => upd(i, { min: Number(e.target.value) || 0 })} className="w-full rounded-lg border border-slate-200 px-1 py-1 text-center font-mono text-xs" />%</label>
+                    <input value={g.kh} onChange={(e) => upd(i, { kh: e.target.value })} placeholder="និទ្ទេស" className="rounded-lg border border-slate-200 px-2 py-1 text-xs" />
+                    <input value={g.remark || ''} onChange={(e) => upd(i, { remark: e.target.value })} placeholder="មូលវិចារណ៍" className="col-span-3 rounded-lg border border-slate-200 px-2 py-1 text-xs sm:col-span-1" />
+                    <button type="button" onClick={() => setScaleDraft(draft.filter((_, j) => j !== i))} disabled={draft.length <= 2} className="hidden rounded-lg text-rose-500 hover:bg-rose-50 disabled:opacity-30 sm:block">✕</button>
+                  </div>
+                ))}
+                <div className="flex flex-wrap gap-2 pt-1 text-xs">
+                  <button type="button" onClick={() => setScaleDraft([...draft, { letter: '?', min: 0, kh: '', remark: '' }])} className="rounded-lg border border-slate-200 px-2.5 py-1">+ បន្ថែមកម្រិត</button>
+                  <button type="button" onClick={() => setScaleDraft(DEFAULT_GRADE_SCALE.map((g) => ({ ...g })))} className="rounded-lg border border-slate-200 px-2.5 py-1">↺ លំនាំដើម</button>
+                  {scaleDraft && (
+                    <button type="button" onClick={() => { updateSettings({ gradeScale: [...scaleDraft].sort((a, b) => b.min - a.min) }); setScaleDraft(null); }} className="rounded-lg bg-indigo-600 px-3 py-1 font-bold text-white">រក្សាទុកនិទ្ទេស</button>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+        </PanelCard>
+      )}
+
       {showHeaderEdit && (
         <PanelCard title="ក្បាលឯកសារផ្លូវការ (ប្រើគ្រប់ឯកសារសិក្សា)">
           <div className="grid gap-2 sm:grid-cols-2">
@@ -206,7 +299,7 @@ export const ScoreSheetView: React.FC = () => {
       {/* ── Stats (screen only) ── */}
       <div className="flex flex-wrap gap-2 text-xs print:hidden">
         <span className="rounded-lg border border-slate-200 bg-white px-3 py-1.5">សិស្ស៖ <b>{toKh(students.length)}</b> នាក់</span>
-        <span className="rounded-lg border border-slate-200 bg-white px-3 py-1.5">មធ្យមភាគថ្នាក់៖ <b className="font-mono text-indigo-700">{fmt(classAvg)}</b></span>
+        <span className="rounded-lg border border-slate-200 bg-white px-3 py-1.5">មធ្យមភាគថ្នាក់៖ <b className="font-mono text-indigo-700">{fmt(scaleAvg(classAvg, outOf))}/{outOf}</b></span>
         {dist.map((d) => (
           <span key={d.g} className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1">
             <GradeBadge g={d.g} /> {toKh(d.n)}
@@ -243,7 +336,7 @@ export const ScoreSheetView: React.FC = () => {
             ) : (
               <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
                 <div className="flex items-center justify-between border-b border-slate-100 bg-indigo-50/60 px-3 py-2 text-xs">
-                  <b className="text-indigo-900">{subjectLabel(sub)} · {periodLabel(periodKey)}</b>
+                  <b className="text-indigo-900">{subjectLabel(sub)} · {periodLabel(periodKey)} <span className="font-normal text-slate-500">(/{cfg(sid).max}{cfg(sid).coef !== 1 ? ` · មេគុណ ${cfg(sid).coef}` : ''})</span></b>
                   <span className="text-slate-500">បានបញ្ចូល {toKh(filled)}/{toKh(students.length)}</span>
                 </div>
                 <div className="divide-y divide-slate-100">
@@ -256,14 +349,14 @@ export const ScoreSheetView: React.FC = () => {
                           <span className="block truncate text-sm font-bold text-slate-900">{st.name}</span>
                           <span className="block text-[10px] text-slate-400">{st.studentCode}</span>
                         </span>
-                        <GradeBadge g={gradeLetter(v)} />
+                        <GradeBadge g={gradeLetter(toPct(v, cfg(sid).max))} />
                         <input
                           data-quick={r}
                           type="number"
                           inputMode="decimal"
                           enterKeyHint="next"
                           min={0}
-                          max={100}
+                          max={cfg(sid).max}
                           disabled={!canScore}
                           value={v ?? ''}
                           onChange={(e) => setScore(st.id, sid, e.target.value)}
@@ -284,7 +377,7 @@ export const ScoreSheetView: React.FC = () => {
                 </div>
               </div>
             )}
-            <p className="text-[11px] text-slate-500">ពិន្ទុ ០–១០០ · ចុច «Next/Enter» លើក្តារចុច ដើម្បីទៅសិស្សបន្ទាប់ · រក្សាទុកដោយស្វ័យប្រវត្តិ</p>
+            <p className="text-[11px] text-slate-500">ពិន្ទុ ០–{toKh(cfg(sid).max)} · ចុច «Next/Enter» លើក្តារចុច ដើម្បីទៅសិស្សបន្ទាប់ · រក្សាទុកដោយស្វ័យប្រវត្តិ</p>
           </div>
         );
       })()}
@@ -311,13 +404,14 @@ export const ScoreSheetView: React.FC = () => {
               {subs.map((s) => (
                 <th key={s.id} colSpan={3} className="border border-slate-400 px-1 py-1 font-muol text-[11px] font-normal">
                   {subjectLabel(s)}
-                  <div className="font-khmer text-[9px] text-slate-500">(១០០ ពិន្ទុ)</div>
+                  <div className="font-khmer text-[9px] text-slate-500">({toKh(cfg(s.id).max)} ពិន្ទុ{cfg(s.id).coef !== 1 ? ` · មេគុណ ${toKh(cfg(s.id).coef)}` : ''})</div>
                 </th>
               ))}
               <th rowSpan={2} className="border border-slate-400 px-1 py-1">សរុប</th>
-              <th rowSpan={2} className="border border-slate-400 bg-indigo-50 px-1 py-1">មធ្យមភាគ</th>
+              <th rowSpan={2} className="border border-slate-400 bg-indigo-50 px-1 py-1">មធ្យមភាគ<div className="text-[9px] font-normal text-slate-500">(/{toKh(outOf)})</div></th>
               <th rowSpan={2} className="border border-slate-400 px-1 py-1">និទ្ទេស</th>
               <th rowSpan={2} className="border border-slate-400 px-1 py-1">ចំណាត់ថ្នាក់</th>
+              <th rowSpan={2} className="border border-slate-400 px-1 py-1 min-w-[120px]">មូលវិចារណ៍</th>
             </tr>
             <tr className="bg-[#fdf3dc] text-[10px] text-slate-700">
               {subs.map((s) => (
@@ -348,7 +442,7 @@ export const ScoreSheetView: React.FC = () => {
                             data-cell={`${r}-${c}`}
                             type="number"
                             min={0}
-                            max={100}
+                            max={cfg(s.id).max}
                             disabled={!canScore}
                             value={v ?? ''}
                             onChange={(e) => setScore(st.id, s.id, e.target.value)}
@@ -358,7 +452,7 @@ export const ScoreSheetView: React.FC = () => {
                           <span className="hidden font-mono print:inline">{v ?? ''}</span>
                         </td>
                         <td className="border border-slate-300 text-center">
-                          <GradeBadge g={gradeLetter(v)} />
+                          <GradeBadge g={gradeLetter(toPct(v, cfg(s.id).max))} />
                         </td>
                         <td className={`border border-slate-300 text-center ${rank && rank <= 3 ? 'font-bold text-amber-700' : 'text-slate-600'}`}>
                           {rank ? toKh(rank) : ''}
@@ -366,14 +460,15 @@ export const ScoreSheetView: React.FC = () => {
                       </React.Fragment>
                     );
                   })}
-                  <td className="border border-slate-300 text-center font-bold">{res?.total !== null ? fmt(res.total, 1) : ''}</td>
+                  <td className="border border-slate-300 text-center font-bold">{res?.total !== null ? fmt(res.total, 1) : ''}{res?.totalMax ? <div className="text-[9px] font-normal text-slate-400">/{fmt(res.totalMax, 1)}</div> : null}</td>
                   <td className="border border-slate-300 bg-indigo-50/60 text-center font-mono font-bold text-indigo-800 print:bg-white print:text-black">
-                    {res?.average !== null ? fmt(res.average, 1) : ''}
+                    {res?.average !== null ? fmt(scaleAvg(res.average, outOf), 2) : ''}
                   </td>
                   <td className="border border-slate-300 text-center">
                     <GradeBadge g={gradeLetter(res?.average)} />
                   </td>
                   <td className="border border-slate-300 text-center font-bold text-rose-700 print:text-black">{res?.rank ? toKh(res.rank) : ''}</td>
+                  <td className="border border-slate-300 px-1.5 text-[11px] text-slate-700">{res?.average !== null ? gradeRemark(res?.average) : ''}</td>
                 </tr>
               );
             })}
@@ -381,9 +476,9 @@ export const ScoreSheetView: React.FC = () => {
         </table>
 
         <div className="mt-2 flex flex-wrap gap-x-4 text-[10.5px] text-slate-600">
-          {GRADE_SCALE_100.map((g, i) => (
-            <span key={g.letter}>
-              {g.letter} = {g.kh} ({toKh(g.min)}{i === 0 ? '-១០០' : `-${toKh(GRADE_SCALE_100[i - 1].min - 0.01)}`})
+          {scale.map((g, i) => (
+            <span key={g.letter + i}>
+              {g.letter} = {g.kh} ({toKh(g.min)}{i === 0 ? '-១០០' : `-${toKh(Number((scale[i - 1].min - 0.01).toFixed(2)))}`}%)
             </span>
           ))}
         </div>

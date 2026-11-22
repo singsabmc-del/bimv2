@@ -61,7 +61,7 @@ export const HonorRollView: React.FC = () => {
   const cls = classData[classId] || orderedClassList[0];
   const subIds = classSubjects(cls, subjects).map((s) => s.id);
   const students = activeStudents(cls);
-  const results = computePeriodResults(students, subIds, cls?.scores?.[periodKey]);
+  const results = computePeriodResults(students, subIds, cls?.scores?.[periodKey], cls);
   const ranked = students
     .map((st) => ({ st, r: results[String(st.id)] }))
     // Only passing students (average ≥ 50/100, i.e. ≥ 5/10) can appear on the honor roll

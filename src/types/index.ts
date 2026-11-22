@@ -217,6 +217,8 @@ export interface ClassFeeData {
   // ── Academic (scores) — kept per class, so each academic year's archive keeps its own scores ──
   subjectIds?: string[]; // subjects taught/scored in this class (ids from SubjectItem)
   scores?: ClassScoreBook; // { periodKey: { studentId: { subjectId: score(0-100) } } }
+  /** per subject: highest possible score and coefficient (មេគុណ) for this class */
+  subjectConfig?: Record<string, { max?: number; coef?: number }>;
   /** when each score cell was last changed (same shape) — lets devices merge cell by cell */
   scoresT?: Record<string, Record<string, Record<string, number>>>;
   bookletNotes?: { [studentId: string]: StudentBookletNote };
@@ -498,6 +500,17 @@ export interface SchoolSettings {
   semester2Months?: number[]; // default [3,4,5,6,7]
   principalStampUrl?: string; // stamp + signature image (data URL)
   honorFrame?: string; // kbach frame style for the honor roll (KbachFrameId)
+  /** grade scale on percent (A–F…): min %, និទ្ទេស label and remark (មូលវិចារណ៍) */
+  gradeScale?: GradeDef[];
+  /** averages shown out of 10 / 20 / 50 / 100 */
+  averageOutOf?: number;
+}
+
+export interface GradeDef {
+  letter: string;
+  min: number; // percent 0–100
+  kh: string; // និទ្ទេស
+  remark?: string; // មូលវិចារណ៍
 }
 
 export const MONTH_NAMES = [

@@ -1,6 +1,6 @@
 // Academic helpers: grades, ranks, monthly / semester / yearly results, Khmer numerals.
 // Scores are always stored on a 0–100 scale. The study books show them on a /10 scale.
-import { ClassFeeData, ClassScoreBook, DailyStudentAttendanceRecord, StudentFeeRecord, SubjectItem } from '../types';
+import { ClassFeeData, ClassScoreBook, DailyStudentAttendanceRecord, GradeDef, StudentFeeRecord, SubjectItem } from '../types';
 
 // ───────────────────────── Khmer numerals & labels ─────────────────────────
 const KH_DIGITS = '០១២៣៤៥៦៧៨៩';
@@ -26,10 +26,44 @@ export const GRADE_SCALE_100 = [
   { letter: 'F', min: 0, kh: 'ខ្សោយ' },
 ] as const;
 
-export const gradeLetter = (score100: number | null | undefined): string => {
-  if (score100 === null || score100 === undefined || Number.isNaN(score100)) return '-';
-  return (GRADE_SCALE_100.find((g) => score100 >= g.min) || GRADE_SCALE_100[GRADE_SCALE_100.length - 1]).letter;
+export const DEFAULT_GRADE_SCALE: GradeDef[] = [
+  { letter: 'A', min: 85, kh: 'ល្អប្រសើរ', remark: 'ល្អប្រសើរណាស់ សូមរក្សាការខិតខំ' },
+  { letter: 'B', min: 80, kh: 'ល្អណាស់', remark: 'ល្អណាស់ បន្តខិតខំ' },
+  { letter: 'C', min: 70, kh: 'ល្អ', remark: 'ល្អ ត្រូវខិតខំបន្ថែម' },
+  { letter: 'D', min: 60, kh: 'ល្អបង្គួរ', remark: 'ល្អបង្គួរ ត្រូវយកចិត្តទុកដាក់បន្ថែម' },
+  { letter: 'E', min: 50, kh: 'មធ្យម', remark: 'មធ្យម ត្រូវរៀនសូត្របន្ថែម' },
+  { letter: 'F', min: 0, kh: 'ខ្សោយ', remark: 'ខ្សោយ ត្រូវការជំនួយពិសេស' },
+];
+// Active scale (from System Settings); set once by the app when settings load/change
+let ACTIVE_SCALE: GradeDef[] = [...GRADE_SCALE_100].map((g) => ({ ...g, remark: DEFAULT_GRADE_SCALE.find((d) => d.letter === g.letter)?.remark }));
+export const setGradeScale = (scale?: GradeDef[] | null) => {
+  if (scale && scale.length) ACTIVE_SCALE = [...scale].sort((a, b) => b.min - a.min);
 };
+export const getGradeScale = () => ACTIVE_SCALE;
+const gradeOf = (pct: number | null | undefined) => {
+  if (pct === null || pct === undefined || Number.isNaN(pct)) return null;
+  return ACTIVE_SCALE.find((g) => pct >= g.min) || ACTIVE_SCALE[ACTIVE_SCALE.length - 1];
+};
+/** Letter for a percent (0–100) */
+export const gradeLetter = (pct: number | null | undefined): string => gradeOf(pct)?.letter || '-';
+export const gradeKh = (pct: number | null | undefined): string => gradeOf(pct)?.kh || '';
+/** មូលវិចារណ៍ for a percent */
+export const gradeRemark = (pct: number | null | undefined): string => gradeOf(pct)?.remark || '';
+
+// ───────────────────────── Max score & coefficient per subject ─────────────────────────
+export interface SubjectCfg {
+  max: number;
+  coef: number;
+}
+export const subjectCfg = (cls: ClassFeeData | undefined, subjectId: string): SubjectCfg => {
+  const c = cls?.subjectConfig?.[subjectId] || {};
+  return { max: Number(c.max) > 0 ? Number(c.max) : 100, coef: Number(c.coef) > 0 ? Number(c.coef) : 1 };
+};
+export const toPct = (score: number | null | undefined, max = 100) =>
+  score === null || score === undefined || Number.isNaN(score) ? null : (score / (max || 100)) * 100;
+/** percent (0–100) → shown on the school's scale (/10, /20, /50, /100) */
+export const scaleAvg = (pct: number | null | undefined, outOf = 100) =>
+  pct === null || pct === undefined || Number.isNaN(pct) ? null : (pct * outOf) / 100;
 
 /** Khmer levels on a /10 score (study tracking book). */
 export const LEVELS_10 = [
@@ -105,33 +139,48 @@ export const activeStudents = (cls?: ClassFeeData) =>
 export interface PeriodResult {
   studentId: string;
   total: number | null;
-  average: number | null; // 0–100
+  average: number | null; // weighted percent 0–100
+  totalMax?: number | null; // highest possible total for the entered subjects (× coefficient)
   entered: number; // subjects with a score
   rank?: number;
   subjectRank: { [subjectId: string]: number };
 }
 
+/**
+ * Results for one period. `average` is a weighted percent (0–100):
+ * Σ(score ÷ max × 100 × coefficient) ÷ Σ(coefficient) over the subjects that have a score.
+ * Without `cls` every subject counts as /100 with coefficient 1 (the old behaviour).
+ */
 export const computePeriodResults = (
   students: StudentFeeRecord[],
   subjectIds: string[],
-  scores: ClassScoreBook[string] | undefined
+  scores: ClassScoreBook[string] | undefined,
+  cls?: ClassFeeData
 ): { [studentId: string]: PeriodResult } => {
   const out: { [studentId: string]: PeriodResult } = {};
   students.forEach((st) => {
     const row = scores?.[String(st.id)] || {};
     let total = 0;
+    let weighted = 0;
+    let coefSum = 0;
+    let maxSum = 0;
     let entered = 0;
     subjectIds.forEach((sid) => {
       const v = row[sid];
       if (v !== null && v !== undefined && !Number.isNaN(v)) {
-        total += v;
+        const { max, coef } = subjectCfg(cls, sid);
+        total += v * coef;
+        maxSum += max * coef;
+        weighted += (v / max) * 100 * coef;
+        coefSum += coef;
         entered += 1;
       }
     });
     out[String(st.id)] = {
       studentId: String(st.id),
       total: entered ? total : null,
-      average: entered ? total / entered : null,
+      totalMax: entered ? maxSum : null,
+      average: entered && coefSum ? weighted / coefSum : null,
       entered,
       subjectRank: {},
     };
@@ -142,7 +191,7 @@ export const computePeriodResults = (
     const sr = rankMap(
       students.map((st) => {
         const v = scores?.[String(st.id)]?.[sid];
-        return { id: String(st.id), value: v === undefined ? null : v };
+        return { id: String(st.id), value: v === undefined || v === null ? null : v };
       })
     );
     Object.entries(sr).forEach(([id, r]) => (out[id].subjectRank[sid] = r));
@@ -177,12 +226,12 @@ export const computeSemesterResults = (
 ): { [studentId: string]: SemesterResult } => {
   const students = activeStudents(cls);
   const scores = cls.scores || {};
-  const exam = computePeriodResults(students, subjectIds, scores[`sem-${semester}`]);
+  const exam = computePeriodResults(students, subjectIds, scores[`sem-${semester}`], cls);
   const monthKeys = academicPeriods(academicYear)
     .filter((p) => p.month && semMonths.includes(p.month))
     .map((p) => p.key)
     .filter((k) => scores[k]);
-  const monthly = monthKeys.map((k) => computePeriodResults(students, subjectIds, scores[k]));
+  const monthly = monthKeys.map((k) => computePeriodResults(students, subjectIds, scores[k], cls));
 
   const out: { [id: string]: SemesterResult } = {};
   students.forEach((st) => {
@@ -196,7 +245,8 @@ export const computeSemesterResults = (
       monthlyAvg,
       semesterAvg,
       examRank: exam[id]?.rank,
-      subjectScores: Object.fromEntries(subjectIds.map((sid) => [sid, scores[`sem-${semester}`]?.[id]?.[sid] ?? null])),
+      // as percent, so /10 displays stay right whatever the subject's highest score
+      subjectScores: Object.fromEntries(subjectIds.map((sid) => [sid, toPct(scores[`sem-${semester}`]?.[id]?.[sid] ?? null, subjectCfg(cls, sid).max)])),
       subjectRanks: exam[id]?.subjectRank || {},
     };
   });
