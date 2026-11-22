@@ -396,6 +396,8 @@ interface AppContextType {
       amountUSD?: number;
       paymentDate?: string;
       notes?: string;
+      /** skip the per-payment Telegram alert (bulk payments send one summary) */
+      silent?: boolean;
     }
   ) => BusPaymentRecord | null;
   busAttendance: BusAttendanceRecord[];
@@ -4900,6 +4902,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return true;
   };
 
+  const busPaySeqRef = useRef(0);
   const recordBusPayment = (
     enrollmentId: string,
     payment: {
@@ -4910,6 +4913,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       amountUSD?: number;
       paymentDate?: string;
       notes?: string;
+      silent?: boolean;
     }
   ): BusPaymentRecord | null => {
     const enr = busEnrollments.find((e) => e.id === enrollmentId);
@@ -4928,11 +4932,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const finalAmountUSD = payment.amountUSD !== undefined ? payment.amountUSD : calculatedAmountUSD;
     const finalAmountKHR = Math.round(finalAmountUSD * settings.exchangeRate);
 
-    const receiptNo = `BUS-REC-${Date.now().toString().slice(-6)}`;
-    const invoiceNo = `BUS-INV-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`;
+    // unique even when several payments are recorded in the same millisecond (bulk pay)
+    const tick = Math.max(Date.now(), (busPaySeqRef.current || 0) + 1);
+    busPaySeqRef.current = tick;
+    const receiptNo = `BUS-REC-${tick.toString().slice(-6)}`;
+    const invoiceNo = `BUS-INV-${new Date().getFullYear()}-${tick.toString().slice(-4)}`;
 
     const newPaymentRecord: BusPaymentRecord = {
-      id: `bus-pay-${Date.now()}`,
+      id: `bus-pay-${tick}`,
       enrollmentId,
       studentId: enr.studentId,
       studentCode: enr.studentCode,
@@ -4989,7 +4996,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     // Send rich Telegram Alert
-    sendTelegramAlert(
+    if (!payment.silent) sendTelegramAlert(
       '🚌 ថ្លៃសេវារថយន្តសាលា (School Bus Fee Paid)',
       `សិស្ស៖ ${enr.studentName} (${enr.className})\nកូដសិស្ស៖ ${enr.studentCode}\nខ្សែរត់៖ ${routeName}\nខែទូទាត់៖ ${months.join(', ')} (${monthsCount} ខែ)\nចំនួនទឹកប្រាក់៖ $${finalAmountUSD.toFixed(2)} (${finalAmountKHR.toLocaleString()}៛)\nវិធីទូទាត់៖ ${payment.paidBy}\nលេខវិក្កយបត្រ៖ #${invoiceNo}\nអ្នកកត់ត្រា៖ ${currentUser.khmerName}`,
       'system',

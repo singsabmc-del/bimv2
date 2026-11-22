@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { TeacherProfileForm } from './TeacherProfileForm';
+import { BulkBar, downloadCSV, useRowSelection } from './BulkBar';
 import { TeacherRecord, SubjectItem, ScheduleSlot, ScheduleTimePeriod } from '../types';
 import {
   Users,
@@ -511,6 +512,27 @@ export const TeacherManagementView: React.FC<TeacherManagementViewProps> = ({
     });
   }, [teachers, teacherSearch]);
 
+  // Bulk actions on ticked teachers
+  const tSel = useRowSelection<string>(filteredTeachers.map((x) => x.id));
+  const bulkTeachers = filteredTeachers.filter((x) => tSel.has(x.id));
+  const bulkSetStatus = (status: TeacherRecord['status']) => {
+    if (!confirm(`ប្តូរស្ថានភាពគ្រូ ${bulkTeachers.length} នាក់?`)) return;
+    const ids = new Set(tSel.ids);
+    saveTeachers(teachers.map((x) => (ids.has(x.id) ? { ...x, status } : x)));
+    tSel.clear();
+  };
+  const bulkDeleteTeachers = () => {
+    if (!confirm(`លុបគ្រូ ${bulkTeachers.length} នាក់?\n\n${bulkTeachers.slice(0, 10).map((x) => '• ' + x.nameKhmer).join('\n')}`)) return;
+    const ids = new Set(tSel.ids);
+    saveTeachers(teachers.filter((x) => !ids.has(x.id)));
+    tSel.clear();
+  };
+  const bulkExportTeachers = () =>
+    downloadCSV('teachers_selected.csv', [
+      ['ល.រ', 'កូដ', 'ឈ្មោះ', 'Name', 'ភេទ', 'តួនាទី', 'ទូរស័ព្ទ', 'ស្ថានភាព'],
+      ...bulkTeachers.map((x, i) => [i + 1, x.teacherCode, x.nameKhmer, x.nameEnglish, x.gender, x.position || '', x.phone, x.status]),
+    ]);
+
   const handlePrint = () => {
     window.print();
   };
@@ -676,11 +698,28 @@ export const TeacherManagementView: React.FC<TeacherManagementViewProps> = ({
             </div>
 
             {/* Teacher Cards / Table Grid */}
+            <BulkBar
+              count={tSel.ids.length}
+              total={filteredTeachers.length}
+              all={tSel.all}
+              onToggleAll={tSel.toggleAll}
+              onClear={tSel.clear}
+              actions={[
+                { label: '⬇️ CSV', onClick: bulkExportTeachers },
+                { label: 'បង្រៀនសកម្ម', onClick: () => bulkSetStatus('active'), tone: 'green', hidden: !permissions.canEdit },
+                { label: 'ឈប់សម្រាក', onClick: () => bulkSetStatus('leave'), tone: 'amber', hidden: !permissions.canEdit },
+                { label: 'លាឈប់', onClick: () => bulkSetStatus('resigned'), tone: 'plain', hidden: !permissions.canEdit },
+                { label: `🗑 លុប (${tSel.ids.length})`, onClick: bulkDeleteTeachers, tone: 'red', hidden: !permissions.canDelete },
+              ]}
+            />
             <div className="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200 font-khmer">
+                      <th className="py-3 px-2 text-center w-8 no-print">
+                        <input type="checkbox" className="accent-amber-600" checked={tSel.all} onChange={tSel.toggleAll} />
+                      </th>
                       <th className="py-3 px-3.5 text-center w-12">ល.រ</th>
                       <th className="py-3 px-4">កូដគ្រូ</th>
                       <th className="py-3 px-4">ឈ្មោះគ្រូបង្រៀន</th>
@@ -698,13 +737,16 @@ export const TeacherManagementView: React.FC<TeacherManagementViewProps> = ({
                   <tbody className="divide-y divide-slate-100 font-sans">
                     {filteredTeachers.length === 0 ? (
                       <tr>
-                        <td colSpan={10} className="py-8 text-center text-slate-400 font-khmer">
+                        <td colSpan={11} className="py-8 text-center text-slate-400 font-khmer">
                           មិនមានទិន្នន័យគ្រូបង្រៀនដែលត្រូវនឹងការស្វែងរកទេ
                         </td>
                       </tr>
                     ) : (
                       filteredTeachers.map((tch, idx) => (
-                        <tr key={tch.id} className="hover:bg-slate-50/80 transition-colors">
+                        <tr key={tch.id} className={`${tSel.has(tch.id) ? 'bg-amber-50' : 'hover:bg-slate-50/80'} transition-colors`}>
+                          <td className="py-3 px-2 text-center no-print">
+                            <input type="checkbox" className="accent-amber-600" checked={tSel.has(tch.id)} onChange={() => tSel.toggle(tch.id)} />
+                          </td>
                           <td className="py-3 px-3.5 text-center font-mono text-slate-500">
                             {idx + 1}
                           </td>
@@ -756,7 +798,7 @@ export const TeacherManagementView: React.FC<TeacherManagementViewProps> = ({
                                   : 'bg-amber-100 text-amber-800'
                               }`}
                             >
-                              {tch.status === 'active' ? 'បង្រៀនសកម្ម' : 'ឈប់សម្រាក'}
+                              {tch.status === 'active' ? 'បង្រៀនសកម្ម' : tch.status === 'resigned' ? 'លាឈប់' : 'ឈប់សម្រាក'}
                             </span>
                             {tch.workStatus && <div className="mt-1 text-[10px] text-slate-500 font-khmer">{tch.workStatus}</div>}
                           </td>
