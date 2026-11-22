@@ -217,6 +217,8 @@ export interface ClassFeeData {
   // ── Academic (scores) — kept per class, so each academic year's archive keeps its own scores ──
   subjectIds?: string[]; // subjects taught/scored in this class (ids from SubjectItem)
   scores?: ClassScoreBook; // { periodKey: { studentId: { subjectId: score(0-100) } } }
+  /** when each score cell was last changed (same shape) — lets devices merge cell by cell */
+  scoresT?: Record<string, Record<string, Record<string, number>>>;
   bookletNotes?: { [studentId: string]: StudentBookletNote };
 }
 

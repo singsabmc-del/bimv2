@@ -53,6 +53,36 @@ const mergeDel = (a: SyncMeta['del'] = {}, b: SyncMeta['del'] = {}) => {
 };
 
 /** Merge a stored state (`a`) with an incoming save (`b`). Incoming wins ties. */
+/**
+ * Scores are merged cell by cell (period → student → subject) using `scoresT` stamps, so two
+ * teachers typing scores for the same class at the same time keep both sets of marks.
+ */
+export const mergeScoreBooks = (ca: any, cb: any, bWins: boolean) => {
+  const sa = ca.scores || {}, sb = cb.scores || {};
+  const ta = ca.scoresT || {}, tb = cb.scoresT || {};
+  const scores: any = {}, scoresT: any = {};
+  new Set([...Object.keys(sa), ...Object.keys(sb)]).forEach((p) => {
+    scores[p] = {};
+    scoresT[p] = {};
+    new Set([...Object.keys(sa[p] || {}), ...Object.keys(sb[p] || {})]).forEach((st) => {
+      const ra = sa[p]?.[st] || {}, rb = sb[p]?.[st] || {};
+      const xa = ta[p]?.[st] || {}, xb = tb[p]?.[st] || {};
+      const row: any = {}, rowT: any = {};
+      new Set([...Object.keys(ra), ...Object.keys(rb)]).forEach((sub) => {
+        const inA = sub in ra, inB = sub in rb;
+        const tA = Number(xa[sub]) || 0, tB = Number(xb[sub]) || 0;
+        const useB = inB && (!inA || tB > tA || (tB === tA && bWins));
+        row[sub] = useB ? rb[sub] : ra[sub];
+        const t = useB ? tB : tA;
+        if (t) rowT[sub] = t;
+      });
+      scores[p][st] = row;
+      if (Object.keys(rowT).length) scoresT[p][st] = rowT;
+    });
+  });
+  return { scores, scoresT };
+};
+
 export const mergeFullState = (a: any, b: any) => {
   if (!a || typeof a !== 'object') return b;
   if (!b || typeof b !== 'object') return a;
@@ -101,6 +131,7 @@ export const mergeFullState = (a: any, b: any) => {
         merged[cid] = {
           ...base,
           students: mergeIdLists(ca.students || [], cb.students || [], del[`classes.${cid}.students`]),
+          ...(ca.scores || cb.scores ? mergeScoreBooks(ca, cb, tb >= ta) : {}),
         };
       });
       out[s] = merged;
