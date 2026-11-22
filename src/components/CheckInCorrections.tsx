@@ -179,8 +179,19 @@ export const CorrectionRequestsList: React.FC<{ teacherId?: string; canDecide?: 
   const list = filter === 'pending' ? all.filter((c) => c.status === 'pending') : all;
   const by = currentUser.khmerName || currentUser.name;
 
-  const decide = (c: CheckInCorrection, ok: boolean) => {
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const pickable = list.filter((c) => c.status === 'pending');
+  const pickedList = pickable.filter((c) => picked.has(c.id));
+  const allPicked = pickable.length > 0 && pickable.every((c) => picked.has(c.id));
+  const decideMany = (ok: boolean) => {
+    if (!pickedList.length || !window.confirm(`${ok ? 'អនុម័ត' : 'បដិសេធ'}សំណើ ${pickedList.length}?`)) return;
     const note = ok ? '' : window.prompt('មូលហេតុបដិសេធ (ជម្រើស)') || '';
+    pickedList.forEach((c) => decide(c, ok, note));
+    setPicked(new Set());
+  };
+
+  const decide = (c: CheckInCorrection, ok: boolean, presetNote?: string) => {
+    const note = presetNote !== undefined ? presetNote : ok ? '' : window.prompt('មូលហេតុបដិសេធ (ជម្រើស)') || '';
     setTeacherCheckIn((p: any) => {
       let next = {
         ...p,
@@ -211,12 +222,34 @@ export const CorrectionRequestsList: React.FC<{ teacherId?: string; canDecide?: 
           ))}
         </div>
       </div>
+      {canDecide && pickable.length > 0 && (
+        <div className="mb-2 flex flex-wrap items-center gap-2 rounded-xl bg-amber-50 px-3 py-1.5 text-xs">
+          <label className="flex items-center gap-1.5 font-bold text-amber-950">
+            <input type="checkbox" className="accent-amber-600" checked={allPicked} onChange={() => setPicked(allPicked ? new Set() : new Set(pickable.map((c) => c.id)))} />
+            ជ្រើសទាំងអស់ ({pickable.length})
+          </label>
+          {pickedList.length > 0 && (
+            <div className="ml-auto flex gap-1.5">
+              <button onClick={() => decideMany(true)} className="flex items-center gap-1 rounded-lg bg-emerald-600 px-2 py-1 text-[11px] font-bold text-white hover:bg-emerald-700"><Check className="h-3.5 w-3.5" /> អនុម័ត ({pickedList.length})</button>
+              <button onClick={() => decideMany(false)} className="flex items-center gap-1 rounded-lg bg-rose-50 px-2 py-1 text-[11px] font-bold text-rose-700 hover:bg-rose-100"><X className="h-3.5 w-3.5" /> បដិសេធ ({pickedList.length})</button>
+            </div>
+          )}
+        </div>
+      )}
       {list.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-200 p-4 text-center text-xs text-slate-400">មិនមានសំណើ</div>
       ) : (
         <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 text-xs">
           {list.map((c) => (
-            <div key={c.id} className="flex flex-wrap items-center gap-2 px-3 py-2">
+            <div key={c.id} className={`flex flex-wrap items-center gap-2 px-3 py-2 ${picked.has(c.id) ? 'bg-amber-50' : ''}`}>
+              {canDecide && c.status === 'pending' && (
+                <input
+                  type="checkbox"
+                  className="accent-amber-600"
+                  checked={picked.has(c.id)}
+                  onChange={() => setPicked((p) => { const n = new Set(p); if (n.has(c.id)) n.delete(c.id); else n.add(c.id); return n; })}
+                />
+              )}
               <div className="min-w-0 flex-1">
                 <div className="font-bold text-slate-900">
                   {!teacherId && <>{c.teacherName} · </>}

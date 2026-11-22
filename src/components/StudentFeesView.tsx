@@ -136,6 +136,7 @@ export const StudentFeesView: React.FC<StudentFeesViewProps> = ({ onPrintReport,
     currentBranch,
     settings,
     sendTelegramAlert,
+    showNotification,
     t,
     openInvoiceVerification,
   } = useApp();
@@ -149,6 +150,10 @@ export const StudentFeesView: React.FC<StudentFeesViewProps> = ({ onPrintReport,
 
   // Student Selection for Batch Actions (Admin Only)
   const [selectedStudentIds, setSelectedStudentIds] = useState<number[]>([]);
+  // Bulk actions on selected rows (anyone who can edit fees)
+  const [isBulkPayOpen, setIsBulkPayOpen] = useState(false);
+  const [bulkPayMethod, setBulkPayMethod] = useState<'Cash' | 'ABA' | 'AC'>('Cash');
+  const [bulkPayDate, setBulkPayDate] = useState(new Date().toISOString().slice(0, 10));
   const [isClearHistoryModalOpen, setIsClearHistoryModalOpen] = useState(false);
   const [clearHistoryScope, setClearHistoryScope] = useState<'selected' | 'current_class' | 'all_classes'>('selected');
   const [clearHistoryResetActiveStatus, setClearHistoryResetActiveStatus] = useState(true);
@@ -639,6 +644,134 @@ export const StudentFeesView: React.FC<StudentFeesViewProps> = ({ onPrintReport,
   const totalCashCollected = currentClass.totalCollectedCash;
   // Official summary follows the month chosen in the filter
   const monthlySummary = computeMonthlyFeeSummary(currentClass.students || [], globalMonth, globalYear);
+
+  // ---------- Bulk actions on selected students ----------
+  const canBulk = !!permissions.canEdit;
+  const selectedRows = currentClass.students.filter((st) => selectedStudentIds.includes(st.id));
+  const firstUnpaidMonth = (st: StudentFeeRecord) => {
+    const paid = new Set<string>();
+    st.feeHistory?.forEach((rec) => {
+      if (rec.months && rec.months.length) rec.months.forEach((m) => paid.add(m));
+      else if (rec.month) paid.add(rec.month);
+    });
+    return ACADEMIC_MONTHS.find((m) => !paid.has(m)) || `${globalMonth} ${globalYear}`;
+  };
+  const rateOf = (st: StudentFeeRecord) => (st.caseType === 'Full' ? 12.5 : st.caseType === '50%' ? 6.25 : 5.0);
+  // stopped students are skipped
+  const bulkPayable = selectedRows.filter((st) => !st.feesGroup.toLowerCase().includes('stop'));
+  const bulkPayTotal = bulkPayable.reduce((sum, st) => sum + rateOf(st), 0);
+
+  const handleBulkPay = () => {
+    if (bulkPayable.length === 0) return;
+    const stamp = Date.now().toString().slice(-5);
+    const lines: string[] = [];
+    bulkPayable.forEach((st, i) => {
+      const month = firstUnpaidMonth(st);
+      const amount = rateOf(st);
+      recordStudentPayment(currentClass.classId, st.id, {
+        month,
+        months: [month],
+        monthsCount: 1,
+        feePerMonthUSD: amount,
+        discountUSD: 0,
+        amountUSD: amount,
+        paidBy: bulkPayMethod,
+        date: toSchoolDate(bulkPayDate),
+        receiptNo: `REC-${stamp}${String(i + 1).padStart(2, '0')}`,
+        invoiceNo: `INV-${new Date().getFullYear()}-${stamp}${String(i + 1).padStart(2, '0')}`,
+        note: `បង់ថ្លៃសិក្សា ${getKhmerMonthName(month)} (បង់ជាក្រុម)`,
+        sendTelegram: false,
+      });
+      lines.push(`• ${st.name} — ${getKhmerMonthName(month)} $${amount.toFixed(2)}`);
+    });
+    sendTelegramAlert?.(
+      `💵 បង់ប្រាក់ជាក្រុម ${bulkPayable.length} នាក់ (${currentClass.className})`,
+      [...lines, `សរុប៖ $${bulkPayTotal.toFixed(2)} · ${bulkPayMethod}`, `ថ្ងៃ៖ ${bulkPayDate}`].join('\n'),
+      'fee'
+    );
+    showNotification?.(`បានកត់ត្រាការបង់ប្រាក់ ${bulkPayable.length} នាក់`, 'success');
+    setIsBulkPayOpen(false);
+    setSelectedStudentIds([]);
+  };
+
+  const handleBulkRemind = () => {
+    const targets = selectedRows.filter((st) => !st.feesGroup.toLowerCase().includes('stop'));
+    if (targets.length === 0) return;
+    sendTelegramAlert?.(
+      `📨 រំលឹកបង់ថ្លៃសិក្សា · ${currentClass.className}`,
+      [
+        `សិស្ស ${targets.length} នាក់ ត្រូវបង់ថ្លៃសិក្សា៖`,
+        ...targets.map(
+          (st) =>
+            `• ${st.name} (${st.studentCode}) — ${getKhmerMonthName(firstUnpaidMonth(st))} $${rateOf(st).toFixed(2)}${st.guardianPhone || st.phone ? ` · ☎ ${st.guardianPhone || st.phone}` : ''}`
+        ),
+      ].join('\n'),
+      'system'
+    );
+    showNotification?.(`បានផ្ញើការរំលឹកសិស្ស ${targets.length} នាក់ទៅ Telegram`, 'success');
+  };
+
+  const handleBulkExport = () => {
+    const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const rows = [
+      ['ល.រ', 'អត្តលេខ', 'ឈ្មោះ', 'ភេទ', 'ប្រភេទ', 'ស្ថានភាព', 'ខែមិនទាន់បង់', 'តម្លៃ/ខែ ($)', 'ទូរស័ព្ទ'],
+      ...selectedRows.map((st, i) => [i + 1, st.studentCode, st.name, st.gender, st.caseType, st.feesGroup, firstUnpaidMonth(st), rateOf(st), st.guardianPhone || st.phone || '']),
+    ];
+    const blob = new Blob(['﻿' + rows.map((r) => r.map(esc).join(',')).join('\n')], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `fees_${currentClass.className}_selected.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  const bulkPayModal = isBulkPayOpen && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 no-print" onClick={() => setIsBulkPayOpen(false)}>
+      <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl font-khmer" onClick={(e) => e.stopPropagation()}>
+        <div className="text-base font-bold text-slate-900">💵 បង់ប្រាក់ជាក្រុម</div>
+        <p className="mt-1 text-xs text-slate-500">
+          កត់ត្រាការបង់ ១ ខែ (ខែដែលមិនទាន់បង់ដំបូងគេ) សម្រាប់សិស្សម្នាក់ៗ តាមតម្លៃប្រភេទសិស្ស។
+          {selectedRows.length > bulkPayable.length && ` សិស្សឈប់ ${selectedRows.length - bulkPayable.length} នាក់ត្រូវបានរំលង។`}
+        </p>
+        <div className="mt-3 max-h-52 overflow-y-auto divide-y divide-slate-100 rounded-xl border border-slate-200 text-xs">
+          {bulkPayable.map((st) => (
+            <div key={st.id} className="flex justify-between px-3 py-1.5">
+              <span className="font-bold">{st.name}</span>
+              <span className="text-slate-600">
+                {getKhmerMonthName(firstUnpaidMonth(st))} · <b className="font-mono">${rateOf(st).toFixed(2)}</b>
+              </span>
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-bold text-slate-600">
+          <label className="flex flex-col gap-1">
+            វិធីបង់
+            <select value={bulkPayMethod} onChange={(e) => setBulkPayMethod(e.target.value as any)} className="rounded-lg border border-slate-200 px-2 py-2">
+              <option value="Cash">Cash</option>
+              <option value="ABA">ABA</option>
+              <option value="AC">AC</option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-1">
+            ថ្ងៃបង់
+            <input type="date" value={bulkPayDate} onChange={(e) => setBulkPayDate(e.target.value)} className="rounded-lg border border-slate-200 px-2 py-1.5 font-mono" />
+          </label>
+        </div>
+        <div className="mt-3 flex items-center justify-between rounded-xl bg-emerald-50 px-3 py-2 text-sm">
+          <span>សរុប {bulkPayable.length} នាក់</span>
+          <b className="font-mono text-emerald-800">${bulkPayTotal.toFixed(2)}</b>
+        </div>
+        <div className="mt-3 flex gap-2">
+          <button onClick={() => setIsBulkPayOpen(false)} className="flex-1 rounded-xl border border-slate-200 py-2 text-sm font-bold text-slate-600">
+            បោះបង់
+          </button>
+          <button onClick={handleBulkPay} disabled={bulkPayable.length === 0} className="flex-1 rounded-xl bg-emerald-600 py-2 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-40">
+            បញ្ជាក់ការបង់
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 
   const classToolButtons = (
     <>
@@ -1694,8 +1827,8 @@ export const StudentFeesView: React.FC<StudentFeesViewProps> = ({ onPrintReport,
         </div>
       </div>
 
-      {/* Batch Action Bar for Selected Students (Admin Only) */}
-      {currentUser.role === 'admin' && selectedStudentIds.length > 0 && (
+      {/* Batch Action Bar for Selected Students */}
+      {canBulk && selectedStudentIds.length > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-amber-50 border border-amber-300 rounded-xl shadow-xs">
           <div className="flex items-center gap-3">
             <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-600 text-white font-mono font-bold text-xs">
@@ -1714,6 +1847,28 @@ export const StudentFeesView: React.FC<StudentFeesViewProps> = ({ onPrintReport,
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => { setBulkPayMethod('Cash'); setBulkPayDate(new Date().toISOString().slice(0, 10)); setIsBulkPayOpen(true); }}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold font-khmer transition-all shadow-xs cursor-pointer"
+            >
+              <span>💵 បង់ប្រាក់ ({bulkPayable.length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleBulkRemind}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-bold font-khmer transition-all shadow-xs cursor-pointer"
+            >
+              <span>📨 រំលឹកតាម Telegram</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleBulkExport}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-bold font-khmer transition-all shadow-2xs cursor-pointer"
+            >
+              <span>⬇️ CSV ({selectedStudentIds.length})</span>
+            </button>
+            {currentUser.role === 'admin' && (<>
             <button
               type="button"
               onClick={() => {
@@ -1753,6 +1908,7 @@ export const StudentFeesView: React.FC<StudentFeesViewProps> = ({ onPrintReport,
               <RotateCcw className="w-3.5 h-3.5 text-rose-300" />
               <span>សម្អាតគ្រប់សិស្សទាំងអស់តែម្តង (All Classes)</span>
             </button>
+            </>)}
           </div>
         </div>
       )}
@@ -1763,7 +1919,7 @@ export const StudentFeesView: React.FC<StudentFeesViewProps> = ({ onPrintReport,
           <table className="w-full text-xs text-left border-collapse min-w-[900px]">
             <thead>
               <tr className="bg-amber-400 text-slate-900 font-bold border-b border-amber-500 select-none">
-                {currentUser.role === 'admin' && (
+                {canBulk && (
                   <th className="py-2.5 px-2 border-r border-amber-500 text-center w-10 select-none">
                     <input
                       type="checkbox"
@@ -1915,7 +2071,7 @@ export const StudentFeesView: React.FC<StudentFeesViewProps> = ({ onPrintReport,
 
                   return (
                     <tr key={st.id} className={`${rowBg} transition-colors`}>
-                      {currentUser.role === 'admin' && (
+                      {canBulk && (
                         <td className="py-2.5 px-2 border-r border-slate-200 text-center">
                           <input
                             type="checkbox"
@@ -3017,6 +3173,7 @@ export const StudentFeesView: React.FC<StudentFeesViewProps> = ({ onPrintReport,
       )}
 
       {studentToolModals}
+      {bulkPayModal}
 
       {/* Clear Payment History Modal (សម្អាតប្រវត្តិបង់ប្រាក់តាមជ្រើសរើស ឬ ទាំងអស់ - Admin Only) */}
       {isClearHistoryModalOpen && currentUser.role === 'admin' && (

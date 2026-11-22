@@ -135,6 +135,24 @@ export const TeacherLeaveRequestView: React.FC = () => {
     [requests, selfOnly, linkedTeacher, filter]
   );
   const pendingCount = requests.filter((r) => r.status === 'pending').length;
+  // Bulk approve / reject ticked pending requests
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const canBulk = canApprove && !selfOnly;
+  const pickable = visible.filter((r) => r.status === 'pending');
+  const pickedReqs = pickable.filter((r) => picked.has(r.id));
+  const allPicked = pickable.length > 0 && pickable.every((r) => picked.has(r.id));
+  const togglePick = (id: string) => setPicked((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const decideMany = (status: 'approved' | 'rejected') => {
+    if (pickedReqs.length === 0) return;
+    if (!confirm(`${status === 'approved' ? 'អនុម័ត' : 'បដិសេធ'}សំណើ ${pickedReqs.length}?`)) return;
+    const note = status === 'rejected' ? prompt('មូលហេតុបដិសេធ (ជម្រើស)') || '' : '';
+    pickedReqs.forEach((r) => decide(r, status, { note, silent: true }));
+    tg(status === 'approved' ? `✅ អនុម័តសំណើសុំច្បាប់ ${pickedReqs.length}` : `❌ បដិសេធសំណើសុំច្បាប់ ${pickedReqs.length}`, [
+      ...pickedReqs.map((r) => `• ${r.teacherName} · ${typeLabel(r.type)} · ${whenText(r)}`),
+      `ដោយ៖ ${currentUser.khmerName || currentUser.name}${note ? ` — ${note}` : ''}`,
+    ]);
+    setPicked(new Set());
+  };
 
   const tg = (title: string, lines: string[]) => {
     try {
@@ -189,8 +207,8 @@ export const TeacherLeaveRequestView: React.FC = () => {
     setTab('list');
   };
 
-  const decide = (req: TeacherLeaveRequest, status: 'approved' | 'rejected') => {
-    const note = status === 'rejected' ? prompt('មូលហេតុបដិសេធ (ជម្រើស)') || '' : '';
+  const decide = (req: TeacherLeaveRequest, status: 'approved' | 'rejected', preset?: { note: string; silent?: boolean }) => {
+    const note = preset ? preset.note : status === 'rejected' ? prompt('មូលហេតុបដិសេធ (ជម្រើស)') || '' : '';
     setTeacherCheckIn((p: any) => {
       const decided = {
         ...req, status, decisionNote: note, decidedAt: new Date().toISOString(), decidedBy: currentUser.khmerName || currentUser.name,
@@ -217,6 +235,7 @@ export const TeacherLeaveRequestView: React.FC = () => {
       }
       return { ...p, records, leaveRequests: (p.leaveRequests || []).map((r: TeacherLeaveRequest) => (r.id === req.id ? decided : r)) };
     });
+    if (preset?.silent) return;
     tg(status === 'approved' ? '✅ សំណើសុំច្បាប់ត្រូវបានអនុម័ត' : '❌ សំណើសុំច្បាប់ត្រូវបានបដិសេធ', [
       `👤 ${req.teacherName} · ${typeLabel(req.type)}`,
       `📅 ${whenText(req)} — ${fmtDH(hoursOf(req), perDay)}`,
@@ -496,14 +515,32 @@ export const TeacherLeaveRequestView: React.FC = () => {
               ))}
             </div>
           </div>
+          {canBulk && pickable.length > 0 && (
+            <div className="mb-2 flex flex-wrap items-center gap-2 rounded-xl bg-amber-50 px-3 py-2 text-xs">
+              <label className="flex items-center gap-1.5 font-bold text-amber-950">
+                <input type="checkbox" className="accent-amber-600" checked={allPicked} onChange={() => setPicked(allPicked ? new Set() : new Set(pickable.map((r) => r.id)))} />
+                ជ្រើសសំណើរង់ចាំទាំងអស់ ({pickable.length})
+              </label>
+              {pickedReqs.length > 0 && (
+                <div className="ml-auto flex gap-1.5">
+                  <button type="button" onClick={() => decideMany('approved')} className="flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 font-bold text-white hover:bg-emerald-700"><Check className="h-3.5 w-3.5" /> អនុម័ត ({pickedReqs.length})</button>
+                  <button type="button" onClick={() => decideMany('rejected')} className="flex items-center gap-1 rounded-lg bg-rose-600 px-2.5 py-1 font-bold text-white hover:bg-rose-700"><X className="h-3.5 w-3.5" /> បដិសេធ ({pickedReqs.length})</button>
+                </div>
+              )}
+            </div>
+          )}
           <div className="space-y-2">
             {visible.length === 0 && <div className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-xs text-slate-400">មិនមានសំណើ</div>}
             {visible.map((r) => {
               const q = quotas[r.type] || 0;
               const left = q * perDay - balanceOf(r.teacherId)[r.type]?.used;
               return (
-                <div key={r.id} className="rounded-xl border border-slate-200 p-3 text-xs">
+                <div key={r.id} className={`rounded-xl border p-3 text-xs ${picked.has(r.id) ? 'border-amber-300 bg-amber-50/60' : 'border-slate-200'}`}>
                   <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="flex items-start gap-2">
+                    {canBulk && r.status === 'pending' && (
+                      <input type="checkbox" className="mt-0.5 accent-amber-600" checked={picked.has(r.id)} onChange={() => togglePick(r.id)} />
+                    )}
                     <div>
                       <div className="font-bold text-slate-900">
                         {r.teacherName} · <span className="text-teal-700">{typeLabel(r.type)}</span>
@@ -517,6 +554,7 @@ export const TeacherLeaveRequestView: React.FC = () => {
                         {r.decisionNote && ` — ${r.decisionNote}`}
                         {q > 0 && ` · ប្រភេទនេះនៅសល់ ${fmtDH(Math.max(0, left), perDay)}`}
                       </div>
+                    </div>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${STATUS[r.status].cls}`}>{STATUS[r.status].label}</span>

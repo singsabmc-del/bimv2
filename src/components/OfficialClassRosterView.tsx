@@ -68,7 +68,6 @@ export interface RosterStudentRow {
   originalStudent?: StudentFeeRecord;
 }
 
-// 15 Students Transcribed Faithfully from User Uploaded Image
 
 export const OfficialClassRosterView: React.FC = () => {
   const {
@@ -90,6 +89,8 @@ export const OfficialClassRosterView: React.FC = () => {
     currentUser,
     deleteStudent,
     showNotification,
+    updateStudentFee,
+    globalMonth,
   } = useApp();
 
   // Academic year shown in this roster. An archived (old) year is shown read-only straight from its
@@ -847,6 +848,25 @@ export const OfficialClassRosterView: React.FC = () => {
               }}
               onEdit={(st) => setEditStudent(st)}
               onPayHistory={(st) => setPayHistoryStudent(st)}
+              onBulkDelete={(list) => {
+                if (!window.confirm(`លុបសិស្ស ${list.length} នាក់ ចេញពីថ្នាក់នេះ?\n\n${list.slice(0, 10).map((s) => '• ' + s.name).join('\n')}${list.length > 10 ? '\n…' : ''}\n\nប្រវត្តិបង់ប្រាក់របស់សិស្សទាំងនេះក៏នឹងត្រូវលុបដែរ។`)) return;
+                let n = 0;
+                list.forEach((s) => { if (deleteStudent(rosterSourceClassId, s.id)) n++; });
+                if (n) showNotification?.(`បានលុបសិស្ស ${n} នាក់`, 'success');
+              }}
+              onBulkSetStopped={(list, stopped) => {
+                if (!window.confirm(`${stopped ? 'ដាក់ឈប់រៀន' : 'ដាក់ចូលរៀនវិញ'} សិស្ស ${list.length} នាក់?`)) return;
+                const today = new Date();
+                const dd = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
+                list.forEach((s) =>
+                  updateStudentFee(
+                    rosterSourceClassId,
+                    s.id,
+                    stopped ? { feesGroup: 'Stopped', paymentDate: 'ឈប់រៀន', paidBy: '$ -', cash: 0 } : { feesGroup: globalMonth, paymentDate: dd, paidBy: 'Cash', cash: 0 }
+                  )
+                );
+                showNotification?.(`បានធ្វើបច្ចុប្បន្នភាពសិស្ស ${list.length} នាក់`, 'success');
+              }}
               onDelete={(st) => {
                 if (!window.confirm(`តើអ្នកពិតជាចង់លុបសិស្ស «${st.name}» (${st.studentCode || ''}) ចេញពីថ្នាក់នេះមែនទេ?\n\nប្រវត្តិបង់ប្រាក់របស់សិស្សនេះក៏នឹងត្រូវលុបដែរ។`)) return;
                 if (deleteStudent(rosterSourceClassId, st.id)) showNotification?.(`បានលុបសិស្ស ${st.name}`, 'success');

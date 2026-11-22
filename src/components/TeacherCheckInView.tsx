@@ -5,7 +5,7 @@ import { useApp } from '../context/AppContext';
 import type { CheckInGeofence, GeoPoint, TeacherCheckInRecord, TeacherRecord } from '../types';
 import { distanceMeters, getCurrentPosition, holidayOn, shiftFor } from '../utils/shifts';
 import { StaffAttendance31DayReport } from './StaffAttendance31DayReport';
-import { CorrectionFormModal, CorrectionRequestsList } from './CheckInCorrections';
+import { CorrectionFormModal, CorrectionRequestsList, applyCorrectionTo } from './CheckInCorrections';
 import { MapPin, Car, PencilLine, LogIn, LogOut, Clock, Search, Printer, Settings2, CalendarDays, UserCheck, FileText, Trash2, ListChecks, Users, ClipboardCheck, Send } from 'lucide-react';
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -58,6 +58,38 @@ export const TeacherCheckInView: React.FC = () => {
   const [showSettings, setShowSettings] = useState(false);
   // Forgot to scan in / out → correction request (staff) or direct fix (Admin)
   const [corrFor, setCorrFor] = useState<null | { mode: 'request' | 'edit'; teacher: TeacherRecord; date: string }>(null);
+  // Bulk: tick staff in the daily sheet and set present / leave / absent in one click
+  const [pickedStaff, setPickedStaff] = useState<Set<string>>(new Set());
+  useEffect(() => setPickedStaff(new Set()), [date]);
+  const bulkMark = (kind: 'present' | 'leave' | 'absent' | 'clear') => {
+    const ids = [...pickedStaff];
+    if (!ids.length) return;
+    const label = { present: 'មក (ម៉ោងចូលតាមវេន)', leave: 'ច្បាប់', absent: 'អវត្តមាន', clear: 'លុបវត្តមាន' }[kind];
+    if (!confirm(`${label} សម្រាប់បុគ្គលិក ${ids.length} នាក់ ថ្ងៃ ${date}?`)) return;
+    const by = currentUser.khmerName || currentUser.name;
+    setTeacherCheckIn((prev: any) => {
+      let next = prev;
+      ids.forEach((id) => {
+        if (kind === 'clear') {
+          next = { ...next, records: next.records.filter((r: TeacherCheckInRecord) => r.id !== `${date}_${id}`) };
+          return;
+        }
+        const existing = next.records.find((r: TeacherCheckInRecord) => r.id === `${date}_${id}`);
+        next = applyCorrectionTo(next, {
+          teacherId: id,
+          date,
+          checkIn: kind === 'present' ? existing?.checkIn || shiftFor(next, id, date)?.start || next.startTime : undefined,
+          note: kind === 'present' ? existing?.note || 'ដាក់វត្តមានជាក្រុម' : kind === 'leave' ? 'ច្បាប់ (ដាក់ជាក្រុម)' : 'អវត្តមាន (ដាក់ជាក្រុម)',
+          by,
+          status: kind === 'present' ? undefined : kind,
+        });
+      });
+      return next;
+    });
+    if (kind !== 'clear') ids.forEach((id) => mirrorToAttendanceSheet(date, id, kind === 'present' ? 'on_time' : kind));
+    showNotification?.(`បានធ្វើបច្ចុប្បន្នភាពបុគ្គលិក ${ids.length} នាក់`, 'success');
+    setPickedStaff(new Set());
+  };
   const corrModal = corrFor && <CorrectionFormModal mode={corrFor.mode} teacher={corrFor.teacher} date={corrFor.date} onClose={() => setCorrFor(null)} />;
 
   const { records, startTime, endTime, lateGraceMinutes } = teacherCheckIn;
@@ -658,10 +690,34 @@ export const TeacherCheckInView: React.FC = () => {
                 <Printer className="h-4 w-4" /> បោះពុម្ព
               </button>
             </div>
+            {canManage && pickedStaff.size > 0 && (
+              <div className="no-print mb-2 flex flex-wrap items-center gap-2 rounded-xl bg-amber-50 px-3 py-2 text-xs">
+                <span className="rounded-full bg-amber-500 px-2 py-0.5 font-mono font-bold text-white">{pickedStaff.size}</span>
+                <span className="font-bold text-amber-950">បានជ្រើស · ថ្ងៃ {date}</span>
+                <button onClick={() => setPickedStaff(new Set())} className="text-amber-800 underline">ដោះការជ្រើស</button>
+                <div className="ml-auto flex flex-wrap gap-1.5">
+                  <button onClick={() => bulkMark('present')} className="rounded-lg bg-emerald-600 px-2.5 py-1 font-bold text-white hover:bg-emerald-700">✓ មក</button>
+                  <button onClick={() => bulkMark('leave')} className="rounded-lg bg-sky-600 px-2.5 py-1 font-bold text-white hover:bg-sky-700">ច្បាប់</button>
+                  <button onClick={() => bulkMark('absent')} className="rounded-lg bg-rose-600 px-2.5 py-1 font-bold text-white hover:bg-rose-700">អវត្តមាន</button>
+                  <button onClick={() => bulkMark('clear')} className="rounded-lg border border-slate-300 bg-white px-2.5 py-1 font-bold text-slate-600 hover:bg-slate-50">លុបវត្តមាន</button>
+                </div>
+              </div>
+            )}
             <div className="overflow-x-auto rounded-xl border border-slate-300">
               <table className="w-full border-collapse text-xs">
                 <thead>
                   <tr className="bg-amber-400 text-slate-900">
+                    {canManage && (
+                      <th className="no-print border-r border-amber-500 px-2 py-2 text-center">
+                        <input
+                          type="checkbox"
+                          className="accent-slate-900"
+                          title="ជ្រើសទាំងអស់"
+                          checked={(teachers as TeacherRecord[]).length > 0 && (teachers as TeacherRecord[]).every((t) => pickedStaff.has(t.id))}
+                          onChange={(e) => setPickedStaff(e.target.checked ? new Set((teachers as TeacherRecord[]).map((t) => t.id)) : new Set())}
+                        />
+                      </th>
+                    )}
                     {['ល.រ', 'ឈ្មោះ', 'តួនាទី', 'វេន', 'ម៉ោងចូល', 'ម៉ោងចេញ', 'រយៈពេល', 'ស្ថានភាព', 'កំណត់សម្គាល់'].map((h) => (
                       <th key={h} className="border-r border-amber-500 px-2 py-2 text-center font-bold">{h}</th>
                     ))}
@@ -673,7 +729,17 @@ export const TeacherCheckInView: React.FC = () => {
                     const r = recOf(t.id);
                     const st = r ? r.status : 'none';
                     return (
-                      <tr key={t.id} className="hover:bg-slate-50">
+                      <tr key={t.id} className={pickedStaff.has(t.id) ? 'bg-amber-50' : 'hover:bg-slate-50'}>
+                        {canManage && (
+                          <td className="no-print border-r border-slate-200 px-2 py-1.5 text-center">
+                            <input
+                              type="checkbox"
+                              className="accent-amber-600"
+                              checked={pickedStaff.has(t.id)}
+                              onChange={() => setPickedStaff((p) => { const n = new Set(p); if (n.has(t.id)) n.delete(t.id); else n.add(t.id); return n; })}
+                            />
+                          </td>
+                        )}
                         <td className="border-r border-slate-200 px-2 py-1.5 text-center font-mono">{i + 1}</td>
                         <td className="border-r border-slate-200 px-2 py-1.5">
                           <div className="font-bold text-slate-900">{t.nameKhmer}</div>

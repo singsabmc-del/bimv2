@@ -132,7 +132,7 @@ export const STUDENT_GRID_COLUMNS: ColDef[] = [
   { key: 'feesGroup', label: 'ស្ថានភាព', group: 'VI. ផ្សេងៗ', width: 100, get: (s) => s.feesGroup },
 ];
 
-const NO_WIDTH = 44;
+const NO_WIDTH = 64;
 const PREF_KEY = 'BIM_STUDENT_GRID_PREFS';
 
 interface Props {
@@ -146,6 +146,9 @@ interface Props {
   onDelete?: (st: StudentFeeRecord) => void;
   onPayHistory?: (st: StudentFeeRecord) => void;
   exportName?: string;
+  /** Bulk actions on ticked rows (shown when provided) */
+  onBulkDelete?: (list: StudentFeeRecord[]) => void;
+  onBulkSetStopped?: (list: StudentFeeRecord[], stopped: boolean) => void;
 }
 
 export const StudentDataGrid: React.FC<Props> = ({
@@ -159,7 +162,18 @@ export const StudentDataGrid: React.FC<Props> = ({
   onDelete,
   onPayHistory,
   exportName = 'students',
+  onBulkDelete,
+  onBulkSetStopped,
 }) => {
+  const [picked, setPicked] = useState<Set<number>>(new Set());
+  // drop ticks for students no longer in the list (class switched, deleted…)
+  useEffect(() => {
+    setPicked((p) => {
+      const ids = new Set(students.map((s) => s.id));
+      const next = new Set([...p].filter((id) => ids.has(id)));
+      return next.size === p.size ? p : next;
+    });
+  }, [students]);
   const [prefs, setPrefs] = useState<{ freeze: number; hidden: string[] }>(() => {
     try {
       const raw = localStorage.getItem(PREF_KEY);
@@ -214,11 +228,12 @@ export const StudentDataGrid: React.FC<Props> = ({
   const toggleSort = (key: string) =>
     setSort((p) => (!p || p.key !== key ? { key, dir: 'asc' } : p.dir === 'asc' ? { key, dir: 'desc' } : null));
 
-  const exportCSV = () => {
+  const exportCSV = (onlyPicked = false) => {
     const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const src = onlyPicked ? rows.filter((r) => picked.has(r.st.id)) : rows;
     const lines = [
       ['ល.រ', ...cols.map((c) => c.label)].map(esc).join(','),
-      ...rows.map((r, i) => [i + 1, ...cols.map((c) => c.get(r.st, r.ad))].map(esc).join(',')),
+      ...src.map((r, i) => [i + 1, ...cols.map((c) => c.get(r.st, r.ad))].map(esc).join(',')),
     ];
     const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a');
@@ -227,6 +242,17 @@ export const StudentDataGrid: React.FC<Props> = ({
     a.click();
     URL.revokeObjectURL(a.href);
   };
+
+  const allPicked = rows.length > 0 && rows.every((r) => picked.has(r.st.id));
+  const pickedList = rows.filter((r) => picked.has(r.st.id)).map((r) => r.st);
+  const toggleAll = () => setPicked(allPicked ? new Set() : new Set(rows.map((r) => r.st.id)));
+  const togglePick = (id: number) =>
+    setPicked((p) => {
+      const n = new Set(p);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
 
   const hasActions = !!(onView || (canEdit && onEdit) || (canSeePayments && onPayHistory) || (canDelete && onDelete));
   const groups = Array.from(new Set(STUDENT_GRID_COLUMNS.map((c) => c.group)));
@@ -266,7 +292,7 @@ export const StudentDataGrid: React.FC<Props> = ({
           </button>
           <button
             type="button"
-            onClick={exportCSV}
+            onClick={() => exportCSV()}
             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-700 font-bold hover:bg-slate-50 cursor-pointer"
           >
             <Download className="w-3.5 h-3.5" /> CSV
@@ -308,6 +334,26 @@ export const StudentDataGrid: React.FC<Props> = ({
         </div>
       </div>
 
+      {pickedList.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs">
+          <span className="rounded-full bg-amber-500 px-2 py-0.5 font-mono font-bold text-white">{pickedList.length}</span>
+          <span className="font-bold text-amber-950">បានជ្រើស</span>
+          <button type="button" onClick={() => setPicked(new Set())} className="text-amber-800 underline cursor-pointer">ដោះការជ្រើស</button>
+          <div className="ml-auto flex flex-wrap gap-1.5">
+            <button type="button" onClick={() => exportCSV(true)} className="rounded-lg border border-slate-300 bg-white px-2.5 py-1 font-bold text-slate-700 hover:bg-slate-50 cursor-pointer">⬇️ CSV</button>
+            {canEdit && onBulkSetStopped && (
+              <>
+                <button type="button" onClick={() => onBulkSetStopped(pickedList, true)} className="rounded-lg bg-rose-50 border border-rose-200 px-2.5 py-1 font-bold text-rose-700 hover:bg-rose-100 cursor-pointer">⛔ ដាក់ឈប់រៀន</button>
+                <button type="button" onClick={() => onBulkSetStopped(pickedList, false)} className="rounded-lg bg-emerald-50 border border-emerald-200 px-2.5 py-1 font-bold text-emerald-700 hover:bg-emerald-100 cursor-pointer">✅ ចូលរៀនវិញ</button>
+              </>
+            )}
+            {canDelete && onBulkDelete && (
+              <button type="button" onClick={() => onBulkDelete(pickedList)} className="rounded-lg bg-rose-600 px-2.5 py-1 font-bold text-white hover:bg-rose-700 cursor-pointer">🗑 លុប ({pickedList.length})</button>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="overflow-auto max-h-[70vh]">
         <table className="border-separate border-spacing-0 text-xs" style={{ minWidth: '100%' }}>
           <thead>
@@ -316,7 +362,10 @@ export const StudentDataGrid: React.FC<Props> = ({
                 className="sticky top-0 left-0 z-30 bg-slate-100 border-b border-r border-slate-200 px-2 py-2 text-center text-slate-600"
                 style={{ width: NO_WIDTH, minWidth: NO_WIDTH }}
               >
-                #
+                <label className="inline-flex items-center gap-1.5 cursor-pointer" title="ជ្រើសទាំងអស់">
+                  <input type="checkbox" className="accent-amber-600 w-3.5 h-3.5" checked={allPicked} onChange={toggleAll} />
+                  #
+                </label>
               </th>
               {cols.map((c, i) => {
                 const frozen = i < freeze;
@@ -362,10 +411,13 @@ export const StudentDataGrid: React.FC<Props> = ({
               rows.map(({ st, ad }, ri) => (
                 <tr key={st.id} className="group">
                   <td
-                    className="sticky left-0 z-10 bg-white group-hover:bg-amber-50 border-b border-r border-slate-100 px-2 py-1.5 text-center font-mono text-slate-400"
+                    className={`sticky left-0 z-10 ${picked.has(st.id) ? 'bg-amber-100' : 'bg-white'} group-hover:bg-amber-50 border-b border-r border-slate-100 px-2 py-1.5 text-center font-mono text-slate-400`}
                     style={{ width: NO_WIDTH, minWidth: NO_WIDTH }}
                   >
-                    {ri + 1}
+                    <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                      <input type="checkbox" className="accent-amber-600 w-3.5 h-3.5" checked={picked.has(st.id)} onChange={() => togglePick(st.id)} />
+                      {ri + 1}
+                    </label>
                   </td>
                   {cols.map((c, i) => {
                     const frozen = i < freeze;
@@ -374,7 +426,7 @@ export const StudentDataGrid: React.FC<Props> = ({
                       <td
                         key={c.key}
                         className={`border-b border-r border-slate-100 px-2 py-1.5 whitespace-nowrap overflow-hidden text-ellipsis group-hover:bg-amber-50 ${
-                          frozen ? 'sticky z-10 bg-white' : ''
+                          frozen ? `sticky z-10 ${picked.has(st.id) ? 'bg-amber-100' : 'bg-white'}` : picked.has(st.id) ? 'bg-amber-50' : ''
                         } ${frozen && i === freeze - 1 ? 'shadow-[2px_0_0_0_#e2e8f0]' : ''} ${
                           c.key === 'name' ? 'font-bold text-slate-900' : 'text-slate-700'
                         } ${c.key === 'studentCode' ? 'font-mono' : ''}`}
