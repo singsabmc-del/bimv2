@@ -5,7 +5,7 @@
 // Confidential counselling notes are visible only to their author and Admin.
 import React, { useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
-import type { StudentCareRecord, StudentFeeRecord, StudentRecordType } from '../types';
+import type { LetterContent, StudentCareRecord, StudentFeeRecord, StudentRecordType } from '../types';
 import {
   ClipboardList,
   Edit3,
@@ -85,6 +85,36 @@ export const useStudentRecords = () => {
   return { all, save, remove, canModify, myName };
 };
 
+// ------------------------------------------------------------------ editable invitation letter
+export const LETTER_TEMPLATE_KEY = 'BIM_STUDENT_REC_TEMPLATE_invitation';
+export const DEFAULT_INVITATION: LetterContent = {
+  title: 'លិខិតអញ្ជើញ',
+  to: 'លោក/លោកស្រី {guardian} អាណាព្យាបាលរបស់សិស្ស {student} ថ្នាក់ {class}',
+  subject: 'សូមអញ្ជើញលោក/លោកស្រី មកជួបពិភាក្សាជាមួយគណៈគ្រប់គ្រងសាលា ទាក់ទងនឹង {reason}។',
+  body:
+    'អាស្រ័យដូចបានជម្រាបជូនខាងលើ សូមលោក/លោកស្រី មេត្តាអញ្ជើញមកដល់សាលា នៅថ្ងៃ {meetingDate} វេលាម៉ោង {meetingTime} នៅ {place} ដើម្បីពិភាក្សាអំពីការសិក្សា និងការរីកចម្រើនរបស់កូនលោក/លោកស្រី។\n\nការចូលរួមរបស់លោក/លោកស្រី គឺពិតជាមានសារៈសំខាន់ណាស់ សម្រាប់ការអប់រំកូនៗរបស់យើង។',
+  closing: 'សូមលោក/លោកស្រី ទទួលនូវការគោរពដ៏ខ្ពង់ខ្ពស់ពីយើងខ្ញុំ។',
+  signerTitle: 'នាយកសាលា',
+  signerName: '{director}',
+};
+const fillLetter = (l: LetterContent, r: StudentCareRecord, settings: any): LetterContent => {
+  const vars: Record<string, string> = {
+    student: r.studentName,
+    code: r.studentCode,
+    class: r.className,
+    guardian: r.guardianName || '',
+    reason: r.reason || '..............................',
+    meetingDate: fmt(r.meetingDate) || '..../..../........',
+    meetingTime: r.meetingTime || '........',
+    place: r.place || settings?.schoolNameKhmer || 'សាលា',
+    date: fmt(r.date),
+    director: settings?.directorName || '',
+    school: settings?.schoolNameKhmer || '',
+  };
+  const f = (s: string) => s.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? vars[k] : m)).replace(/\s+(?=[។,])/g, '');
+  return Object.fromEntries(Object.entries(l).map(([k, v]) => [k, f(String(v))])) as unknown as LetterContent;
+};
+
 // ------------------------------------------------------------------ printing
 const printRecord = (r: StudentCareRecord, settings: any) => {
   const school = esc(settings?.schoolNameKhmer || 'សាលា');
@@ -102,7 +132,15 @@ const printRecord = (r: StudentCareRecord, settings: any) => {
   const sign = (left: string, right: string) =>
     `<div class="sign"><div><div>${left}</div><div class="line"></div></div><div><div>ធ្វើនៅថ្ងៃទី ${fmt(r.date)}</div><div>${right}</div><div class="line"></div></div></div>`;
   let body = '';
-  if (r.type === 'invitation') {
+  if (r.type === 'invitation' && r.letter) {
+    const L = r.letter;
+    body = `<h2 class="muol">${esc(L.title)}</h2>
+      <p><b>គោរពជូន៖</b> ${esc(L.to)}</p>
+      <p><b>កម្មវត្ថុ៖</b> ${esc(L.subject)}</p>
+      ${L.body.split(/\n\s*\n/).map((para) => `<p class="indent">${esc(para).replace(/\n/g, '<br/>')}</p>`).join('')}
+      <p class="indent">${esc(L.closing)}</p>
+      ${sign('', esc(L.signerTitle) + '<br/><b>' + esc(L.signerName) + '</b>')}`;
+  } else if (r.type === 'invitation') {
     body = `<h2 class="muol">លិខិតអញ្ជើញ</h2>
       <p><b>គោរពជូន៖</b> លោក/លោកស្រី អាណាព្យាបាលរបស់សិស្ស ${stu}</p>
       <p><b>កម្មវត្ថុ៖</b> សូមអញ្ជើញលោក/លោកស្រី មកជួបពិភាក្សាជាមួយគណៈគ្រប់គ្រងសាលា ${r.reason ? 'ទាក់ទងនឹង ' + esc(r.reason) : ''}។</p>
@@ -155,6 +193,7 @@ const printRecord = (r: StudentCareRecord, settings: any) => {
     table.grid{border-collapse:collapse;width:100%;margin:8px 0}
     table.grid th,table.grid td{border:1px solid #333;padding:4px 6px;font-size:13px}
     td.c{text-align:center}
+    p.indent{text-indent:2.5em;text-align:justify}
     .sign{display:flex;justify-content:space-between;margin-top:36px;text-align:center}
     .sign>div{min-width:40%}.sign.three>div{min-width:30%}
     .line{height:64px}
@@ -368,6 +407,7 @@ const RecordForm: React.FC<{
 const RecordCard: React.FC<{ r: StudentCareRecord; onEdit: () => void; showStudent: boolean }> = ({ r, onEdit, showStudent }) => {
   const { settings } = useApp() as any;
   const { canModify, remove } = useStudentRecords();
+  const [editing, setEditing] = useState(false);
   const T = TYPES[r.type];
   const summary =
     r.type === 'evaluation' ? `★ ${avgScore(r).toFixed(1)}/5${r.period ? ' · ' + r.period : ''}`
@@ -394,13 +434,105 @@ const RecordCard: React.FC<{ r: StudentCareRecord; onEdit: () => void; showStude
         </div>
       </div>
       <div className="mt-2 flex justify-end gap-1">
-        <button type="button" onClick={() => printRecord(r, settings)} className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-600 hover:bg-slate-100"><Printer className="h-3.5 w-3.5" /> បោះពុម្ព</button>
+        <button type="button" onClick={() => (r.type === 'invitation' ? setEditing(true) : printRecord(r, settings))} className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-600 hover:bg-slate-100"><Printer className="h-3.5 w-3.5" /> {r.type === 'invitation' ? 'កែ & បោះពុម្ពលិខិត' : 'បោះពុម្ព'}</button>
         {canModify(r) && (
           <>
             <button type="button" onClick={onEdit} className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold text-indigo-700 hover:bg-indigo-50"><Edit3 className="h-3.5 w-3.5" /> កែ</button>
             <button type="button" onClick={() => confirm(`លុប ${T.kh} របស់ ${r.studentName}?`) && remove(r.id)} className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold text-rose-600 hover:bg-rose-50"><Trash2 className="h-3.5 w-3.5" /> លុប</button>
           </>
         )}
+      </div>
+      {editing && <LetterEditor r={r} onClose={() => setEditing(false)} />}
+    </div>
+  );
+};
+
+/** Edit the invitation letter text with a live A4 preview, then print. */
+const LetterEditor: React.FC<{ r: StudentCareRecord; onClose: () => void }> = ({ r, onClose }) => {
+  const { settings, syncedGet, syncedSet, currentUser, showNotification } = useApp() as any;
+  const { save, canModify } = useStudentRecords();
+  const template: LetterContent = { ...DEFAULT_INVITATION, ...(syncedGet(LETTER_TEMPLATE_KEY) || {}) };
+  const [L, setL] = useState<LetterContent>(() => r.letter || fillLetter(template, r, settings));
+  const set = (p: Partial<LetterContent>) => setL((x) => ({ ...x, ...p }));
+  const canEdit = canModify(r);
+  const input = 'w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-normal';
+  const lbl = 'flex flex-col gap-1 text-xs font-bold text-slate-600';
+
+  const saveLetter = () => {
+    save({ ...r, letter: L });
+    showNotification?.('បានរក្សាទុកខ្លឹមសារលិខិត', 'success');
+  };
+  const doPrint = () => {
+    if (canEdit) save({ ...r, letter: L });
+    printRecord({ ...r, letter: L }, settings);
+  };
+  const resetToTemplate = () => setL(fillLetter(template, r, settings));
+  const saveAsTemplate = () => {
+    if (!confirm('រក្សាទុកខ្លឹមសារនេះជាគំរូសម្រាប់លិខិតអញ្ជើញថ្មីៗ?\n(ឈ្មោះសិស្ស ថ្ងៃ ម៉ោង… នឹងប្តូរជា {student} {meetingDate} {meetingTime}… ដោយស្វ័យប្រវត្តិ)')) return;
+    // turn this record's own values back into placeholders
+    const back: [string, string][] = [
+      [r.studentName, '{student}'], [r.className, '{class}'], [r.guardianName || '\u0000', '{guardian}'], [r.reason || '\u0000', '{reason}'],
+      [fmt(r.meetingDate) || '\u0000', '{meetingDate}'], [r.meetingTime || '\u0000', '{meetingTime}'], [r.place || '\u0000', '{place}'],
+      [settings?.directorName || '\u0000', '{director}'],
+    ];
+    const tpl = Object.fromEntries(Object.entries(L).map(([k, v]) => [k, back.reduce((s, [a, b]) => (a && a !== '\u0000' ? s.split(a).join(b) : s), String(v))])) as unknown as LetterContent;
+    syncedSet(LETTER_TEMPLATE_KEY, tpl);
+    showNotification?.('បានរក្សាទុកជាគំរូ', 'success');
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 sm:items-center sm:p-4" onClick={onClose}>
+      <div className="flex max-h-[94vh] w-full max-w-5xl flex-col rounded-t-2xl bg-white shadow-2xl font-khmer sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+          <div className="flex items-center gap-2 text-base font-bold text-slate-900"><Mail className="h-5 w-5 text-sky-600" /> លិខិតអញ្ជើញ · {r.studentName}</div>
+          <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100"><X className="h-5 w-5" /></button>
+        </div>
+        <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto p-4 lg:grid-cols-2">
+          {/* editor */}
+          <div className="space-y-2.5">
+            <label className={lbl}>ចំណងជើង<input value={L.title} onChange={(e) => set({ title: e.target.value })} className={input} disabled={!canEdit} /></label>
+            <label className={lbl}>គោរពជូន<textarea rows={2} value={L.to} onChange={(e) => set({ to: e.target.value })} className={input} disabled={!canEdit} /></label>
+            <label className={lbl}>កម្មវត្ថុ<textarea rows={2} value={L.subject} onChange={(e) => set({ subject: e.target.value })} className={input} disabled={!canEdit} /></label>
+            <label className={lbl}>ខ្លឹមសារ (ដកឃ្លាមួយបន្ទាត់ = កថាខណ្ឌថ្មី)<textarea rows={8} value={L.body} onChange={(e) => set({ body: e.target.value })} className={input} disabled={!canEdit} /></label>
+            <label className={lbl}>ពាក្យបញ្ចប់<textarea rows={2} value={L.closing} onChange={(e) => set({ closing: e.target.value })} className={input} disabled={!canEdit} /></label>
+            <div className="grid grid-cols-2 gap-2">
+              <label className={lbl}>តួនាទីអ្នកចុះហត្ថលេខា<input value={L.signerTitle} onChange={(e) => set({ signerTitle: e.target.value })} className={input} disabled={!canEdit} /></label>
+              <label className={lbl}>ឈ្មោះ<input value={L.signerName} onChange={(e) => set({ signerName: e.target.value })} className={input} disabled={!canEdit} /></label>
+            </div>
+            {canEdit && (
+              <div className="flex flex-wrap gap-2 text-xs">
+                <button type="button" onClick={resetToTemplate} className="rounded-lg border border-slate-200 px-2.5 py-1.5 font-bold text-slate-600 hover:bg-slate-50">↺ ត្រឡប់ទៅគំរូ</button>
+                {currentUser.role === 'admin' && (
+                  <button type="button" onClick={saveAsTemplate} className="rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1.5 font-bold text-sky-800 hover:bg-sky-100">⭐ រក្សាទុកជាគំរូសម្រាប់គ្រប់លិខិត</button>
+                )}
+              </div>
+            )}
+            <p className="text-[11px] text-slate-400">ពាក្យក្នុងគំរូ៖ {'{student} {class} {guardian} {reason} {meetingDate} {meetingTime} {place} {director}'}</p>
+          </div>
+          {/* preview */}
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-2">
+            <div className="mx-auto aspect-[210/297] w-full max-w-md overflow-hidden bg-white p-5 text-[10px] leading-relaxed text-slate-900 shadow-sm">
+              <div className="flex justify-between text-center text-[9px]">
+                <div><div className="font-bold">{settings?.schoolNameKhmer}</div><div>{settings?.schoolNameEnglish}</div></div>
+                <div><div className="font-bold">ព្រះរាជាណាចក្រកម្ពុជា</div><div className="font-bold">ជាតិ សាសនា ព្រះមហាក្សត្រ</div></div>
+              </div>
+              <div className="my-3 text-center text-xs font-bold">{L.title}</div>
+              <p><b>គោរពជូន៖</b> {L.to}</p>
+              <p className="mt-1"><b>កម្មវត្ថុ៖</b> {L.subject}</p>
+              {L.body.split(/\n\s*\n/).map((para, i) => <p key={i} className="mt-1 indent-6 whitespace-pre-line">{para}</p>)}
+              <p className="mt-1 indent-6">{L.closing}</p>
+              <div className="mt-4 text-right">
+                <div>ធ្វើនៅថ្ងៃទី {fmt(r.date)}</div>
+                <div>{L.signerTitle}</div>
+                <div className="mt-8 font-bold">{L.signerName}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="flex gap-2 border-t border-slate-100 px-4 py-3">
+          {canEdit && <button onClick={saveLetter} className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">រក្សាទុក</button>}
+          <button onClick={doPrint} className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-slate-900 py-2.5 text-sm font-bold text-white hover:bg-slate-800"><Printer className="h-4 w-4" /> បោះពុម្ព</button>
+        </div>
       </div>
     </div>
   );
