@@ -33,7 +33,7 @@ export const ROLE_TABS: Record<UserRole, NavTab[] | null> = {
   cashier: ['overview', 'teacher_checkin', 'teacher_leave', ...STUDENT_MGMT, ...REVENUE, 'daily_report'],
   accountant: ['overview', ...TEACHER_MGMT, ...MONTHLY_REPORTS, 'student_payment_history', 'income_statistics', 'system_settings'],
   // Teacher: Check In is the front page; only their own class and their own records
-  teacher: ['teacher_checkin', 'my_schedule', 'teacher_leave', 'student_list', 'official_roster', 'student_attendance', 'student_info', 'student_portal', 'student_records'],
+  teacher: ['teacher_checkin', 'my_schedule', 'teacher_leave', 'student_list', 'official_roster', 'student_attendance', 'student_info', 'student_portal', 'student_records', 'academic_scores'],
   student: ['student_info', 'student_portal'],
 };
 

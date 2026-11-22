@@ -36,7 +36,11 @@ export const GradeBadge: React.FC<{ g: string }> = ({ g }) => (
 );
 
 export const ScoreSheetView: React.FC = () => {
-  const { orderedClassList, classData, subjects, settings, updateSettings, updateClassAcademic, permissions } = useApp();
+  const { orderedClassList, classData, subjects, settings, updateSettings, updateClassAcademic, permissions, currentUser } = useApp();
+  // Teachers enter scores for their own classes (orderedClassList is already limited to them)
+  const canScore = permissions.canEdit || currentUser.role === 'teacher';
+  const [entryMode, setEntryMode] = useState<'quick' | 'sheet'>(() => (typeof window !== 'undefined' && window.innerWidth < 768 ? 'quick' : 'sheet'));
+  const [quickSubject, setQuickSubject] = useState<string>('');
   const periods = useMemo(() => academicPeriods(settings.academicYear), [settings.academicYear]);
   const nowKey = `m-${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
 
@@ -71,7 +75,12 @@ export const ScoreSheetView: React.FC = () => {
       const period = { ...(book[periodKey] || {}) };
       period[String(studentId)] = { ...(period[String(studentId)] || {}), [subjectId]: v };
       book[periodKey] = period;
-      return { scores: book };
+      // stamp the cell so another device editing other cells does not overwrite it
+      const stamps = { ...(c.scoresT || {}) };
+      const pT = { ...(stamps[periodKey] || {}) };
+      pT[String(studentId)] = { ...(pT[String(studentId)] || {}), [subjectId]: Date.now() };
+      stamps[periodKey] = pT;
+      return { scores: book, scoresT: stamps };
     });
   };
 
@@ -137,9 +146,11 @@ export const ScoreSheetView: React.FC = () => {
           <button onClick={() => setShowSubjectPicker((v) => !v)} className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
             <CheckSquare className="h-4 w-4" /> មុខវិជ្ជា ({toKh(subs.length)})
           </button>
-          <button onClick={() => setShowHeaderEdit((v) => !v)} className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
-            <Settings2 className="h-4 w-4" /> ក្បាលឯកសារ
-          </button>
+          {permissions.canEdit && (
+            <button onClick={() => setShowHeaderEdit((v) => !v)} className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
+              <Settings2 className="h-4 w-4" /> ក្បាលឯកសារ
+            </button>
+          )}
           <button onClick={() => printWithOrientation('landscape')} className="flex items-center gap-1 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-bold text-white shadow">
             <Printer className="h-4 w-4" /> បោះពុម្ព A4
           </button>
@@ -203,8 +214,83 @@ export const ScoreSheetView: React.FC = () => {
         ))}
       </div>
 
+      {/* ── Entry mode: quick (one subject, big inputs — phones) or the full sheet ── */}
+      <div className="flex rounded-xl bg-slate-100 p-1 text-xs font-bold print:hidden">
+        {([['quick', 'បញ្ចូលតាមមុខវិជ្ជា'], ['sheet', 'តារាងពេញ']] as const).map(([k, l]) => (
+          <button key={k} type="button" onClick={() => setEntryMode(k)} className={`flex-1 rounded-lg py-2 ${entryMode === k ? 'bg-white text-indigo-700 shadow-2xs' : 'text-slate-500'}`}>{l}</button>
+        ))}
+      </div>
+
+      {entryMode === 'quick' && (() => {
+        const sid = subIds.includes(quickSubject) ? quickSubject : subIds[0];
+        const sub = subs.find((x) => x.id === sid);
+        const filled = students.filter((st) => periodScores?.[String(st.id)]?.[sid] != null).length;
+        return (
+          <div className="space-y-3 print:hidden">
+            <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
+              {subs.map((x) => {
+                const n = students.filter((st) => periodScores?.[String(st.id)]?.[x.id] != null).length;
+                return (
+                  <button key={x.id} type="button" onClick={() => setQuickSubject(x.id)}
+                    className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-bold ${x.id === sid ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-200 bg-white text-slate-600'}`}>
+                    {subjectLabel(x)} <span className="opacity-70">{toKh(n)}/{toKh(students.length)}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {!sub ? (
+              <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-center text-sm text-slate-400">ថ្នាក់នេះមិនទាន់មានមុខវិជ្ជា</div>
+            ) : (
+              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                <div className="flex items-center justify-between border-b border-slate-100 bg-indigo-50/60 px-3 py-2 text-xs">
+                  <b className="text-indigo-900">{subjectLabel(sub)} · {periodLabel(periodKey)}</b>
+                  <span className="text-slate-500">បានបញ្ចូល {toKh(filled)}/{toKh(students.length)}</span>
+                </div>
+                <div className="divide-y divide-slate-100">
+                  {rows.map((st, r) => {
+                    const v = periodScores?.[String(st.id)]?.[sid];
+                    return (
+                      <label key={st.id} className="flex items-center gap-3 px-3 py-2">
+                        <span className="w-6 shrink-0 text-center font-mono text-xs text-slate-400">{r + 1}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-bold text-slate-900">{st.name}</span>
+                          <span className="block text-[10px] text-slate-400">{st.studentCode}</span>
+                        </span>
+                        <GradeBadge g={gradeLetter(v)} />
+                        <input
+                          data-quick={r}
+                          type="number"
+                          inputMode="decimal"
+                          enterKeyHint="next"
+                          min={0}
+                          max={100}
+                          disabled={!canScore}
+                          value={v ?? ''}
+                          onChange={(e) => setScore(st.id, sid, e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key !== 'Enter') return;
+                            e.preventDefault();
+                            const next = document.querySelector<HTMLInputElement>(`input[data-quick="${r + 1}"]`);
+                            next?.focus();
+                            next?.select();
+                          }}
+                          onFocus={(e) => e.target.select()}
+                          placeholder="—"
+                          className="h-11 w-20 shrink-0 rounded-xl border border-slate-200 text-center font-mono text-lg font-bold focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                        />
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            <p className="text-[11px] text-slate-500">ពិន្ទុ ០–១០០ · ចុច «Next/Enter» លើក្តារចុច ដើម្បីទៅសិស្សបន្ទាប់ · រក្សាទុកដោយស្វ័យប្រវត្តិ</p>
+          </div>
+        );
+      })()}
+
       {/* ── Printable sheet ── */}
-      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-sm print:overflow-visible print:rounded-none print:border-0 print:p-0 print:shadow-none">
+      <div className={`overflow-x-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-sm print:block print:overflow-visible print:rounded-none print:border-0 print:p-0 print:shadow-none ${entryMode === 'quick' ? 'hidden' : ''}`}>
         <KhmerDocHeader
           title={title}
           subtitle={
@@ -263,7 +349,7 @@ export const ScoreSheetView: React.FC = () => {
                             type="number"
                             min={0}
                             max={100}
-                            disabled={!permissions.canEdit}
+                            disabled={!canScore}
                             value={v ?? ''}
                             onChange={(e) => setScore(st.id, s.id, e.target.value)}
                             onKeyDown={(e) => onKeyDown(e, r, c)}

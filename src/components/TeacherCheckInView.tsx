@@ -402,12 +402,13 @@ export const TeacherCheckInView: React.FC = () => {
             { label: 'សុំច្បាប់', en: 'Leave', Icon: Send, onClick: () => go('teacher_leave'), badge: pendingLeaves ? `${pendingLeaves}` : '' },
             { label: 'កាលវិភាគ', en: 'My schedule', Icon: CalendarDays, onClick: () => go('my_schedule') },
             { label: 'កំណត់ត្រាសិស្ស', en: 'Student Records', Icon: ClipboardList, onClick: () => go('student_records') },
+            { label: 'ដាក់ពិន្ទុ', en: 'Scores', Icon: FileText, onClick: () => go('academic_scores') },
             { label: 'វត្តមានសិស្ស', en: 'Student Attendance', Icon: ClipboardCheck, onClick: () => go('student_attendance') },
             { label: 'បញ្ជីសិស្ស', en: 'Student List', Icon: Users, onClick: () => go('student_list') },
             { label: 'ព័ត៌មានសិស្ស', en: 'Student Info', Icon: ListChecks, onClick: () => go('student_info') },
             { label: 'សរុបខែនេះ', en: 'This month', Icon: CalendarDays, onClick: () => setTab('month') },
             { label: 'ស្នើកែវត្តមាន', en: 'Fix attendance', Icon: PencilLine, onClick: () => selected && setCorrFor({ mode: 'request', teacher: selected, date: today }), badge: (teacherCheckIn.corrections || []).filter((c: any) => c.teacherId === selectedId && c.status === 'pending').length ? `${(teacherCheckIn.corrections || []).filter((c: any) => c.teacherId === selectedId && c.status === 'pending').length}` : '' },
-          ].filter((x) => currentUser.role === 'teacher' || !['Student Attendance', 'Student List', 'Student Info', 'Student Records'].includes(x.en)).map(({ label, en, Icon, onClick, badge }) => (
+          ].filter((x) => currentUser.role === 'teacher' || !['Student Attendance', 'Student List', 'Student Info', 'Student Records', 'Scores'].includes(x.en)).map(({ label, en, Icon, onClick, badge }) => (
             <button key={en} type="button" onClick={onClick} className="relative flex flex-col items-center gap-1 border-b border-r border-slate-100 px-1 py-3 hover:bg-teal-50">
               <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-50 text-teal-700"><Icon className="h-5 w-5" strokeWidth={1.9} /></span>
               <span className="text-[11px] font-bold leading-tight sm:text-sm">{label}</span>
