@@ -4,7 +4,8 @@ import React, { useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import type { HolidayDef, TeacherCheckInRecord, TeacherLeaveRequest, TeacherRecord } from '../types';
 import { holidayOn, shiftFor } from '../utils/shifts';
-import { CalendarOff, Download, Plus, Printer, Search, Trash2, X } from 'lucide-react';
+import { canOpenTab } from '../utils/access';
+import { CalendarOff, Download, Printer, Search } from 'lucide-react';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 const KH_MONTHS = ['មករា', 'កុម្ភៈ', 'មីនា', 'មេសា', 'ឧសភា', 'មិថុនា', 'កក្កដា', 'សីហា', 'កញ្ញា', 'តុលា', 'វិច្ឆិកា', 'ធ្នូ'];
@@ -28,8 +29,8 @@ const CELL_UI: Record<Cell, string> = {
 };
 
 export const StaffAttendance31DayReport: React.FC = () => {
-  const { teachers, teacherCheckIn, setTeacherCheckIn, settings, permissions, showNotification } = useApp() as any;
-  const [showHolidays, setShowHolidays] = useState(false);
+  const { teachers, teacherCheckIn, settings, currentUser } = useApp() as any;
+  const canOpenSettings = canOpenTab(currentUser?.role, 'system_settings');
   const now = new Date();
   const todayIso = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
   const [month, setMonth] = useState(todayIso.slice(0, 7));
@@ -112,7 +113,7 @@ export const StaffAttendance31DayReport: React.FC = () => {
   const monthHolidays: HolidayDef[] = (teacherCheckIn.holidays || [])
     .filter((h: HolidayDef) => h.from <= `${month}-31` && (h.to || h.from) >= `${month}-01`)
     .sort((a: HolidayDef, b: HolidayDef) => a.from.localeCompare(b.from));
-  const canEditHolidays = !!permissions?.canEdit;
+
 
   return (
     <div className="space-y-3 font-khmer">
@@ -131,9 +132,18 @@ export const StaffAttendance31DayReport: React.FC = () => {
           </label>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => setShowHolidays(true)} className="flex items-center gap-1.5 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-bold text-violet-800 hover:bg-violet-100">
+          {canOpenSettings && (
+          <button
+            onClick={() => {
+              try { localStorage.setItem('BIM_SETTINGS_TAB', 'holidays'); } catch { /* ignore */ }
+              window.location.hash = 'system_settings';
+            }}
+            title="កំណត់ក្នុង ការកំណត់ប្រព័ន្ធ"
+            className="flex items-center gap-1.5 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-bold text-violet-800 hover:bg-violet-100"
+          >
             <CalendarOff className="h-4 w-4" /> ថ្ងៃឈប់សម្រាក ({(teacherCheckIn.holidays || []).length})
           </button>
+          )}
           <button onClick={exportCSV} className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">
             <Download className="h-4 w-4" /> CSV
           </button>
@@ -251,102 +261,6 @@ export const StaffAttendance31DayReport: React.FC = () => {
         </div>
       </div>
 
-      {showHolidays && (
-        <HolidayManager
-          holidays={teacherCheckIn.holidays || []}
-          canEdit={canEditHolidays}
-          defaultDate={`${month}-01`}
-          onClose={() => setShowHolidays(false)}
-          onChange={(next) => {
-            setTeacherCheckIn((prev: any) => ({ ...prev, holidays: next }));
-            showNotification?.('បានរក្សាទុកថ្ងៃឈប់សម្រាក', 'success');
-          }}
-        />
-      )}
-    </div>
-  );
-};
-
-/** Add / remove school holidays (shared with every device via the check-in config) */
-const HolidayManager: React.FC<{
-  holidays: HolidayDef[];
-  canEdit: boolean;
-  defaultDate: string;
-  onClose: () => void;
-  onChange: (next: HolidayDef[]) => void;
-}> = ({ holidays, canEdit, defaultDate, onClose, onChange }) => {
-  const [from, setFrom] = useState(defaultDate);
-  const [to, setTo] = useState('');
-  const [name, setName] = useState('');
-  const [year, setYear] = useState(defaultDate.slice(0, 4));
-  const list = holidays.filter((h) => h.from.startsWith(year) || (h.to || '').startsWith(year)).sort((a, b) => a.from.localeCompare(b.from));
-  const years = Array.from(new Set([defaultDate.slice(0, 4), ...holidays.map((h) => h.from.slice(0, 4))])).sort();
-  const countDays = (h: HolidayDef) => Math.round((new Date((h.to || h.from) + 'T00:00:00').getTime() - new Date(h.from + 'T00:00:00').getTime()) / 86400000) + 1;
-
-  const add = () => {
-    if (!from || !name.trim()) return;
-    const end = to && to >= from ? to : from;
-    onChange([...holidays, { id: `hol_${Date.now()}`, from, to: end, name: name.trim() }]);
-    setName('');
-    setTo('');
-  };
-
-  return (
-    <div className="no-print fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/50 p-4" onClick={onClose}>
-      <div className="w-full max-w-lg rounded-2xl bg-white p-4 shadow-2xl font-khmer" onClick={(e) => e.stopPropagation()}>
-        <div className="mb-3 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-base font-bold text-slate-900">
-            <CalendarOff className="h-5 w-5 text-violet-600" /> ថ្ងៃឈប់សម្រាក (Holidays)
-          </div>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100"><X className="h-5 w-5" /></button>
-        </div>
-
-        {canEdit && (
-          <div className="mb-3 space-y-2 rounded-xl border border-violet-200 bg-violet-50/50 p-3">
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="ឈ្មោះថ្ងៃបុណ្យ ឧ. ចូលឆ្នាំខ្មែរ" className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm" />
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <label>ពីថ្ងៃ<input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="mt-0.5 w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 font-mono text-sm" /></label>
-              <label>ដល់ថ្ងៃ (ទុកទទេ = ១ ថ្ងៃ)<input type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} className="mt-0.5 w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 font-mono text-sm" /></label>
-            </div>
-            <button onClick={add} disabled={!from || !name.trim()} className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-violet-600 py-2 text-sm font-bold text-white hover:bg-violet-700 disabled:opacity-40">
-              <Plus className="h-4 w-4" /> បន្ថែមថ្ងៃឈប់សម្រាក
-            </button>
-          </div>
-        )}
-
-        <div className="mb-2 flex items-center justify-between text-xs">
-          <span className="text-slate-500">បញ្ជីឆ្នាំ</span>
-          <select value={year} onChange={(e) => setYear(e.target.value)} className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 font-mono">
-            {years.map((yy) => <option key={yy} value={yy}>{yy}</option>)}
-          </select>
-        </div>
-        <div className="max-h-80 divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-200">
-          {list.length === 0 ? (
-            <div className="p-6 text-center text-sm text-slate-400">មិនទាន់មានថ្ងៃឈប់សម្រាកក្នុងឆ្នាំ {year}</div>
-          ) : (
-            list.map((h) => (
-              <div key={h.id} className="flex items-center gap-3 px-3 py-2">
-                <div className="w-28 shrink-0 font-mono text-xs text-violet-800">
-                  {h.from}{h.to && h.to !== h.from ? <><br />→ {h.to}</> : null}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-bold text-slate-900">{h.name}</div>
-                  <div className="text-[11px] text-slate-500">{countDays(h)} ថ្ងៃ</div>
-                </div>
-                {canEdit && (
-                  <button
-                    onClick={() => confirm(`លុប «${h.name}»?`) && onChange(holidays.filter((x) => x.id !== h.id))}
-                    className="rounded-lg p-1.5 text-rose-500 hover:bg-rose-50"
-                    title="លុប"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-            ))
-          )}
-        </div>
-      </div>
     </div>
   );
 };
