@@ -114,6 +114,50 @@ export const StudentAttendanceView: React.FC = () => {
     saveAttendance(currentAtt);
   };
 
+  // Bulk: tick students and set one status in a single save
+  const [pickedIds, setPickedIds] = useState<Set<number>>(new Set());
+  useEffect(() => setPickedIds(new Set()), [activeClassId, selectedDate]);
+  const togglePicked = (id: number) =>
+    setPickedIds((p) => {
+      const n = new Set(p);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  const handleBulkStatus = (status: AttendanceStatus) => {
+    if (pickedIds.size === 0) return;
+    const att = { ...currentRecord.attendance };
+    pickedIds.forEach((id) => (att[id] = { ...att[id], status }));
+    saveAttendance(att);
+    setPickedIds(new Set());
+  };
+  const BULK_BTNS: { key: AttendanceStatus; label: string; cls: string }[] = [
+    { key: 'present', label: 'មក', cls: 'bg-emerald-600 hover:bg-emerald-700' },
+    { key: 'late', label: 'យឺត', cls: 'bg-purple-600 hover:bg-purple-700' },
+    { key: 'absent_permission', label: 'ច្បាប់', cls: 'bg-amber-500 hover:bg-amber-600' },
+    { key: 'absent_no_permission', label: 'អត់ច្បាប់', cls: 'bg-rose-600 hover:bg-rose-700' },
+  ];
+  const bulkBar = (visibleIds: number[]) => {
+    const all = visibleIds.length > 0 && visibleIds.every((id) => pickedIds.has(id));
+    return (
+      <div className="no-print flex flex-wrap items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-khmer">
+        <label className="flex items-center gap-1.5 font-bold text-amber-950 cursor-pointer">
+          <input type="checkbox" className="accent-amber-600 w-4 h-4" checked={all} onChange={() => setPickedIds(all ? new Set() : new Set(visibleIds))} />
+          {pickedIds.size > 0 ? `បានជ្រើស ${pickedIds.size} នាក់` : 'ជ្រើសទាំងអស់'}
+        </label>
+        {pickedIds.size > 0 && (
+          <div className="ml-auto flex flex-wrap gap-1.5">
+            {BULK_BTNS.map((b) => (
+              <button key={b.key} type="button" onClick={() => handleBulkStatus(b.key)} className={`rounded-lg px-2.5 py-1 font-bold text-white cursor-pointer ${b.cls}`}>
+                {b.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const handleMarkAllPresent = () => {
     const allPresent: { [studentId: number]: { status: AttendanceStatus; note?: string } } = {};
     currentClass.students.forEach((s) => {
@@ -242,6 +286,7 @@ export const StudentAttendanceView: React.FC = () => {
           <Student31DaysAttendanceReport defaultClassId={currentClass.classId} onClassChange={setActiveClassId} />
         ) : (
           <>
+            {filteredStudents.length > 0 && bulkBar(filteredStudents.map((s) => s.id))}
             <div className="bg-white border border-slate-200 rounded-2xl shadow-2xs divide-y divide-slate-100 overflow-hidden no-print">
               {filteredStudents.length === 0 ? (
                 <div className="p-8 text-center text-sm text-slate-400">{t('មិនមានសិស្ស', 'No students')}</div>
@@ -249,8 +294,9 @@ export const StudentAttendanceView: React.FC = () => {
                 filteredStudents.map((st, i) => {
                   const status = currentRecord.attendance[st.id]?.status || 'present';
                   return (
-                    <div key={st.id} className="px-3 py-2.5 space-y-2">
+                    <div key={st.id} className={`px-3 py-2.5 space-y-2 ${pickedIds.has(st.id) ? 'bg-amber-50' : ''}`}>
                       <div className="flex items-center gap-2.5">
+                        <input type="checkbox" className="accent-amber-600 w-4 h-4 shrink-0" checked={pickedIds.has(st.id)} onChange={() => togglePicked(st.id)} />
                         <span className="w-6 shrink-0 text-center font-mono text-xs text-slate-400">{i + 1}</span>
                         <span className="min-w-0 flex-1">
                           <span className="block text-sm font-bold text-slate-900 truncate">{st.name}</span>
@@ -625,11 +671,13 @@ export const StudentAttendanceView: React.FC = () => {
         </div>
 
         {/* Student Attendance Table */}
+        {filteredStudents.length > 0 && bulkBar(filteredStudents.map((s) => s.id))}
         <div className="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200 font-khmer">
+                  <th className="py-3 px-2 text-center w-10 border-r border-slate-200 no-print">✓</th>
                   <th className="py-3 px-3.5 text-center w-12 border-r border-slate-200">ល.រ</th>
                   <th className="py-3 px-4 border-r border-slate-200">អត្តលេខ</th>
                   <th className="py-3 px-4 border-r border-slate-200">គោត្តនាម-នាមសិស្ស</th>
@@ -642,7 +690,7 @@ export const StudentAttendanceView: React.FC = () => {
               <tbody className="divide-y divide-slate-100">
                 {filteredStudents.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-12 text-center text-slate-400 font-khmer">
+                    <td colSpan={8} className="py-12 text-center text-slate-400 font-khmer">
                       មិនមានទិន្នន័យសិស្សក្នុងថ្នាក់នេះទេ
                     </td>
                   </tr>
@@ -651,7 +699,10 @@ export const StudentAttendanceView: React.FC = () => {
                     const status = currentRecord.attendance[st.id]?.status || 'present';
 
                     return (
-                      <tr key={st.id} className="hover:bg-slate-50/60 transition-colors">
+                      <tr key={st.id} className={`${pickedIds.has(st.id) ? 'bg-amber-50' : 'hover:bg-slate-50/60'} transition-colors`}>
+                        <td className="py-2.5 px-2 text-center border-r border-slate-100 no-print">
+                          <input type="checkbox" className="accent-amber-600 w-4 h-4" checked={pickedIds.has(st.id)} onChange={() => togglePicked(st.id)} />
+                        </td>
                         <td className="py-2.5 px-3.5 text-center font-mono text-slate-500 border-r border-slate-100">
                           {idx + 1}
                         </td>
