@@ -286,6 +286,8 @@ interface AppContextType {
   /** Shared browser stores (attendance etc.), synced through Supabase */
   syncedGet: (key: string) => any;
   syncedSet: (key: string, value: any) => void;
+  /** All shared-store entries whose key starts with prefix (null = deleted) */
+  syncedEntries: (prefix: string) => [string, any][];
   /** The staff record (teacher list) linked to the logged-in account, used for own Check In / Leave */
   linkedTeacher?: TeacherRecord;
   /** Classes a Teacher account may see (null = every class, for other roles) */
@@ -1048,6 +1050,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch {}
   }, [syncedStore]);
   const syncedGet = (key: string) => syncedStore.data[key];
+  const syncedEntries = (prefix: string) => Object.entries(syncedStore.data).filter(([k, v]) => k.startsWith(prefix) && v != null);
   const syncedSet = (key: string, value: any) => {
     const now = Date.now();
     setSyncedStore((prev) => {
@@ -5539,6 +5542,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setTeacherCheckIn,
         syncedGet,
         syncedSet,
+        syncedEntries,
         linkedTeacher,
         teacherClassIds,
         showNotification,

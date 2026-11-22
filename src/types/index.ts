@@ -930,3 +930,53 @@ export interface SchoolBackupBundle {
 
 
 
+
+
+// ==========================================
+// Student records: evaluation, counselling, agreement, parent invitation, call notes
+// ==========================================
+export type StudentRecordType = 'evaluation' | 'counseling' | 'contract' | 'invitation' | 'call';
+
+export interface StudentCareRecord {
+  id: string;
+  type: StudentRecordType;
+  studentId: number;
+  studentName: string;
+  studentCode: string;
+  classId: string;
+  className: string;
+  date: string; // YYYY-MM-DD
+  createdBy: string;
+  createdById?: string;
+  createdAt: string;
+  updatedAt?: string;
+  notes?: string;
+  followUp?: string;
+  followUpDate?: string;
+  status?: 'open' | 'done';
+  // evaluation
+  period?: string;
+  scores?: Record<string, number>; // criterion key → 1..5
+  strengths?: string;
+  improvements?: string;
+  // counselling
+  topic?: string;
+  actions?: string;
+  confidential?: boolean;
+  // agreement (student / guardian)
+  commitments?: string[];
+  consequences?: string;
+  startDate?: string;
+  endDate?: string;
+  guardianName?: string;
+  // parent invitation letter
+  meetingDate?: string;
+  meetingTime?: string;
+  place?: string;
+  reason?: string;
+  // call note
+  phone?: string;
+  contactName?: string;
+  direction?: 'out' | 'in';
+  outcome?: 'answered' | 'no_answer' | 'busy' | 'wrong_number';
+}

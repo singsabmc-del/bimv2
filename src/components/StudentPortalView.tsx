@@ -1,3 +1,4 @@
+import { StudentRecordsView } from './StudentRecordsView';
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { StudentFeeRecord } from '../types';
@@ -29,6 +30,7 @@ import {
   Bus,
   UserX,
   RotateCcw,
+  ClipboardList,
 } from 'lucide-react';
 import { StudentAdmissionModal } from './StudentAdmissionModal';
 import { StudentInvoiceHistoryTable } from './StudentInvoiceHistoryTable';
@@ -58,7 +60,7 @@ export const StudentPortalView: React.FC = () => {
   } = useApp();
 
   const [searchStudentQuery, setSearchStudentQuery] = useState('');
-  const [activePortalTab, setActivePortalTab] = useState<'profile' | 'receipts' | 'materials' | 'bus_service' | 'id_card' | 'admission_dossier' | 'submit_slip'>('profile');
+  const [activePortalTab, setActivePortalTab] = useState<'profile' | 'receipts' | 'materials' | 'bus_service' | 'records' | 'id_card' | 'admission_dossier' | 'submit_slip'>('profile');
   const [profileViewMode, setProfileViewMode] = useState<'official_document' | 'cards'>('official_document');
   const [isAdmissionModalOpen, setIsAdmissionModalOpen] = useState(false);
   const [selectedStudentForAdmission, setSelectedStudentForAdmission] = useState<StudentFeeRecord | null>(null);
@@ -277,6 +279,16 @@ export const StudentPortalView: React.FC = () => {
           >
             <Bus className="w-3.5 h-3.5" />
             <span>{t('សេវារថយន្តសាលា (School Bus)', 'Bus Service')}</span>
+          </button>
+
+          <button
+            onClick={() => setActivePortalTab('records')}
+            className={`px-3 py-1.5 rounded-lg font-khmer font-medium transition-all flex items-center gap-1.5 ${
+              activePortalTab === 'records' ? 'bg-teal-600 text-white font-bold' : 'text-teal-800 bg-teal-50 hover:bg-teal-100'
+            }`}
+          >
+            <ClipboardList className="w-3.5 h-3.5" />
+            <span>{t('កំណត់ត្រាសិស្ស', 'Student Records')}</span>
           </button>
 
 
@@ -778,6 +790,10 @@ export const StudentPortalView: React.FC = () => {
       )}
 
       {/* School Bus Service Tab */}
+      {activePortalTab === 'records' && currentUser.role !== 'student' && (
+        <StudentRecordsView student={{ id: currentStudent.id, classId: currentStudentClass?.classId || '' }} />
+      )}
+
       {activePortalTab === 'bus_service' && (
         <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-2xs space-y-6">
           <StudentInvoiceHistoryTable
