@@ -45,3 +45,8 @@ export const SHIFT_COLORS: Record<string, string> = {
   rose: 'bg-rose-100 text-rose-800 border-rose-200',
   slate: 'bg-slate-100 text-slate-700 border-slate-200',
 };
+
+
+/** The holiday that covers this date, if any */
+export const holidayOn = (data: { holidays?: { from: string; to: string; name: string }[] } | undefined, iso: string) =>
+  (data?.holidays || []).find((h) => h.from <= iso && iso <= (h.to || h.from));

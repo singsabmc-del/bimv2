@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import type { TeacherCheckInRecord, TeacherRecord } from '../types';
-import { shiftFor } from '../utils/shifts';
+import { holidayOn, shiftFor } from '../utils/shifts';
 import { StaffAttendance31DayReport } from './StaffAttendance31DayReport';
 import { LogIn, LogOut, Clock, Search, Printer, Settings2, CalendarDays, UserCheck, FileText, Trash2, ListChecks, Users, ClipboardCheck, Send } from 'lucide-react';
 
@@ -163,7 +163,7 @@ export const TeacherCheckInView: React.FC = () => {
     const weekdaysOnly = days.filter((d) => ![0, 6].includes(new Date(d + 'T00:00:00').getDay()));
     const rows = (teachers as TeacherRecord[]).filter((t) => !selfOnly || t.id === selectedId).map((t) => {
       // Working days follow the staff member's shifts (days off are not counted as absent)
-      const workDays = days.filter((d) => !!shiftFor(teacherCheckIn, t.id, d));
+      const workDays = days.filter((d) => !holidayOn(teacherCheckIn, d) && !!shiftFor(teacherCheckIn, t.id, d));
       let present = 0, late = 0, leave = 0, mins = 0;
       workDays.forEach((d) => {
         const r = recOf(t.id, d);
