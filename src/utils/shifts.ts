@@ -50,3 +50,24 @@ export const SHIFT_COLORS: Record<string, string> = {
 /** The holiday that covers this date, if any */
 export const holidayOn = (data: { holidays?: { from: string; to: string; name: string }[] } | undefined, iso: string) =>
   (data?.holidays || []).find((h) => h.from <= iso && iso <= (h.to || h.from));
+
+/** Distance in metres between two GPS points (haversine) */
+export const distanceMeters = (a: { lat: number; lng: number }, b: { lat: number; lng: number }) => {
+  const R = 6371000;
+  const toRad = (x: number) => (x * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return Math.round(2 * R * Math.asin(Math.sqrt(h)));
+};
+
+/** Current phone position (high accuracy, 15 s timeout) */
+export const getCurrentPosition = () =>
+  new Promise<{ lat: number; lng: number; accuracy: number }>((resolve, reject) => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) return reject(new Error('unsupported'));
+    navigator.geolocation.getCurrentPosition(
+      (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude, accuracy: Math.round(p.coords.accuracy) }),
+      (e) => reject(new Error(e.code === 1 ? 'denied' : e.code === 3 ? 'timeout' : 'unavailable')),
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
+  });

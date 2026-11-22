@@ -659,6 +659,28 @@ export interface TeacherCheckInRecord {
   status: 'on_time' | 'late' | 'leave' | 'absent';
   note?: string;
   recordedBy?: string;
+  /** Checked in/out away from school on an official mission */
+  mission?: boolean;
+  missionNote?: string;
+  /** Where the person was when checking in / out (phone GPS) */
+  checkInLocation?: GeoPoint;
+  checkOutLocation?: GeoPoint;
+}
+
+export interface GeoPoint {
+  lat: number;
+  lng: number;
+  accuracy?: number; // metres
+  distance?: number; // metres from school
+}
+
+/** School location for check-in (geofence) */
+export interface CheckInGeofence {
+  enabled: boolean;
+  lat: number;
+  lng: number;
+  radius: number; // metres
+  allowMission?: boolean; // staff may check in away from school with a mission reason
 }
 
 /** Teacher leave request (សំណើសុំច្បាប់) */
@@ -708,6 +730,26 @@ export interface TeacherCheckInData {
   shiftAssignments?: Record<string, Record<number, string>>;
   /** School holidays (no work expected; not counted as absent) */
   holidays?: HolidayDef[];
+  /** School location: check-in only allowed nearby (except missions) */
+  geofence?: CheckInGeofence;
+  /** Requests to fix a missed / wrong check in or check out */
+  corrections?: CheckInCorrection[];
+}
+
+/** Staff request to correct their attendance for a day (forgot to scan in / out) */
+export interface CheckInCorrection {
+  id: string;
+  teacherId: string;
+  teacherName: string;
+  date: string; // YYYY-MM-DD
+  checkIn?: string; // HH:MM requested
+  checkOut?: string; // HH:MM requested
+  reason: string;
+  status: 'pending' | 'approved' | 'rejected';
+  requestedAt: string;
+  decidedAt?: string;
+  decidedBy?: string;
+  decisionNote?: string;
 }
 
 /** A holiday or closure, one day or a range */
