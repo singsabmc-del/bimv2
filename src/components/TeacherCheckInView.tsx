@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import type { TeacherCheckInRecord, TeacherRecord } from '../types';
 import { shiftFor } from '../utils/shifts';
+import { StaffAttendance31DayReport } from './StaffAttendance31DayReport';
 import { LogIn, LogOut, Clock, Search, Printer, Settings2, CalendarDays, UserCheck, FileText, Trash2, ListChecks, Users, ClipboardCheck, Send } from 'lucide-react';
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -46,7 +47,7 @@ export const TeacherCheckInView: React.FC = () => {
     return () => clearInterval(id);
   }, []);
 
-  const [tab, setTab] = useState<'today' | 'month'>('today');
+  const [tab, setTab] = useState<'today' | 'month' | 'grid31'>('today');
   const [date, setDate] = useState(isoOf(new Date()));
   const [search, setSearch] = useState('');
   const [pickedId, setSelectedId] = useState<string>('');
@@ -326,9 +327,9 @@ export const TeacherCheckInView: React.FC = () => {
         </div>
         <div className="flex items-center gap-2">
           <div className="flex rounded-xl bg-slate-100 p-1 text-xs font-bold">
-            {(['today', 'month'] as const).map((k) => (
+            {(canManage ? (['today', 'month', 'grid31'] as const) : (['today', 'month'] as const)).map((k) => (
               <button key={k} onClick={() => setTab(k)} className={`rounded-lg px-3 py-1.5 ${tab === k ? 'bg-white text-teal-800 shadow-sm' : 'text-slate-500'}`}>
-                {k === 'today' ? 'ប្រចាំថ្ងៃ' : 'សរុបប្រចាំខែ'}
+                {k === 'today' ? 'ប្រចាំថ្ងៃ' : k === 'month' ? 'សរុបប្រចាំខែ' : 'តារាង ៣១ ថ្ងៃ'}
               </button>
             ))}
           </div>
@@ -575,6 +576,8 @@ export const TeacherCheckInView: React.FC = () => {
           </>)}
         </>
       )}
+
+      {tab === 'grid31' && canManage && <StaffAttendance31DayReport />}
 
       {tab === 'month' && (
         <div className="rounded-2xl border border-slate-200 bg-white p-4 print:border-0 print:p-0">
