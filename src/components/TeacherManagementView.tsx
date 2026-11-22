@@ -1168,7 +1168,7 @@ export const TeacherManagementView: React.FC<TeacherManagementViewProps> = ({
               </div>
 
               <div className="overflow-x-auto">
-                <table className="w-full text-center text-xs border-collapse">
+                <table data-no-cards className="w-full min-w-[760px] text-center text-xs border-collapse">
                   <thead>
                     <tr className="bg-slate-900 text-white font-khmer">
                       <th className="py-2.5 px-3 border-r border-slate-800 w-36">ម៉ោងសិក្សា</th>
