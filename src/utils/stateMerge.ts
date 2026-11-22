@@ -50,7 +50,7 @@ export const mergeSyncedStore = (a?: SyncedStore | null, b?: SyncedStore | null)
 };
 
 // ---------- Teacher Check In / Leave ----------
-const CONFIG_KEYS = ['startTime', 'endTime', 'lateGraceMinutes', 'leaveQuotas', 'leaveTypes', 'hoursPerDay', 'shifts', 'shiftAssignments', 'holidays'];
+const CONFIG_KEYS = ['startTime', 'endTime', 'lateGraceMinutes', 'leaveQuotas', 'leaveTypes', 'hoursPerDay', 'shifts', 'shiftAssignments', 'holidays', 'geofence'];
 
 const mergeById = (a: any[] = [], b: any[] = [], deleted: Record<string, number> = {}) => {
   const map = new Map<string, any>();
@@ -76,6 +76,7 @@ export const mergeCheckIn = (a: any, b: any) => {
   out.configUpdatedAt = Math.max(Number(a.configUpdatedAt) || 0, Number(b.configUpdatedAt) || 0);
   out.records = mergeById(a.records, b.records, deleted);
   out.leaveRequests = mergeById(a.leaveRequests, b.leaveRequests, deleted);
+  out.corrections = mergeById(a.corrections, b.corrections, deleted);
   out.deleted = deleted;
   return out;
 };
@@ -91,7 +92,7 @@ export const stampCheckIn = (prev: any, next: any, now = Date.now()) => {
     const { updatedAt, ...rest } = x || {};
     return JSON.stringify(rest);
   };
-  const stampList = (key: 'records' | 'leaveRequests') => {
+  const stampList = (key: 'records' | 'leaveRequests' | 'corrections') => {
     const before = new Map<string, any>((prev[key] || []).map((x: any) => [x.id, x]));
     const after = (next[key] || []) as any[];
     out[key] = after.map((x) => {
@@ -105,6 +106,7 @@ export const stampCheckIn = (prev: any, next: any, now = Date.now()) => {
   };
   stampList('records');
   stampList('leaveRequests');
+  stampList('corrections');
   if (CONFIG_KEYS.some((k) => JSON.stringify(prev[k]) !== JSON.stringify(next[k]))) out.configUpdatedAt = now;
   return out;
 };
