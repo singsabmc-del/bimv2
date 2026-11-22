@@ -90,6 +90,7 @@ export const NAV_TAB_IDS = [
   'student_payment_history',
   'teacher_shifts',
   'my_schedule',
+  'student_records',
 ] as const;
 
 export type NavTab = (typeof NAV_TAB_IDS)[number];
@@ -201,6 +202,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           labelKhmer: 'ព័ត៌មាន & ប្រវត្តិរូបសិស្ស',
           icon: UserCheck,
           activeMatch: ['student_info', 'student_portal'],
+        },
+        {
+          id: 'student_records' as NavTab,
+          label: 'Student Records',
+          labelKhmer: 'កំណត់ត្រាសិស្ស (រង្វាយតម្លៃ · ប្រឹក្សា · Call note)',
+          icon: ClipboardList,
+          activeMatch: ['student_records'],
         },
       ],
     },
