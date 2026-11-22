@@ -383,14 +383,15 @@ html[data-sidebar-tone='dark'][data-icon-chips='on'] .app-sidebar .nav-icon { ba
   html.is-phone main .grid.grid-cols-1:has(> * > select) > :has(input[type='text'], input[type='search'], input:not([type])) { grid-column: 1 / -1; }
   html.is-phone main label { font-size: 11px; }
 
-  /* button groups: equal-width buttons that fill the screen width (auto rows) */
-  html.is-phone main :is(.flex, .inline-flex):has(> :is(button, a) + :is(button, a)):not(:has(> :not(button, a))):not(.flex-col):not(.overflow-x-auto):not(td *):not(th *):not([role='tablist']) {
+  /* tool button rows (wrapping rows of buttons only — not tabs or segmented controls):
+     equal-width buttons that fill the screen width */
+  html.is-phone main .flex.flex-wrap:has(> :is(button, a, label) + :is(button, a, label)):not(:has(> :not(button, a, label))):not([class*='border']):not([class*='bg-']):not(.p-1):not(.overflow-x-auto):not(td *):not(th *):not([role='tablist']) {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
     gap: 0.5rem;
     width: 100%;
   }
-  html.is-phone main :is(.flex, .inline-flex):has(> :is(button, a) + :is(button, a)):not(:has(> :not(button, a))):not(.flex-col):not(.overflow-x-auto):not(td *):not(th *):not([role='tablist']) > :is(button, a) {
+  html.is-phone main .flex.flex-wrap:has(> :is(button, a, label) + :is(button, a, label)):not(:has(> :not(button, a, label))):not([class*='border']):not([class*='bg-']):not(.p-1):not(.overflow-x-auto):not(td *):not(th *):not([role='tablist']) > :is(button, a, label) {
     width: 100%;
     min-width: 0;
     justify-content: center;
