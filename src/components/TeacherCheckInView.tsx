@@ -400,6 +400,7 @@ export const TeacherCheckInView: React.FC = () => {
           {[
             { label: 'វត្តមានរបស់ខ្ញុំ', en: 'Attendance', Icon: Clock, onClick: () => document.getElementById('my-attendance')?.scrollIntoView({ behavior: 'smooth' }), badge: mine ? `${mine.present}` : '' },
             { label: 'សុំច្បាប់', en: 'Leave', Icon: Send, onClick: () => go('teacher_leave'), badge: pendingLeaves ? `${pendingLeaves}` : '' },
+            { label: 'កាលវិភាគ', en: 'My schedule', Icon: CalendarDays, onClick: () => go('my_schedule') },
             { label: 'វត្តមានសិស្ស', en: 'Student Attendance', Icon: ClipboardCheck, onClick: () => go('student_attendance') },
             { label: 'បញ្ជីសិស្ស', en: 'Student List', Icon: Users, onClick: () => go('student_list') },
             { label: 'ព័ត៌មានសិស្ស', en: 'Student Info', Icon: ListChecks, onClick: () => go('student_info') },

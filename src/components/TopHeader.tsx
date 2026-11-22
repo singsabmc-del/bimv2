@@ -257,6 +257,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
     teacher_list: ['បញ្ជីឈ្មោះគ្រូ', 'Teacher List'],
     teacher_info: ['ព័ត៌មានគ្រូ', 'Teacher Information'],
     teaching_schedule: ['កាលវិភាគបង្រៀន', 'Teaching Schedule'],
+    my_schedule: ['កាលវិភាគរបស់ខ្ញុំ', 'My Schedule'],
     teacher_subject: ['មុខវិជ្ជា', 'Subjects'],
     teacher_attendance: ['វត្តមានគ្រូ', 'Teacher Attendance'],
     teacher_checkin: ['ចុះវត្តមានគ្រូ (Check In)', 'Attendance Check In'],
