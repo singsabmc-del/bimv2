@@ -340,3 +340,94 @@ html[data-sidebar-tone='dark'] .app-sidebar .nav-item-active .nav-icon { color: 
 html[data-sidebar-tone='dark'] .app-sidebar .text-teal-800.font-display,
 html[data-sidebar-tone='dark'] .app-sidebar .font-display { color: #fff !important; }
 html[data-sidebar-tone='dark'][data-icon-chips='on'] .app-sidebar .nav-icon { background: rgb(255 255 255 / 0.12); color: #fff !important; }
+
+/* ===================== Phone layout (≤ 639px) =====================
+   html.is-phone is set by useMobileUi(); it also shortens bilingual labels and
+   marks ordinary tables as .m-cards (one card per row). */
+@media (max-width: 639px) {
+  /* compact headings, hide the description line under page titles */
+  html.is-phone main h1 { font-size: 1.05rem !important; line-height: 1.4; }
+  html.is-phone main h2 { font-size: 1rem !important; line-height: 1.4; }
+  html.is-phone main h3 { font-size: 0.95rem !important; }
+  html.is-phone main :is(h1, h2, h3) + p { display: none; }
+
+  /* tighter cards */
+  html.is-phone main :is(.p-5, .p-6, .p-8, .sm\:p-6, .sm\:p-8) { padding: 0.75rem; }
+  html.is-phone main :is(.space-y-6) > * + * { margin-top: 0.75rem; }
+  html.is-phone main :is(.gap-6) { gap: 0.75rem; }
+
+  /* one height for buttons and form controls */
+  html.is-phone main button,
+  html.is-phone .fixed.inset-0 button { min-height: 36px; }
+  html.is-phone main :is(input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']), select),
+  html.is-phone .fixed.inset-0 :is(input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']), select) {
+    min-height: 36px;
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
+    font-size: 14px;
+  }
+  html.is-phone main input[type='checkbox'] { width: 18px; height: 18px; }
+
+  /* filter cards: two controls per row instead of one */
+  html.is-phone main .grid.grid-cols-1:is(:has(> * > select), :has(> select), :has(> * > input[type='date']), :has(> * > input[type='month'])) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+  html.is-phone main .grid.grid-cols-1:has(> * > select) > :has(input[type='text'], input[type='search'], input:not([type])) { grid-column: 1 / -1; }
+  html.is-phone main label { font-size: 11px; }
+
+  /* long button rows scroll sideways like app chips instead of stacking */
+  html.is-phone main .flex.flex-wrap:has(> button:nth-of-type(4)) {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  html.is-phone main .flex.flex-wrap:has(> button:nth-of-type(4))::-webkit-scrollbar { display: none; }
+  html.is-phone main .flex.flex-wrap:has(> button:nth-of-type(4)) > * { flex-shrink: 0; }
+
+  /* tables → stacked cards */
+  html.is-phone table.m-cards { min-width: 0 !important; width: 100%; display: block; }
+  html.is-phone table.m-cards thead { display: none; }
+  html.is-phone table.m-cards :is(tbody, tfoot) { display: block; }
+  html.is-phone table.m-cards tbody tr {
+    display: block;
+    margin: 0.5rem;
+    padding: 0.25rem 0.625rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.875rem;
+    box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+  }
+  html.is-phone :where(table.m-cards tbody tr) { background: #fff; }
+  html.is-phone table.m-cards tbody td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    position: static !important;
+    border: 0 !important;
+    padding: 0.3rem 0 !important;
+    text-align: right;
+    white-space: normal !important;
+  }
+  html.is-phone table.m-cards tbody td + td { border-top: 1px dashed #f1f5f9 !important; }
+  html.is-phone table.m-cards tbody td::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    max-width: 45%;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    color: #64748b;
+  }
+  html.is-phone table.m-cards tbody td:is([data-label=''], :not([data-label]))::before { content: none; }
+  html.is-phone table.m-cards tbody td:is([data-label=''], :not([data-label])) { justify-content: flex-end; }
+  html.is-phone table.m-cards tbody tr.m-cards-full { border: 0; box-shadow: none; }
+  html.is-phone table.m-cards tbody tr.m-cards-full td { display: block; text-align: center; }
+  html.is-phone table.m-cards tfoot tr { display: flex; flex-wrap: wrap; justify-content: space-between; padding: 0.5rem 0.75rem; }
+  html.is-phone table.m-cards tfoot td { border: 0 !important; padding: 0.15rem 0 !important; }
+  html.is-phone table.m-cards tfoot td:empty { display: none; }
+}

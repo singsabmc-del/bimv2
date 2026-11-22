@@ -22,6 +22,7 @@ import { TeacherLeaveRequestView } from './components/TeacherLeaveRequestView';
 import { StudentPaymentHistoryView } from './components/StudentPaymentHistoryView';
 import { StaffShiftsView } from './components/StaffShiftsView';
 import { SystemSettingsView } from './components/SystemSettingsView';
+import { useMobileUi } from './utils/mobileUi';
 import { OfficialPrintReport } from './components/OfficialPrintReport';
 import { OfficialClassRosterView } from './components/OfficialClassRosterView';
 import { UserRoleModal } from './components/UserRoleModal';
@@ -95,6 +96,8 @@ function MainApp() {
     teacherClassIds,
     permissions,
   } = useApp();
+  // Phone: shorter labels, tables as cards, even button heights
+  useMobileUi(isAuthenticated);
 
   // A teacher account with no class assigned has nothing to show on class pages
   const CLASS_PAGES: NavTab[] = ['student_list', 'official_roster', 'student_attendance', 'student_info', 'student_portal'];
