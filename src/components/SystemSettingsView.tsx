@@ -36,8 +36,10 @@ import {
   Server,
   RefreshCw,
   Zap,
+  CalendarOff,
 } from 'lucide-react';
 import { checkSupabaseHealth, SupabaseHealthResult } from '../lib/supabase';
+import { HolidaySettingsPanel } from './HolidaySettingsPanel';
 
 export const SystemSettingsView: React.FC = () => {
   const {
@@ -78,7 +80,17 @@ export const SystemSettingsView: React.FC = () => {
     restoreFromSupabaseNow,
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'general' | 'branches' | 'telegram' | 'supabase' | 'backup' | 'roles'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'branches' | 'holidays' | 'telegram' | 'supabase' | 'backup' | 'roles'>(() => {
+    // Other pages can open a specific tab (e.g. the attendance report → Holidays)
+    try {
+      const want = localStorage.getItem('BIM_SETTINGS_TAB');
+      if (want) {
+        localStorage.removeItem('BIM_SETTINGS_TAB');
+        return want as any;
+      }
+    } catch { /* ignore */ }
+    return 'general';
+  });
   const [confirmClearLogs, setConfirmClearLogs] = useState(false);
 
   // Supabase state
@@ -845,6 +857,16 @@ export const SystemSettingsView: React.FC = () => {
           </button>
 
           <button
+            onClick={() => setActiveTab('holidays')}
+            className={`px-3.5 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 ${
+              activeTab === 'holidays' ? 'bg-violet-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <CalendarOff className="w-3.5 h-3.5" />
+            <span>{t('ថ្ងៃបុណ្យឈប់សម្រាក (Holidays)', 'Holidays')}</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('telegram')}
             className={`px-3.5 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 ${
               activeTab === 'telegram' ? 'bg-sky-600 text-white' : 'text-slate-600 hover:bg-slate-100'
@@ -886,6 +908,8 @@ export const SystemSettingsView: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {activeTab === 'holidays' && <HolidaySettingsPanel />}
 
       {/* Tab 1: General Profile */}
       {activeTab === 'general' && (
