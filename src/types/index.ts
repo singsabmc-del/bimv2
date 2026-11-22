@@ -974,9 +974,21 @@ export interface StudentCareRecord {
   meetingTime?: string;
   place?: string;
   reason?: string;
+  /** Editable letter text (invitation) — when set, printed instead of the generated text */
+  letter?: LetterContent;
   // call note
   phone?: string;
   contactName?: string;
   direction?: 'out' | 'in';
   outcome?: 'answered' | 'no_answer' | 'busy' | 'wrong_number';
+}
+
+export interface LetterContent {
+  title: string;
+  to: string;
+  subject: string;
+  body: string; // paragraphs separated by blank lines
+  closing: string;
+  signerTitle: string;
+  signerName: string;
 }
