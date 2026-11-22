@@ -706,6 +706,16 @@ export interface TeacherCheckInData {
   shifts?: ShiftDef[];
   /** staffId → weekday (0=Sun … 6=Sat) → shift id or 'off' */
   shiftAssignments?: Record<string, Record<number, string>>;
+  /** School holidays (no work expected; not counted as absent) */
+  holidays?: HolidayDef[];
+}
+
+/** A holiday or closure, one day or a range */
+export interface HolidayDef {
+  id: string;
+  from: string; // YYYY-MM-DD
+  to: string; // YYYY-MM-DD (same as from for one day)
+  name: string;
 }
 
 export interface SubjectItem {

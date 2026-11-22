@@ -1,3 +1,4 @@
+import { holidayOn } from '../utils/shifts';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { MONTH_NAMES, MONTH_NAMES_KH, AttendanceStatus } from '../types';
@@ -61,7 +62,8 @@ export const Student31DaysAttendanceReport: React.FC<Student31DaysAttendanceRepo
     t,
     syncedGet,
     syncedSet,
-  } = useApp();
+    teacherCheckIn,
+  } = useApp() as any;
 
   const [activeClassId, setActiveClassId] = useState<string>(
     defaultClassId || selectedClassId || '1A'
@@ -90,6 +92,10 @@ export const Student31DaysAttendanceReport: React.FC<Student31DaysAttendanceRepo
   const daysInMonth =
     monthIdx >= 0 ? new Date(selectedYear, monthIdx + 1, 0).getDate() : 31;
   const daysArray = Array.from({ length: 31 }, (_, i) => i + 1);
+  // School holidays (managed in the staff 31-day report) count as days off
+  const isSchoolHoliday = (d: number) =>
+    monthIdx >= 0 && d <= daysInMonth &&
+    !!holidayOn(teacherCheckIn, `${selectedYear}-${String(monthIdx + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
 
   // Storage key
   const storageKey = `BIM_ATTENDANCE_31D_${activeClassId}_${selectedMonth}_${selectedYear}`;
@@ -112,7 +118,7 @@ export const Student31DaysAttendanceReport: React.FC<Student31DaysAttendanceRepo
             continue;
           }
           const dayOfWeek = new Date(selectedYear, monthIdx >= 0 ? monthIdx : 9, d).getDay();
-          if (dayOfWeek === 0) {
+          if (dayOfWeek === 0 || isSchoolHoliday(d)) {
             // Sunday is weekly off
             initial[st.id][d] = { status: 'holiday' };
           } else {
@@ -139,7 +145,13 @@ export const Student31DaysAttendanceReport: React.FC<Student31DaysAttendanceRepo
   useEffect(() => {
     const stored = syncedGet(storageKey);
     if (stored) {
-      setMonthlyAttendance(stored);
+      // School holidays always show as days off, even on months saved before the holiday was added
+      const withHolidays: any = {};
+      Object.entries(stored).forEach(([sid, daysMap]: [string, any]) => {
+        withHolidays[sid] = { ...daysMap };
+        for (let d = 1; d <= daysInMonth; d++) if (isSchoolHoliday(d)) withHolidays[sid][d] = { status: 'holiday' };
+      });
+      setMonthlyAttendance(withHolidays);
       return;
     }
 
@@ -154,7 +166,7 @@ export const Student31DaysAttendanceReport: React.FC<Student31DaysAttendanceRepo
             continue;
           }
           const dayOfWeek = new Date(selectedYear, monthIdx >= 0 ? monthIdx : 9, d).getDay();
-          if (dayOfWeek === 0) {
+          if (dayOfWeek === 0 || isSchoolHoliday(d)) {
             initial[st.id][d] = { status: 'holiday' };
           } else {
             initial[st.id][d] = { status: 'present' };
@@ -164,7 +176,7 @@ export const Student31DaysAttendanceReport: React.FC<Student31DaysAttendanceRepo
     }
     setMonthlyAttendance(initial);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeClassId, selectedMonth, selectedYear, daysInMonth, storageKey, JSON.stringify(syncedGet(storageKey) || null)]);
+  }, [activeClassId, selectedMonth, selectedYear, daysInMonth, storageKey, JSON.stringify(syncedGet(storageKey) || null), JSON.stringify(teacherCheckIn?.holidays || [])]);
 
   // Save changes
   const saveAttendanceData = (data: typeof monthlyAttendance) => {
@@ -221,7 +233,7 @@ export const Student31DaysAttendanceReport: React.FC<Student31DaysAttendanceRepo
           continue;
         }
         const dayOfWeek = new Date(selectedYear, monthIdx >= 0 ? monthIdx : 9, d).getDay();
-        resetData[st.id][d] = { status: dayOfWeek === 0 ? 'holiday' : 'present' };
+        resetData[st.id][d] = { status: dayOfWeek === 0 || isSchoolHoliday(d) ? 'holiday' : 'present' };
       }
     });
     saveAttendanceData(resetData);
