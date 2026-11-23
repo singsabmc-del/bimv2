@@ -3,6 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import type { TeacherCheckInRecord, TeacherLeaveRequest, TeacherRecord } from '../types';
+import { holidayOn } from '../utils/shifts';
 import { CalendarDays, Check, X, Send, Clock, Trash2, Settings2, Plus, FilePlus2, ListChecks } from 'lucide-react';
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -17,13 +18,14 @@ const toMin = (t?: string) => {
   return h * 60 + m;
 };
 
-/** School days (Mon–Fri) between two dates, inclusive */
-const daysBetween = (from: string, to: string) => {
+/** School days (Mon–Fri, not a school holiday) between two dates, inclusive */
+const daysBetween = (from: string, to: string, isHoliday: (iso: string) => boolean = () => false) => {
   const out: string[] = [];
   const d = new Date(from + 'T00:00:00');
   const end = new Date(to + 'T00:00:00');
   while (d <= end && out.length < 400) {
-    if (d.getDay() !== 0 && d.getDay() !== 6) out.push(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`);
+    const iso = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    if (d.getDay() !== 0 && d.getDay() !== 6 && !isHoliday(iso)) out.push(iso);
     d.setDate(d.getDate() + 1);
   }
   return out;
@@ -104,8 +106,10 @@ export const TeacherLeaveRequestView: React.FC = () => {
   const requests: TeacherLeaveRequest[] = teacherCheckIn.leaveRequests || [];
   const who: TeacherRecord | undefined = selfOnly ? linkedTeacher : (teachers as TeacherRecord[]).find((t) => t.id === teacherId);
 
+  // School holidays (System Settings) are not leave days
+  const isHol = (iso: string) => !!holidayOn(teacherCheckIn, iso);
   const hoursOf = (r: TeacherLeaveRequest) =>
-    r.hours ?? (r.unit === 'hour' ? Math.max(0, (toMin(r.toTime) - toMin(r.fromTime)) / 60) : daysBetween(r.fromDate, r.toDate).length * perDay);
+    r.hours ?? (r.unit === 'hour' ? Math.max(0, (toMin(r.toTime) - toMin(r.fromTime)) / 60) : daysBetween(r.fromDate, r.toDate, isHol).length * perDay);
 
   /** Used / pending hours per type this year for one staff member */
   const balanceOf = (staffId?: string) => {
@@ -125,7 +129,17 @@ export const TeacherLeaveRequestView: React.FC = () => {
   const requestedHours =
     unit === 'hour'
       ? Math.max(0, (toMin(toTime) - toMin(fromTime)) / 60)
-      : daysBetween(fromDate, toDate).length * perDay;
+      : daysBetween(fromDate, toDate, isHol).length * perDay;
+  // holidays inside the chosen range (shown under the total)
+  const holidaysInRange = (() => {
+    const out: { from: string; to: string; name: string }[] = [];
+    const end = unit === 'hour' ? fromDate : toDate;
+    (teacherCheckIn.holidays || []).forEach((h: any) => {
+      if (h.from <= end && (h.to || h.from) >= fromDate) out.push(h);
+    });
+    return out;
+  })();
+  const hourOnHoliday = unit === 'hour' && isHol(fromDate);
 
   const visible = useMemo(
     () =>
@@ -168,8 +182,9 @@ export const TeacherLeaveRequestView: React.FC = () => {
     if (!who) return;
     const effTo = unit === 'hour' ? fromDate : toDate;
     if (unit === 'day' && toDate < fromDate) return alert('ថ្ងៃបញ្ចប់ត្រូវនៅក្រោយថ្ងៃចាប់ផ្តើម');
+    if (hourOnHoliday) return alert(`ថ្ងៃ ${dmy(fromDate)} ជាថ្ងៃឈប់សម្រាក (${holidayOn(teacherCheckIn, fromDate)?.name}) — មិនអាចសុំច្បាប់បានទេ`);
     if (unit === 'hour' && !(requestedHours > 0)) return alert('ម៉ោងបញ្ចប់ត្រូវនៅក្រោយម៉ោងចាប់ផ្តើម');
-    if (requestedHours <= 0) return alert('មិនមានថ្ងៃធ្វើការក្នុងចន្លោះនេះទេ');
+    if (requestedHours <= 0) return alert(holidaysInRange.length ? 'ថ្ងៃដែលបានជ្រើសទាំងអស់ ជាថ្ងៃឈប់សម្រាក ឬចុងសប្តាហ៍ — មិនចាំបាច់សុំច្បាប់ទេ' : 'មិនមានថ្ងៃធ្វើការក្នុងចន្លោះនេះទេ');
     if (!reason.trim()) return alert('សូមសរសេរមូលហេតុ');
     const type = (activeTypes.find((t) => t.key === typeState) ? typeState : activeTypes[0]?.key) || 'other';
     const q = quotas[type] || 0;
@@ -222,7 +237,7 @@ export const TeacherLeaveRequestView: React.FC = () => {
           const n = `សុំច្បាប់ ${req.fromTime}–${req.toTime}`;
           if (cur) records = records.map((r) => (r.id === id ? { ...r, note: [r.note, n].filter(Boolean).join(' · ') } : r));
         } else {
-          daysBetween(req.fromDate, req.toDate).forEach((d) => {
+          daysBetween(req.fromDate, req.toDate, isHol).forEach((d) => {
             const id = `${d}_${req.teacherId}`;
             const cur = records.find((r) => r.id === id);
             if (cur?.checkIn) return;
@@ -482,14 +497,20 @@ export const TeacherLeaveRequestView: React.FC = () => {
             )}
             <div className="flex items-center gap-1 rounded-lg bg-slate-50 px-2 py-1.5 text-[11px] text-slate-600">
               <CalendarDays className="h-3.5 w-3.5" /> សរុប៖ <b className="text-slate-900">{fmtDH(requestedHours, perDay) || '0'}</b>
-              {unit === 'day' && <span className="text-slate-400">(ចន្ទ–សុក្រ)</span>}
+              {unit === 'day' && <span className="text-slate-400">(ចន្ទ–សុក្រ មិនរាប់ថ្ងៃឈប់សម្រាក)</span>}
             </div>
+            {holidaysInRange.length > 0 && (
+              <div className={`rounded-lg px-2 py-1.5 text-[11px] ${hourOnHoliday ? 'bg-rose-50 text-rose-700' : 'bg-violet-50 text-violet-800'}`}>
+                {hourOnHoliday ? '⛔ ថ្ងៃនេះជាថ្ងៃឈប់សម្រាក មិនអាចសុំច្បាប់បានទេ · ' : '🎉 មិនរាប់ថ្ងៃឈប់សម្រាក៖ '}
+                {holidaysInRange.map((h) => `${dmy(h.from)}${h.to && h.to !== h.from ? '–' + dmy(h.to) : ''} ${h.name}`).join(' · ')}
+              </div>
+            )}
 
             <label className="flex flex-col gap-1 font-bold text-slate-600">
               មូលហេតុ
               <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={2} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2" placeholder="សូមសរសេរមូលហេតុ…" />
             </label>
-            <button disabled={!who} className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-teal-600 py-2.5 text-sm font-bold text-white hover:bg-teal-700 disabled:opacity-40">
+            <button disabled={!who || hourOnHoliday || requestedHours <= 0} className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-teal-600 py-2.5 text-sm font-bold text-white hover:bg-teal-700 disabled:opacity-40">
               <Send className="h-4 w-4" /> ផ្ញើសំណើ
             </button>
           </form>
