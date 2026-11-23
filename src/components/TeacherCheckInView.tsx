@@ -65,7 +65,8 @@ export const TeacherCheckInView: React.FC = () => {
     const ids = [...pickedStaff];
     if (!ids.length) return;
     const label = { present: 'មក (ម៉ោងចូលតាមវេន)', leave: 'ច្បាប់', absent: 'អវត្តមាន', clear: 'លុបវត្តមាន' }[kind];
-    if (!confirm(`${label} សម្រាប់បុគ្គលិក ${ids.length} នាក់ ថ្ងៃ ${date}?`)) return;
+    const holB = holidayOn(teacherCheckIn, date);
+    if (!confirm(`${holB && kind !== 'clear' ? `⚠️ ថ្ងៃ ${date} ជាថ្ងៃឈប់សម្រាក (${holB.name})\n\n` : ''}${label} សម្រាប់បុគ្គលិក ${ids.length} នាក់ ថ្ងៃ ${date}?`)) return;
     const by = currentUser.khmerName || currentUser.name;
     setTeacherCheckIn((prev: any) => {
       let next = prev;
@@ -135,6 +136,12 @@ export const TeacherCheckInView: React.FC = () => {
   ];
   const doCheckIn = (x?: GeoExtra) => {
     if (!selected) return;
+    const hol = holidayOn(teacherCheckIn, date);
+    if (hol) {
+      // staff cannot check in on a school holiday; Admin may still record work on purpose
+      if (selfOnly || !canManage) return alert(`ថ្ងៃនេះជាថ្ងៃឈប់សម្រាក (${hol.name}) — មិនអាច Check In បានទេ`);
+      if (!confirm(`ថ្ងៃ ${date} ជាថ្ងៃឈប់សម្រាក (${hol.name})។ នៅតែកត់ត្រាវត្តមានឱ្យ ${selected.nameKhmer}?`)) return;
+    }
     const t = timeToUse();
     const status: TeacherCheckInRecord['status'] = toMin(t) > lateLimitFor(selected.id) ? 'late' : 'on_time';
     upsert(selected.id, {
@@ -186,6 +193,7 @@ export const TeacherCheckInView: React.FC = () => {
   const run = (action: 'in' | 'out', x?: GeoExtra) => (action === 'in' ? doCheckIn(x) : doCheckOut(x));
   /** Self check in/out: inside the school area goes straight through; outside asks for a mission reason */
   const guarded = async (action: 'in' | 'out') => {
+    if (action === 'in' && holidayOn(teacherCheckIn, date)) return run(action); // doCheckIn shows the holiday message
     if (!selfOnly || !geoOn) return run(action);
     setGeoBusy(true);
     try {
@@ -326,7 +334,8 @@ export const TeacherCheckInView: React.FC = () => {
     const mine = monthly.rows[0];
     const pendingLeaves = (teacherCheckIn.leaveRequests || []).filter((r: any) => r.teacherId === selectedId && r.status === 'pending').length;
     const doneToday = !!selectedRec?.checkOut || selectedRec?.status === 'leave';
-    const btnLabel = !selectedRec?.checkIn ? 'CHECK IN' : !selectedRec?.checkOut ? 'CHECK OUT' : 'DONE';
+    const todayHoliday = holidayOn(teacherCheckIn, date);
+    const btnLabel = todayHoliday && !selectedRec?.checkIn ? 'ថ្ងៃឈប់' : !selectedRec?.checkIn ? 'CHECK IN' : !selectedRec?.checkOut ? 'CHECK OUT' : 'DONE';
     const onBig = () => (!selectedRec?.checkIn ? guarded('in') : !selectedRec?.checkOut ? guarded('out') : undefined);
     const firstName = (selected?.nameKhmer || currentUser.khmerName || '').split('(')[0].trim();
     return (
@@ -365,7 +374,7 @@ export const TeacherCheckInView: React.FC = () => {
             </div>
             <button
               type="button"
-              disabled={!selected || doneToday || geoBusy}
+              disabled={!selected || doneToday || geoBusy || (!!todayHoliday && !selectedRec?.checkIn)}
               onClick={onBig}
               className={`flex h-24 w-24 shrink-0 items-center justify-center rounded-full border-4 border-amber-400 text-xs font-bold tracking-wide shadow-[0_0_24px_rgba(251,191,36,0.35)] transition active:scale-95 disabled:opacity-50 sm:h-28 sm:w-28 sm:text-sm ${
                 !selectedRec?.checkIn ? 'bg-white text-teal-800' : 'bg-amber-400 text-slate-900'
@@ -380,6 +389,9 @@ export const TeacherCheckInView: React.FC = () => {
             placeholder="កំណត់សម្គាល់ (ជម្រើស)"
             className="relative mt-3 w-full rounded-xl bg-white/10 px-3 py-1.5 text-xs text-white placeholder:text-teal-100 focus:bg-white/15 focus:outline-none"
           />
+          {todayHoliday && (
+            <p className="relative mt-2 rounded-lg bg-violet-500/90 px-2 py-1 text-[11px] font-bold text-white">🎉 ថ្ងៃឈប់សម្រាក៖ {todayHoliday.name} — មិនចាំបាច់ Check In</p>
+          )}
           {geoOn && (
             <p className="relative mt-2 flex items-center gap-1 text-[10px] text-teal-100">
               <MapPin className="h-3 w-3" /> ត្រូវនៅក្នុងបរិវេណសាលា ({geofence!.radius || 150}m) · ចុះបេសកកម្ម អាច Check In ពីក្រៅបាន

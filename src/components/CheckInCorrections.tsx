@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import type { CheckInCorrection, TeacherCheckInRecord, TeacherRecord } from '../types';
-import { shiftFor } from '../utils/shifts';
+import { holidayOn, shiftFor } from '../utils/shifts';
 import { Check, Clock3, PencilLine, X } from 'lucide-react';
 
 const toMin = (t?: string) => {
@@ -63,7 +63,10 @@ export const CorrectionFormModal: React.FC<{
   };
 
   const changed = checkIn !== (rec?.checkIn || '') || checkOut !== (rec?.checkOut || '') || (mode === 'edit' && status !== 'auto');
+  const hol = holidayOn(teacherCheckIn, date);
+  const holidayBlocked = mode === 'request' && !!hol;
   const valid =
+    !holidayBlocked &&
     !!date && (status !== 'auto' || !!checkIn || !!checkOut) && (!checkIn || !checkOut || toMin(checkOut) > toMin(checkIn)) && (mode === 'edit' || (!!reason.trim() && changed));
 
   const submit = () => {
@@ -148,6 +151,11 @@ export const CorrectionFormModal: React.FC<{
             </div>
           )}
           {checkIn && checkOut && toMin(checkOut) <= toMin(checkIn) && <div className="text-rose-600">ម៉ោងចេញត្រូវក្រោយម៉ោងចូល</div>}
+          {hol && (
+            <div className={`rounded-lg px-2 py-1.5 ${holidayBlocked ? 'bg-rose-50 text-rose-700' : 'bg-violet-50 text-violet-800'}`}>
+              🎉 {date} ជាថ្ងៃឈប់សម្រាក ({hol.name}){holidayBlocked ? ' — មិនអាចស្នើកែវត្តមានបានទេ' : ' — កំពុងកត់ត្រាលើថ្ងៃឈប់'}
+            </div>
+          )}
           <label className="flex flex-col gap-1">{mode === 'request' ? 'មូលហេតុ (ចាំបាច់)' : 'មូលហេតុ / កំណត់សម្គាល់'}
             <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={2} placeholder="ឧ. ភ្លេចស្កែនចេញ ព្រោះប្រញាប់ទៅប្រជុំ" className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-normal" />
           </label>
