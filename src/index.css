@@ -489,13 +489,17 @@ html[data-sidebar-tone='dark'][data-icon-chips='on'] .app-sidebar .nav-icon { ba
   html.is-phone .fixed.inset-0:is([class*='bg-slate-9'], [class*='bg-black']):not(.items-start) {
     align-items: flex-end !important;
     padding: 0 !important;
+    top: auto !important;
+    height: 100dvh;
+    overflow: hidden !important;
   }
   html.is-phone .fixed.inset-0:is([class*='bg-slate-9'], [class*='bg-black']):not(.items-start) > :first-child {
     position: relative;
     width: 100% !important;
     max-width: 100% !important;
-    max-height: 92dvh;
+    max-height: calc(100dvh - max(env(safe-area-inset-top), 12px) - 12px) !important;
     overflow-y: auto;
+    overscroll-behavior: contain;
     margin: 0 !important;
     border-radius: 22px 22px 0 0 !important;
     padding-top: 14px;
@@ -514,4 +518,10 @@ html[data-sidebar-tone='dark'][data-icon-chips='on'] .app-sidebar .nav-icon { ba
     background: #cbd5e1;
     z-index: 1;
   }
+  /* inner boxes sized in vh (taller than the visible screen behind browser bars) → fit the sheet */
+  html.is-phone .fixed.inset-0:is([class*='bg-slate-9'], [class*='bg-black']):not(.items-start) [class*='vh]'] {
+    max-height: calc(100dvh - max(env(safe-area-inset-top), 12px) - 12px) !important;
+  }
+  /* when a field is focused, keep it clear of the keyboard */
+  html.is-phone .fixed.inset-0 :is(input, select, textarea) { scroll-margin-bottom: 96px; }
 }
