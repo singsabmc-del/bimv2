@@ -336,6 +336,8 @@ export const TeacherCheckInView: React.FC<{ page?: 'home' | 'mine' }> = ({ page 
     const pendingLeaves = (teacherCheckIn.leaveRequests || []).filter((r: any) => r.teacherId === selectedId && r.status === 'pending').length;
     // my open work-plan tasks (shared store, one key per task)
     const openTasks = (syncedEntries('BIM_WORKPLAN_') as [string, any][]).filter(([, t]) => t && (t.assigneeIds || []).includes(selectedId) && (t.status === 'todo' || t.status === 'doing')).length;
+    // meetings I am invited to and have not answered yet
+    const myMeetings = (syncedEntries('BIM_MEETING_') as [string, any][]).filter(([, m]) => m && m.status === 'scheduled' && m.date >= today && (m.attendeeIds || []).includes(selectedId) && !m.rsvp?.[selectedId]).length;
     const doneToday = !!selectedRec?.checkOut || selectedRec?.status === 'leave';
     const todayHoliday = holidayOn(teacherCheckIn, date);
     const btnLabel = todayHoliday && !selectedRec?.checkIn ? 'ថ្ងៃឈប់' : !selectedRec?.checkIn ? 'CHECK IN' : !selectedRec?.checkOut ? 'CHECK OUT' : 'DONE';
@@ -479,6 +481,7 @@ export const TeacherCheckInView: React.FC<{ page?: 'home' | 'mine' }> = ({ page 
             { label: 'វត្តមានរបស់ខ្ញុំ', en: 'Attendance', Icon: Clock, onClick: () => go('my_attendance'), badge: mine ? `${mine.present}` : '' },
             { label: 'សុំច្បាប់', en: 'Leave', Icon: Send, onClick: () => go('teacher_leave'), badge: pendingLeaves ? `${pendingLeaves}` : '' },
             { label: 'ផែនការការងារ', en: 'Work plan', Icon: ListChecks, onClick: () => go('work_plan'), badge: openTasks ? `${openTasks}` : '' },
+            { label: 'ប្រជុំ & សំណើ', en: 'Meetings', Icon: Users, onClick: () => go('meetings'), badge: myMeetings ? `${myMeetings}` : '' },
             { label: 'កាលវិភាគ', en: 'My schedule', Icon: CalendarDays, onClick: () => go('my_schedule') },
             { label: 'កំណត់ត្រាសិស្ស', en: 'Student Records', Icon: ClipboardList, onClick: () => go('student_records') },
             { label: 'ដាក់ពិន្ទុ', en: 'Scores', Icon: FileText, onClick: () => go('academic_scores') },
