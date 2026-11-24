@@ -12,7 +12,8 @@ export const isSyncedStoreKey = (k: string) =>
   k === 'BIM_HONOR_TEACHER_SIGNATURES' ||
   k.startsWith('BIM_ATTENDANCE_31D_') ||
   k.startsWith('BIM_RANGSEI_TEACHER_ATT_') ||
-  k.startsWith('BIM_STUDENT_REC_'); // student records: one key per record
+  k.startsWith('BIM_STUDENT_REC_') || // student records: one key per record
+  k.startsWith('BIM_WORKPLAN_'); // staff work plan: one key per task
 
 export interface SyncedStore {
   data: Record<string, any>;

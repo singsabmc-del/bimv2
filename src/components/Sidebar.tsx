@@ -92,6 +92,7 @@ export const NAV_TAB_IDS = [
   'my_schedule',
   'student_records',
   'my_attendance',
+  'work_plan',
 ] as const;
 
 export type NavTab = (typeof NAV_TAB_IDS)[number];
@@ -284,6 +285,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           labelKhmer: 'កាលវិភាគបង្រៀន',
           icon: Calendar,
           activeMatch: ['teaching_schedule'],
+        },
+        {
+          id: 'work_plan' as NavTab,
+          label: 'Work plan',
+          labelKhmer: 'ផែនការសកម្មភាពការងារ',
+          icon: ClipboardList,
+          activeMatch: ['work_plan'],
         },
         {
           id: 'my_attendance' as NavTab,
