@@ -81,10 +81,10 @@ const Pill: React.FC<{ cls: string; children: React.ReactNode }> = ({ cls, child
 // =====================================================================  MEETINGS
 const M_STATUS = { scheduled: ['បានកំណត់', 'bg-sky-100 text-sky-800'], done: ['បានប្រជុំ', 'bg-emerald-100 text-emerald-800'], cancelled: ['លុបចោល', 'bg-rose-50 text-rose-500'] } as const;
 
-const MeetingForm: React.FC<{ initial?: MeetingItem; onClose: () => void }> = ({ initial, onClose }) => {
+export const MeetingForm: React.FC<{ initial?: MeetingItem; date?: string; onClose: () => void }> = ({ initial, date, onClose }) => {
   const { put, staff, myName, sendTelegramAlert, showNotification, teacherCheckIn } = useCollab();
   const today = isoOf(new Date());
-  const [m, setM] = useState<MeetingItem>(initial || { id: uid('mt'), title: '', date: today, startTime: '14:00', endTime: '15:00', place: '', attendeeIds: [], attendeeNames: [], agenda: [''], status: 'scheduled', createdBy: myName, createdAt: new Date().toISOString() });
+  const [m, setM] = useState<MeetingItem>(initial || { id: uid('mt'), title: '', date: date || today, startTime: '14:00', endTime: '15:00', place: '', attendeeIds: [], attendeeNames: [], agenda: [''], status: 'scheduled', createdBy: myName, createdAt: new Date().toISOString() });
   const set = (p: Partial<MeetingItem>) => setM((x) => ({ ...x, ...p }));
   const hol = holidayOn(teacherCheckIn, m.date);
   const valid = m.title.trim() && m.date && m.startTime && m.attendeeIds.length > 0;
@@ -229,10 +229,10 @@ const MeetingDetail: React.FC<{ m: MeetingItem; onClose: () => void; onEdit: () 
 const A_STATUS = { pending: ['រង់ចាំបញ្ជាក់', 'bg-amber-100 text-amber-800'], confirmed: ['បានបញ្ជាក់', 'bg-sky-100 text-sky-800'], done: ['បានជួប', 'bg-emerald-100 text-emerald-800'], cancelled: ['លុបចោល', 'bg-rose-50 text-rose-500'], no_show: ['មិនមក', 'bg-slate-200 text-slate-600'] } as const;
 const A_TYPE = { guardian: 'អាណាព្យាបាល', visitor: 'ភ្ញៀវ', partner: 'ដៃគូ', other: 'ផ្សេងៗ' } as const;
 
-const ApptForm: React.FC<{ initial?: AppointmentItem; onClose: () => void }> = ({ initial, onClose }) => {
+export const ApptForm: React.FC<{ initial?: AppointmentItem; date?: string; onClose: () => void }> = ({ initial, date, onClose }) => {
   const { put, staff, myName, myId, sendTelegramAlert, showNotification, teacherCheckIn, classData } = useCollab();
   const today = isoOf(new Date());
-  const [a, setA] = useState<AppointmentItem>(initial || { id: uid('ap'), visitorName: '', visitorType: 'guardian', hostId: myId, date: today, time: '09:00', purpose: '', status: 'pending', createdBy: myName, createdAt: new Date().toISOString() });
+  const [a, setA] = useState<AppointmentItem>(initial || { id: uid('ap'), visitorName: '', visitorType: 'guardian', hostId: myId, date: date || today, time: '09:00', purpose: '', status: 'pending', createdBy: myName, createdAt: new Date().toISOString() });
   const set = (p: Partial<AppointmentItem>) => setA((x) => ({ ...x, ...p }));
   const students = useMemo(() => Object.values(classData || {}).flatMap((c: any) => (c.students || []).map((s: any) => ({ name: s.name, cls: c.className, guardian: s.guardianName, phone: s.guardianPhone || s.phone }))), [classData]);
   const hol = holidayOn(teacherCheckIn, a.date);
