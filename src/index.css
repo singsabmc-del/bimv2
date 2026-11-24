@@ -450,3 +450,24 @@ html[data-sidebar-tone='dark'][data-icon-chips='on'] .app-sidebar .nav-icon { ba
   html.is-phone table.m-cards tfoot td { border: 0 !important; padding: 0.15rem 0 !important; }
   html.is-phone table.m-cards tfoot td:empty { display: none; }
 }
+
+/* ---------- Page & modal motion ---------- */
+@keyframes bim-page-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes bim-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes bim-pop-in { from { opacity: 0; transform: translateY(14px) scale(0.97); } to { opacity: 1; transform: none; } }
+@keyframes bim-sheet-up { from { transform: translateY(100%); } to { transform: none; } }
+
+@media screen and (prefers-reduced-motion: no-preference) {
+  .page-enter { animation: bim-page-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+  /* any dimmed full-screen overlay = modal backdrop */
+  .fixed.inset-0[class*='bg-slate-9'],
+  .fixed.inset-0[class*='bg-black'] { animation: bim-fade-in 0.18s ease-out both; }
+  .fixed.inset-0[class*='bg-slate-9'] > :first-child,
+  .fixed.inset-0[class*='bg-black'] > :first-child { animation: bim-pop-in 0.26s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+  /* bottom sheets slide up on phones */
+  @media (max-width: 639px) {
+    .fixed.inset-0.items-end[class*='bg-slate-9'] > :first-child { animation: bim-sheet-up 0.3s cubic-bezier(0.22, 1, 0.36, 1) both; }
+  }
+}

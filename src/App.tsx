@@ -198,7 +198,7 @@ function MainApp() {
         )}
 
         {/* Full-Width Dynamic Views Viewport matching 5 Flowchart Sections */}
-        <main className="flex-1 p-3 sm:p-6 lg:p-8 print:p-0 w-full max-w-full overflow-x-hidden">
+        <main key={activeTab} className="page-enter flex-1 p-3 sm:p-6 lg:p-8 print:p-0 w-full max-w-full overflow-x-hidden">
           {isViewingOldYear && (
             <div className="no-print mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 font-khmer">
               <div className="text-sm text-rose-900">
