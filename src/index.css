@@ -466,8 +466,52 @@ html[data-sidebar-tone='dark'][data-icon-chips='on'] .app-sidebar .nav-icon { ba
   .fixed.inset-0[class*='bg-slate-9'] > :first-child,
   .fixed.inset-0[class*='bg-black'] > :first-child { animation: bim-pop-in 0.26s cubic-bezier(0.22, 1, 0.36, 1) both; }
 
-  /* bottom sheets slide up on phones */
+  /* every dialog is a bottom sheet on phones: slide it up */
   @media (max-width: 639px) {
-    .fixed.inset-0.items-end[class*='bg-slate-9'] > :first-child { animation: bim-sheet-up 0.3s cubic-bezier(0.22, 1, 0.36, 1) both; }
+    html.is-phone .fixed.inset-0:is([class*='bg-slate-9'], [class*='bg-black']):not(.items-start) > :first-child { animation: bim-sheet-up 0.32s cubic-bezier(0.22, 1, 0.36, 1) both; }
+  }
+}
+
+/* ===================== Native-app feel (phone) ===================== */
+@media screen and (max-width: 639px) {
+  html.is-phone, html.is-phone body { overscroll-behavior-y: none; -webkit-tap-highlight-color: transparent; }
+  html.is-phone :is(button, a, [role='button'], nav, label) { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  html.is-phone :is(button, a, [role='button']) { transition: transform 0.12s ease, opacity 0.12s ease; }
+  html.is-phone :is(button, a, [role='button']):not(:disabled):active { transform: scale(0.96); opacity: 0.85; }
+  html.is-phone .overflow-x-auto { scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  html.is-phone .overflow-x-auto::-webkit-scrollbar { display: none; }
+
+  /* soft app-style cards */
+  html.is-phone main .rounded-2xl.border.bg-white,
+  html.is-phone main .rounded-xl.border.bg-white { box-shadow: 0 1px 2px rgb(15 23 42 / 0.04), 0 4px 14px rgb(15 23 42 / 0.04); }
+
+  /* dialogs become bottom sheets with a grab handle */
+  html.is-phone .fixed.inset-0:is([class*='bg-slate-9'], [class*='bg-black']):not(.items-start) {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+  html.is-phone .fixed.inset-0:is([class*='bg-slate-9'], [class*='bg-black']):not(.items-start) > :first-child {
+    position: relative;
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 92dvh;
+    overflow-y: auto;
+    margin: 0 !important;
+    border-radius: 22px 22px 0 0 !important;
+    padding-top: 14px;
+    padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
+    box-shadow: 0 -10px 40px rgb(15 23 42 / 0.18);
+  }
+  html.is-phone .fixed.inset-0:is([class*='bg-slate-9'], [class*='bg-black']):not(.items-start) > :first-child::before {
+    content: '';
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    width: 40px;
+    height: 4px;
+    margin-left: -20px;
+    border-radius: 999px;
+    background: #cbd5e1;
+    z-index: 1;
   }
 }
