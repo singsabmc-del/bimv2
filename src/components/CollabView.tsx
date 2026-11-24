@@ -203,11 +203,11 @@ const MeetingDetail: React.FC<{ m: MeetingItem; onClose: () => void; onEdit: () 
                 <button type="button" onClick={() => setDecisions(decisions.filter((_, j) => j !== i))} className="rounded-lg px-2 text-rose-500"><X className="h-4 w-4" /></button>
               </div>
               <div className="flex gap-1.5">
-                <select value={d.ownerId || ''} onChange={(e) => setDecisions(decisions.map((x, j) => (j === i ? { ...x, ownerId: e.target.value, ownerName: staff.find((s: TeacherRecord) => s.id === e.target.value)?.nameKhmer } : x)))} className={`${inp} flex-1`}>
+                <select value={d.ownerId || ''} onChange={(e) => setDecisions(decisions.map((x, j) => (j === i ? { ...x, ownerId: e.target.value, ownerName: staff.find((s: TeacherRecord) => s.id === e.target.value)?.nameKhmer } : x)))} className="min-w-0 flex-1 rounded-lg border border-slate-200 px-2 py-2 text-sm">
                   <option value="">អ្នកទទួលខុសត្រូវ…</option>
                   {staff.map((s: TeacherRecord) => <option key={s.id} value={s.id}>{s.nameKhmer}</option>)}
                 </select>
-                <input type="date" value={d.dueDate || ''} onChange={(e) => setDecisions(decisions.map((x, j) => (j === i ? { ...x, dueDate: e.target.value } : x)))} className={`${inp} w-36`} />
+                <input type="date" value={d.dueDate || ''} onChange={(e) => setDecisions(decisions.map((x, j) => (j === i ? { ...x, dueDate: e.target.value } : x)))} className="w-36 shrink-0 rounded-lg border border-slate-200 px-2 py-2 text-sm" />
               </div>
               {d.taskId ? <div className="text-[11px] font-bold text-emerald-700">✓ បានបង្កើតក្នុងផែនការការងារ</div> : <button type="button" onClick={() => toTask(i)} className="text-[11px] font-bold text-indigo-700">→ បង្កើតជាការងារក្នុងផែនការការងារ</button>}
             </div>
@@ -310,11 +310,23 @@ const RequestForm: React.FC<{ initial?: StaffRequestItem; onClose: () => void }>
       <div className={lbl}>
         មុខទំនិញ / ការងារ
         {items.map((it, i) => (
-          <div key={i} className="flex gap-1.5">
-            <input value={it.name} onChange={(e) => set({ items: items.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)) })} placeholder="ឈ្មោះ" className={`${inp} flex-1`} />
-            <input type="number" min={1} value={it.qty} onChange={(e) => set({ items: items.map((x, j) => (j === i ? { ...x, qty: Number(e.target.value) } : x)) })} className={`${inp} w-16 text-center`} />
-            <input type="number" min={0} step="0.01" value={it.unitPrice ?? ''} onChange={(e) => set({ items: items.map((x, j) => (j === i ? { ...x, unitPrice: e.target.value === '' ? undefined : Number(e.target.value) } : x)) })} placeholder="$" className={`${inp} w-20 text-center`} />
-            <button type="button" onClick={() => set({ items: items.filter((_, j) => j !== i) })} className="rounded-lg px-1.5 text-rose-500"><X className="h-4 w-4" /></button>
+          <div key={i} className="space-y-1.5 rounded-xl border border-slate-200 bg-slate-50/60 p-2">
+            <div className="flex items-center gap-1.5">
+              <span className="w-5 shrink-0 text-center text-slate-400">{i + 1}.</span>
+              <input value={it.name} onChange={(e) => set({ items: items.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)) })} placeholder="ឈ្មោះមុខទំនិញ ឬការងារ" className={inp} />
+              <button type="button" onClick={() => set({ items: items.filter((_, j) => j !== i) })} className="shrink-0 rounded-lg p-2 text-rose-500 hover:bg-rose-50"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="grid grid-cols-3 gap-1.5 pl-6 text-[11px] font-normal text-slate-500">
+              <label className="flex flex-col gap-0.5">ចំនួន
+                <input type="number" min={1} inputMode="numeric" value={it.qty} onChange={(e) => set({ items: items.map((x, j) => (j === i ? { ...x, qty: Number(e.target.value) } : x)) })} className="w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-center text-sm" />
+              </label>
+              <label className="flex flex-col gap-0.5">តម្លៃរាយ ($)
+                <input type="number" min={0} step="0.01" inputMode="decimal" value={it.unitPrice ?? ''} onChange={(e) => set({ items: items.map((x, j) => (j === i ? { ...x, unitPrice: e.target.value === '' ? undefined : Number(e.target.value) } : x)) })} placeholder="0.00" className="w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-center text-sm" />
+              </label>
+              <div className="flex flex-col gap-0.5">សរុប
+                <div className="rounded-lg bg-white px-2 py-2 text-center font-mono text-sm text-slate-800">{it.unitPrice ? money((Number(it.qty) || 0) * it.unitPrice) : '—'}</div>
+              </div>
+            </div>
           </div>
         ))}
         <button type="button" onClick={() => set({ items: [...items, { name: '', qty: 1 }] })} className="self-start rounded-lg bg-slate-100 px-2.5 py-1 text-[11px]">+ បន្ថែមមុខ</button>
