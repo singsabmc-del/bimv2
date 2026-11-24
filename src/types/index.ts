@@ -1034,3 +1034,62 @@ export interface WorkPlanTask {
   updatedAt?: string;
   completedAt?: string;
 }
+
+// ==========================================
+// Meetings, appointments and staff requests
+// ==========================================
+export interface MeetingItem {
+  id: string;
+  title: string;
+  date: string; // YYYY-MM-DD
+  startTime: string;
+  endTime?: string;
+  place?: string; // room or online link
+  attendeeIds: string[]; // staff ids
+  attendeeNames: string[];
+  agenda: string[];
+  status: 'scheduled' | 'done' | 'cancelled';
+  rsvp?: Record<string, 'yes' | 'no' | 'maybe'>; // staffId → answer
+  minutes?: string; // what was discussed
+  decisions?: { text: string; ownerId?: string; ownerName?: string; dueDate?: string; taskId?: string }[];
+  createdBy: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface AppointmentItem {
+  id: string;
+  visitorName: string;
+  visitorPhone?: string;
+  visitorType: 'guardian' | 'visitor' | 'partner' | 'other';
+  studentName?: string;
+  hostId?: string; // staff id
+  hostName?: string;
+  date: string;
+  time: string;
+  place?: string;
+  purpose: string;
+  status: 'pending' | 'confirmed' | 'done' | 'cancelled' | 'no_show';
+  notes?: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface StaffRequestItem {
+  id: string;
+  category: 'materials' | 'budget' | 'repair' | 'equipment' | 'other';
+  title: string;
+  details?: string;
+  items?: { name: string; qty: number; unitPrice?: number }[];
+  amount?: number; // USD
+  neededBy?: string;
+  requesterId?: string;
+  requesterName: string;
+  status: 'pending' | 'approved' | 'rejected' | 'done';
+  decidedBy?: string;
+  decidedAt?: string;
+  decisionNote?: string;
+  createdAt: string;
+  updatedAt?: string;
+}

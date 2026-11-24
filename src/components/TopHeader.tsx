@@ -260,6 +260,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
     my_schedule: ['កាលវិភាគរបស់ខ្ញុំ', 'My Schedule'],
     my_attendance: ['វត្តមានរបស់ខ្ញុំ', 'My Attendance'],
     work_plan: ['ផែនការការងារ', 'Work Plan'],
+    meetings: ['ប្រជុំ · ណាត់ជួប · សំណើ', 'Meetings & Requests'],
     student_records: ['កំណត់ត្រាសិស្ស', 'Student Records'],
     teacher_subject: ['មុខវិជ្ជា', 'Subjects'],
     teacher_attendance: ['វត្តមានគ្រូ', 'Teacher Attendance'],
