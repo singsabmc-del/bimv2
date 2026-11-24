@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Sidebar, NavTab, isNavTab } from './components/Sidebar';
 import { TopHeader } from './components/TopHeader';
@@ -60,6 +60,9 @@ import {
   CalendarDays,
 } from 'lucide-react';
 
+// Bottom-bar pages switch like app tabs (fade); everything else pushes like a new screen.
+const BOTTOM_TABS = new Set<string>(['my_schedule', 'student_attendance', 'teacher_checkin', 'student_list', 'teacher_leave', 'overview', 'student_fees', 'pos', 'uniform_sales', 'school_bus']);
+
 function MainApp() {
   // Current page lives in the URL (#pos, #academic_scores, …) so a refresh stays on the same page
   // and the browser Back / Forward buttons move between pages.
@@ -74,6 +77,21 @@ function MainApp() {
       window.history.pushState(null, '', `#${tab}`);
     }
   }, []);
+  // Page-transition direction, like a phone app: forward = slide in from the right,
+  // going back to the previous page = slide in from the left, bottom-bar tabs = fade.
+  const navStack = useRef<string[]>([]);
+  const navDir = useMemo(() => {
+    const st = navStack.current;
+    if (st.length === 0) { st.push(activeTab); return 'none'; }
+    if (st[st.length - 1] === activeTab) return 'none';
+    if (st[st.length - 2] === activeTab) { st.pop(); return 'back'; }
+    st.push(activeTab);
+    if (st.length > 40) st.splice(0, st.length - 40);
+    return BOTTOM_TABS.has(activeTab) ? 'tab' : 'forward';
+  }, [activeTab]);
+  useEffect(() => {
+    if (navDir !== 'none') window.scrollTo({ top: 0 });
+  }, [activeTab, navDir]);
   useEffect(() => {
     const sync = () => setActiveTabState(readTabFromUrl());
     window.addEventListener('popstate', sync);
@@ -198,7 +216,7 @@ function MainApp() {
         )}
 
         {/* Full-Width Dynamic Views Viewport matching 5 Flowchart Sections */}
-        <main key={activeTab} className="page-enter flex-1 p-3 sm:p-6 lg:p-8 print:p-0 w-full max-w-full overflow-x-hidden">
+        <main key={activeTab} data-nav={navDir} className="page-enter flex-1 p-3 sm:p-6 lg:p-8 print:p-0 w-full max-w-full overflow-x-hidden">
           {isViewingOldYear && (
             <div className="no-print mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 font-khmer">
               <div className="text-sm text-rose-900">

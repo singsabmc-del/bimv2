@@ -452,6 +452,9 @@ html[data-sidebar-tone='dark'][data-icon-chips='on'] .app-sidebar .nav-icon { ba
 }
 
 /* ---------- Page & modal motion ---------- */
+@keyframes bim-push-in { from { opacity: 0.4; transform: translateX(32%); } to { opacity: 1; transform: none; } }
+@keyframes bim-pop-back { from { opacity: 0.4; transform: translateX(-28%); } to { opacity: 1; transform: none; } }
+@keyframes bim-tab-in { from { opacity: 0; transform: scale(0.985); } to { opacity: 1; transform: none; } }
 @keyframes bim-page-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes bim-fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes bim-pop-in { from { opacity: 0; transform: translateY(14px) scale(0.97); } to { opacity: 1; transform: none; } }
@@ -459,6 +462,14 @@ html[data-sidebar-tone='dark'][data-icon-chips='on'] .app-sidebar .nav-icon { ba
 
 @media screen and (prefers-reduced-motion: no-preference) {
   .page-enter { animation: bim-page-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both; }
+  .page-enter[data-nav='none'] { animation: none; }
+  /* phone: native-style screen transitions */
+  @media (max-width: 639px) {
+    html.is-phone body { overflow-x: clip; }
+    html.is-phone .page-enter[data-nav='forward'] { animation: bim-push-in 0.34s cubic-bezier(0.22, 1, 0.36, 1) both; }
+    html.is-phone .page-enter[data-nav='back'] { animation: bim-pop-back 0.34s cubic-bezier(0.22, 1, 0.36, 1) both; }
+    html.is-phone .page-enter[data-nav='tab'] { animation: bim-tab-in 0.22s ease-out both; }
+  }
 
   /* any dimmed full-screen overlay = modal backdrop */
   .fixed.inset-0[class*='bg-slate-9'],
