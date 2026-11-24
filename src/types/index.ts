@@ -1093,3 +1093,18 @@ export interface StaffRequestItem {
   createdAt: string;
   updatedAt?: string;
 }
+
+/** School calendar event (work calendar) */
+export interface SchoolEventItem {
+  id: string;
+  title: string;
+  from: string; // YYYY-MM-DD
+  to: string;
+  time?: string;
+  place?: string;
+  note?: string;
+  audience: 'all' | 'staff' | 'students' | 'parents';
+  createdBy: string;
+  createdAt: string;
+  updatedAt?: string;
+}
