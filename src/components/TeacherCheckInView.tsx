@@ -28,7 +28,8 @@ const STATUS_UI: Record<string, { label: string; cls: string }> = {
   none: { label: 'មិនទាន់ចូល', cls: 'bg-slate-100 text-slate-500' },
 };
 
-export const TeacherCheckInView: React.FC = () => {
+/** page 'mine' = វត្តមានរបស់ខ្ញុំ (own history, monthly totals, correction requests) on its own page */
+export const TeacherCheckInView: React.FC<{ page?: 'home' | 'mine' }> = ({ page = 'home' }) => {
   const { teachers, teacherCheckIn, setTeacherCheckIn, currentUser, settings, showNotification, linkedTeacher, sendTelegramAlert, syncedGet, syncedSet } = useApp() as any;
   /** Keep the older daily Teacher Attendance sheet in step with check-ins (shared store) */
   const mirrorToAttendanceSheet = (d: string, teacherId: string, status: TeacherCheckInRecord['status'], note?: string) => {
@@ -40,7 +41,7 @@ export const TeacherCheckInView: React.FC = () => {
   const canManage = currentUser.role === 'admin' || currentUser.role === 'accountant';
   // Staff check in / out only for themselves; Admin & Accounting can also manage everyone
   const [mode, setMode] = useState<'me' | 'manage'>(canManage ? 'manage' : 'me');
-  const selfOnly = !canManage || mode === 'me';
+  const selfOnly = page === 'mine' || !canManage || mode === 'me';
 
   const [now, setNow] = useState(new Date());
   useEffect(() => {
@@ -329,7 +330,7 @@ export const TeacherCheckInView: React.FC = () => {
   if (selfOnly) {
     const go = (tab: string) => { window.location.hash = tab; };
     const myMonth = records
-      .filter((r: TeacherCheckInRecord) => r.teacherId === selectedId && r.date.slice(0, 7) === today.slice(0, 7))
+      .filter((r: TeacherCheckInRecord) => r.teacherId === selectedId && r.date.slice(0, 7) === (page === 'mine' ? month : today.slice(0, 7)))
       .sort((a: TeacherCheckInRecord, b: TeacherCheckInRecord) => b.date.localeCompare(a.date));
     const mine = monthly.rows[0];
     const pendingLeaves = (teacherCheckIn.leaveRequests || []).filter((r: any) => r.teacherId === selectedId && r.status === 'pending').length;
@@ -338,6 +339,69 @@ export const TeacherCheckInView: React.FC = () => {
     const btnLabel = todayHoliday && !selectedRec?.checkIn ? 'ថ្ងៃឈប់' : !selectedRec?.checkIn ? 'CHECK IN' : !selectedRec?.checkOut ? 'CHECK OUT' : 'DONE';
     const onBig = () => (!selectedRec?.checkIn ? guarded('in') : !selectedRec?.checkOut ? guarded('out') : undefined);
     const firstName = (selected?.nameKhmer || currentUser.khmerName || '').split('(')[0].trim();
+    if (page === 'mine') {
+      const [yy, mm] = month.split('-').map(Number);
+      const shiftMonth = (d: number) => {
+        const x = new Date(yy, mm - 1 + d, 1);
+        setMonth(`${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}`);
+      };
+      const KH_M = ['មករា', 'កុម្ភៈ', 'មីនា', 'មេសា', 'ឧសភា', 'មិថុនា', 'កក្កដា', 'សីហា', 'កញ្ញា', 'តុលា', 'វិច្ឆិកា', 'ធ្នូ'];
+      return (
+        <div className="mx-auto max-w-xl space-y-3 font-khmer">
+          {corrModal}
+          {/* Month switcher + totals */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-3">
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => shiftMonth(-1)} className="rounded-xl border border-slate-200 px-3 py-2 text-slate-600">‹</button>
+              <div className="min-w-0 flex-1 text-center">
+                <div className="text-[11px] text-slate-500">{selected?.nameKhmer}</div>
+                <div className="text-sm font-bold text-slate-900">ខែ{KH_M[mm - 1]} {yy}</div>
+              </div>
+              <button type="button" onClick={() => shiftMonth(1)} disabled={month >= today.slice(0, 7)} className="rounded-xl border border-slate-200 px-3 py-2 text-slate-600 disabled:opacity-30">›</button>
+            </div>
+            {mine && (
+              <>
+                <div className="mt-3 grid grid-cols-4 gap-2 text-center">
+                  {[['មក', mine.present, 'text-emerald-700 bg-emerald-50'], ['យឺត', mine.late, 'text-amber-700 bg-amber-50'], ['ច្បាប់', mine.leave, 'text-sky-700 bg-sky-50'], ['អវត្តមាន', mine.absent, 'text-rose-700 bg-rose-50']].map(([l, v, c]) => (
+                    <div key={l as string} className={`rounded-xl py-2 ${c}`}>
+                      <div className="font-mono text-lg font-black">{v as number}</div>
+                      <div className="text-[10px]">{l as string}</div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-2 text-center text-[11px] text-slate-500">ម៉ោងធ្វើការសរុប {fmtDur(mine.mins)} · ថ្ងៃធ្វើការតាមវេន {mine.workDays} ថ្ងៃ</div>
+              </>
+            )}
+            {selected && (
+              <button type="button" onClick={() => setCorrFor({ mode: 'request', teacher: selected, date: today })} className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 py-2 text-xs font-bold text-indigo-700">
+                <PencilLine className="h-4 w-4" /> ស្នើកែវត្តមាន
+              </button>
+            )}
+          </div>
+
+          {/* Day by day */}
+          <div className="divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white text-xs">
+            {myMonth.length === 0 && <div className="p-6 text-center text-slate-400">មិនមានការចុះវត្តមានក្នុងខែនេះ</div>}
+            {myMonth.map((r: TeacherCheckInRecord) => (
+              <div key={r.id} className="flex items-center gap-2 px-3 py-2.5">
+                <span className="w-20 shrink-0 font-mono">{r.date.split('-').reverse().join('-')}</span>
+                <span className="min-w-0 flex-1 font-mono text-slate-600">{r.checkIn || '--:--'} → {r.checkOut || '--:--'}</span>
+                {r.mission && <span title={r.missionNote} className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">🚗</span>}
+                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${STATUS_UI[r.status].cls}`}>{STATUS_UI[r.status].label}</span>
+                {selected && (
+                  <button type="button" onClick={() => setCorrFor({ mode: 'request', teacher: selected, date: r.date })} title="ស្នើកែវត្តមានថ្ងៃនេះ" className="shrink-0 rounded-md p-1 text-indigo-500 hover:bg-indigo-50">
+                    <PencilLine className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {selected && <CorrectionRequestsList teacherId={selected.id} />}
+        </div>
+      );
+    }
+
     return (
       <div className="mx-auto max-w-xl space-y-3 font-khmer">
         {geoModal}
@@ -410,7 +474,7 @@ export const TeacherCheckInView: React.FC = () => {
         {/* Quick tiles */}
         <div className="grid grid-cols-3 overflow-hidden rounded-3xl border border-slate-200 bg-white text-slate-800 shadow-[0_1px_2px_rgb(15_23_42/0.04)]">
           {[
-            { label: 'វត្តមានរបស់ខ្ញុំ', en: 'Attendance', Icon: Clock, onClick: () => document.getElementById('my-attendance')?.scrollIntoView({ behavior: 'smooth' }), badge: mine ? `${mine.present}` : '' },
+            { label: 'វត្តមានរបស់ខ្ញុំ', en: 'Attendance', Icon: Clock, onClick: () => go('my_attendance'), badge: mine ? `${mine.present}` : '' },
             { label: 'សុំច្បាប់', en: 'Leave', Icon: Send, onClick: () => go('teacher_leave'), badge: pendingLeaves ? `${pendingLeaves}` : '' },
             { label: 'កាលវិភាគ', en: 'My schedule', Icon: CalendarDays, onClick: () => go('my_schedule') },
             { label: 'កំណត់ត្រាសិស្ស', en: 'Student Records', Icon: ClipboardList, onClick: () => go('student_records') },
@@ -418,7 +482,6 @@ export const TeacherCheckInView: React.FC = () => {
             { label: 'វត្តមានសិស្ស', en: 'Student Attendance', Icon: ClipboardCheck, onClick: () => go('student_attendance') },
             { label: 'បញ្ជីសិស្ស', en: 'Student List', Icon: Users, onClick: () => go('student_list') },
             { label: 'ព័ត៌មានសិស្ស', en: 'Student Info', Icon: ListChecks, onClick: () => go('student_info') },
-            { label: 'សរុបខែនេះ', en: 'This month', Icon: CalendarDays, onClick: () => setTab('month') },
             { label: 'ស្នើកែវត្តមាន', en: 'Fix attendance', Icon: PencilLine, onClick: () => selected && setCorrFor({ mode: 'request', teacher: selected, date: today }), badge: (teacherCheckIn.corrections || []).filter((c: any) => c.teacherId === selectedId && c.status === 'pending').length ? `${(teacherCheckIn.corrections || []).filter((c: any) => c.teacherId === selectedId && c.status === 'pending').length}` : '' },
           ].filter((x) => currentUser.role === 'teacher' || !['Student Attendance', 'Student List', 'Student Info', 'Student Records', 'Scores'].includes(x.en)).map(({ label, en, Icon, onClick, badge }) => (
             <button key={en} type="button" onClick={onClick} className="relative flex flex-col items-center gap-1 border-b border-r border-slate-100 px-1 py-3 hover:bg-teal-50">
@@ -430,54 +493,6 @@ export const TeacherCheckInView: React.FC = () => {
           ))}
         </div>
 
-        {/* My attendance this month */}
-        <div id="my-attendance" className="rounded-2xl border border-slate-200 bg-white p-4">
-          <div className="mb-2 flex items-center justify-between">
-            <div className="text-sm font-bold text-slate-900">វត្តមានរបស់ខ្ញុំ (ខែនេះ)</div>
-            {mine && (
-              <div className="flex gap-1.5 text-[10px] font-bold">
-                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-800">មក {mine.present}</span>
-                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-800">យឺត {mine.late}</span>
-                <span className="rounded-full bg-sky-100 px-2 py-0.5 text-sky-800">ច្បាប់ {mine.leave}</span>
-              </div>
-            )}
-          </div>
-          <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 text-xs">
-            {myMonth.length === 0 && <div className="p-4 text-center text-slate-400">មិនទាន់មានការចុះវត្តមានខែនេះ</div>}
-            {myMonth.map((r: TeacherCheckInRecord) => (
-              <div key={r.id} className="flex items-center justify-between px-3 py-2">
-                <span className="font-mono">{r.date.split('-').reverse().join('-')}</span>
-                <span className="font-mono text-slate-600">{r.checkIn || '--:--'} → {r.checkOut || '--:--'}</span>
-                <span className="flex items-center gap-1">
-                  {selected && (
-                    <button type="button" onClick={() => setCorrFor({ mode: 'request', teacher: selected, date: r.date })} title="ស្នើកែវត្តមានថ្ងៃនេះ" className="rounded-md p-1 text-indigo-500 hover:bg-indigo-50">
-                      <PencilLine className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                  {r.mission && <span title={r.missionNote} className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">🚗</span>}
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${STATUS_UI[r.status].cls}`}>{STATUS_UI[r.status].label}</span>
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {selected && <CorrectionRequestsList teacherId={selected.id} />}
-
-        {tab === 'month' && mine && (
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 text-xs">
-            <div className="mb-2 text-sm font-bold text-slate-900">សរុបប្រចាំខែ</div>
-            <div className="grid grid-cols-4 gap-2 text-center">
-              {[['វត្តមាន', mine.present, 'text-emerald-700'], ['យឺត', mine.late, 'text-amber-700'], ['ច្បាប់', mine.leave, 'text-sky-700'], ['អវត្តមាន', mine.absent, 'text-rose-700']].map(([l, v, c]) => (
-                <div key={l as string} className="rounded-xl bg-slate-50 p-2">
-                  <div className={`font-mono text-xl font-black ${c}`}>{v as number}</div>
-                  <div className="text-[10px] text-slate-500">{l as string}</div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-2 text-[11px] text-slate-500">ម៉ោងធ្វើការសរុប៖ {fmtDur(mine.mins)} · ថ្ងៃធ្វើការតាមវេន {mine.workDays} ថ្ងៃ</div>
-          </div>
-        )}
       </div>
     );
   }

@@ -301,6 +301,7 @@ function MainApp() {
           )}
 
           {activeTab === 'teacher_checkin' && <TeacherCheckInView />}
+          {activeTab === 'my_attendance' && <TeacherCheckInView page="mine" />}
           {activeTab === 'teacher_shifts' && <StaffShiftsView />}
           {activeTab === 'teacher_leave' && <TeacherLeaveRequestView />}
           {activeTab === 'my_schedule' && <MyScheduleView />}
