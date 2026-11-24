@@ -5,6 +5,8 @@ import React, { useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import type { AppointmentItem, HolidayDef, MeetingItem, SchoolEventItem, StaffRequestItem, TeacherLeaveRequest, WorkPlanTask } from '../types';
 import { ChevronLeft, ChevronRight, Plus, Trash2, X } from 'lucide-react';
+import { TaskForm } from './WorkPlanView';
+import { ApptForm, MeetingForm } from './CollabView';
 
 type Kind = 'event' | 'holiday' | 'task' | 'meeting' | 'appt' | 'leave' | 'request';
 interface CalItem {
@@ -50,6 +52,7 @@ export const WorkCalendarView: React.FC = () => {
   const [selected, setSelected] = useState(today);
   const [hidden, setHidden] = useState<Kind[]>([]);
   const [form, setForm] = useState<SchoolEventItem | null>(null);
+  const [quick, setQuick] = useState<'task' | 'meeting' | 'appt' | null>(null);
 
   const val = <T,>(prefix: string): T[] => (syncedEntries(prefix) as [string, T][]).map(([, v]) => v).filter((v: any) => v && v.id);
 
@@ -188,14 +191,12 @@ export const WorkCalendarView: React.FC = () => {
         <div className="min-w-0 space-y-3">
           <div className="flex items-center justify-between px-1">
             <div className={`text-sm font-bold ${selDate.getDay() === 0 || on(selected).some((i) => i.kind === 'holiday') ? 'text-rose-600' : 'text-slate-800'}`}>{DOW[selDate.getDay()]} {fmt(selected)}</div>
-            {isManager ? (
-              <button type="button" onClick={() => setForm(newEvent())} className="flex items-center gap-1 rounded-xl bg-teal-600 px-3 py-1.5 text-xs font-bold text-white"><Plus className="h-4 w-4" /> ព្រឹត្តិការណ៍</button>
-            ) : (
-              <div className="flex gap-1 text-[11px] font-bold">
-                <button type="button" onClick={() => (window.location.hash = 'work_plan')} className="rounded-lg border border-slate-200 bg-white px-2 py-1">+ ការងារ</button>
-                <button type="button" onClick={() => (window.location.hash = 'meetings')} className="rounded-lg border border-slate-200 bg-white px-2 py-1">+ ណាត់ជួប</button>
-              </div>
-            )}
+          </div>
+          <div className={`grid gap-1.5 text-xs font-bold ${isManager ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"}`}>
+            <button type="button" onClick={() => setQuick('task')} className="flex items-center justify-center gap-1 rounded-xl border border-teal-200 bg-teal-50 px-2 py-2 text-teal-800"><Plus className="h-3.5 w-3.5" /> ការងារ</button>
+            <button type="button" onClick={() => setQuick('appt')} className="flex items-center justify-center gap-1 rounded-xl border border-amber-200 bg-amber-50 px-2 py-2 text-amber-800"><Plus className="h-3.5 w-3.5" /> ណាត់ជួប</button>
+            <button type="button" onClick={() => setQuick('meeting')} className="flex items-center justify-center gap-1 rounded-xl border border-sky-200 bg-sky-50 px-2 py-2 text-sky-800"><Plus className="h-3.5 w-3.5" /> ប្រជុំ</button>
+            {isManager && <button type="button" onClick={() => setForm(newEvent())} className="flex items-center justify-center gap-1 rounded-xl border border-fuchsia-200 bg-fuchsia-50 px-2 py-2 text-fuchsia-800"><Plus className="h-3.5 w-3.5" /> ព្រឹត្តិការណ៍</button>}
           </div>
           <DayList iso={selected} />
           <div className="rounded-2xl border border-slate-200 bg-white p-3">
@@ -217,6 +218,9 @@ export const WorkCalendarView: React.FC = () => {
         </div>
       </div>
 
+      {quick === 'task' && <TaskForm date={selected} onClose={() => setQuick(null)} />}
+      {quick === 'appt' && <ApptForm date={selected} onClose={() => setQuick(null)} />}
+      {quick === 'meeting' && <MeetingForm date={selected} onClose={() => setQuick(null)} />}
       {form && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 sm:items-center sm:p-4" onClick={() => setForm(null)}>
           <div className="w-full max-w-md space-y-3 rounded-t-2xl bg-white p-4 shadow-2xl sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>

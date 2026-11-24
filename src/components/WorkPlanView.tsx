@@ -47,7 +47,7 @@ const useWorkPlan = () => {
 };
 
 // ------------------------------------------------------------------ task form
-const TaskForm: React.FC<{ initial?: WorkPlanTask; onClose: () => void }> = ({ initial, onClose }) => {
+export const TaskForm: React.FC<{ initial?: WorkPlanTask; date?: string; onClose: () => void }> = ({ initial, date, onClose }) => {
   const { teachers, currentUser, sendTelegramAlert, showNotification, teacherCheckIn } = useApp() as any;
   const { save, isManager, myName, myStaffId } = useWorkPlan();
   const today = isoOf(new Date());
@@ -59,8 +59,8 @@ const TaskForm: React.FC<{ initial?: WorkPlanTask; onClose: () => void }> = ({ i
       category: CATEGORIES[0],
       assigneeIds: myStaffId && !isManager ? [myStaffId] : [],
       assigneeNames: [],
-      startDate: today,
-      dueDate: today,
+      startDate: date || today,
+      dueDate: date || today,
       priority: 'normal',
       status: 'todo',
       progress: 0,
