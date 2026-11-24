@@ -211,7 +211,7 @@ export const MyScheduleView: React.FC = () => {
                   <span className="text-[11px] text-slate-500">{hol ? '' : `${list.length} ម៉ោង`}</span>
                 </button>
                 {hol ? (
-                  <div className="rounded-xl bg-violet-50 px-3 py-2 text-xs font-bold text-violet-700">🎉 {hol.name}</div>
+                  <div className="rounded-xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">🎉 {hol.name}</div>
                 ) : list.length ? (
                   <div className="grid gap-2 sm:grid-cols-2">{list.map((s) => <Lesson key={s.id} s={s} date={iso} />)}</div>
                 ) : (
@@ -228,7 +228,7 @@ export const MyScheduleView: React.FC = () => {
         <>
           <div className="rounded-2xl border border-slate-200 bg-white p-2 shadow-2xs">
             <div className="grid grid-cols-7 text-center text-[10px] font-bold text-slate-400">
-              {DOW_SHORT.map((d) => <div key={d} className="py-1">{d}</div>)}
+              {DOW_SHORT.map((d, i) => <div key={d} className={`py-1 ${i === 0 ? 'text-rose-600' : ''}`}>{d}</div>)}
             </div>
             <div className="grid grid-cols-7 gap-1">
               {monthCells.map((d) => {
@@ -243,12 +243,12 @@ export const MyScheduleView: React.FC = () => {
                     type="button"
                     onClick={() => setCursor(d)}
                     className={`flex aspect-square min-h-0 flex-col items-center justify-center rounded-xl text-xs ${!inMonth ? 'opacity-30' : ''} ${
-                      selected ? 'bg-teal-600 text-white' : hol ? 'bg-violet-50 text-violet-700' : iso === todayIso ? 'bg-teal-50 text-teal-800 font-bold' : 'text-slate-700'
+                      selected ? 'bg-teal-600 text-white' : hol || d.getDay() === 0 ? 'bg-rose-50 font-bold text-rose-600' : iso === todayIso ? 'bg-teal-50 text-teal-800 font-bold' : 'text-slate-700'
                     }`}
                   >
                     <span className="font-mono">{d.getDate()}</span>
                     <span className="mt-0.5 flex h-1.5 gap-0.5">
-                      {hol ? <span className={`h-1.5 w-1.5 rounded-full ${selected ? 'bg-white' : 'bg-violet-500'}`} /> :
+                      {hol ? <span className={`h-1.5 w-1.5 rounded-full ${selected ? 'bg-white' : 'bg-rose-500'}`} /> :
                         Array.from({ length: Math.min(n, 4) }, (_, k) => <span key={k} className={`h-1.5 w-1.5 rounded-full ${selected ? 'bg-white' : 'bg-teal-500'}`} />)}
                     </span>
                   </button>
@@ -286,5 +286,5 @@ export const MyScheduleView: React.FC = () => {
 };
 
 const Empty: React.FC<{ text: string; tone?: 'violet' }> = ({ text, tone }) => (
-  <div className={`rounded-2xl border border-dashed p-6 text-center text-sm font-khmer ${tone === 'violet' ? 'border-violet-200 bg-violet-50 text-violet-700' : 'border-slate-200 bg-white text-slate-400'}`}>{text}</div>
+  <div className={`rounded-2xl border border-dashed p-6 text-center text-sm font-khmer ${tone === 'violet' ? 'border-rose-200 bg-rose-50 text-rose-700' : 'border-slate-200 bg-white text-slate-400'}`}>{text}</div>
 );

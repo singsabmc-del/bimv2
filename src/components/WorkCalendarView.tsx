@@ -20,11 +20,11 @@ interface CalItem {
 }
 const KIND: Record<Kind, { kh: string; dot: string; chip: string }> = {
   event: { kh: 'ព្រឹត្តិការណ៍', dot: 'bg-fuchsia-500', chip: 'bg-fuchsia-50 text-fuchsia-800 border-fuchsia-200' },
-  holiday: { kh: 'ថ្ងៃឈប់', dot: 'bg-violet-500', chip: 'bg-violet-50 text-violet-800 border-violet-200' },
+  holiday: { kh: 'ថ្ងៃឈប់', dot: 'bg-rose-600', chip: 'bg-rose-50 text-rose-700 border-rose-200' },
   task: { kh: 'ការងារ', dot: 'bg-teal-500', chip: 'bg-teal-50 text-teal-800 border-teal-200' },
   meeting: { kh: 'ប្រជុំ', dot: 'bg-sky-500', chip: 'bg-sky-50 text-sky-800 border-sky-200' },
   appt: { kh: 'ណាត់ជួប', dot: 'bg-amber-500', chip: 'bg-amber-50 text-amber-800 border-amber-200' },
-  leave: { kh: 'ច្បាប់', dot: 'bg-rose-400', chip: 'bg-rose-50 text-rose-700 border-rose-200' },
+  leave: { kh: 'ច្បាប់', dot: 'bg-orange-400', chip: 'bg-orange-50 text-orange-800 border-orange-200' },
   request: { kh: 'សំណើ', dot: 'bg-slate-500', chip: 'bg-slate-50 text-slate-700 border-slate-200' },
 };
 const ORDER: Kind[] = ['holiday', 'event', 'meeting', 'appt', 'task', 'leave', 'request'];
@@ -155,7 +155,7 @@ export const WorkCalendarView: React.FC = () => {
 
           {/* Month grid */}
           <div className="rounded-2xl border border-slate-200 bg-white p-2 shadow-2xs">
-            <div className="grid grid-cols-7 text-center text-[10px] font-bold text-slate-400">{DOW.map((d) => <div key={d} className="py-1">{d}</div>)}</div>
+            <div className="grid grid-cols-7 text-center text-[10px] font-bold text-slate-400">{DOW.map((d, i) => <div key={d} className={`py-1 ${i === 0 ? 'text-rose-600' : ''}`}>{d}</div>)}</div>
             <div className="grid grid-cols-7 gap-0.5 sm:gap-1">
               {cells.map((d) => {
                 const iso = isoOf(d);
@@ -165,8 +165,8 @@ export const WorkCalendarView: React.FC = () => {
                 const sel = iso === selected;
                 return (
                   <button key={iso} type="button" onClick={() => setSelected(iso)}
-                    className={`flex min-h-[3rem] min-w-0 flex-col items-stretch rounded-xl border p-0.5 text-left sm:min-h-[5.5rem] sm:p-1 ${!inMonth ? 'opacity-35' : ''} ${sel ? 'border-teal-500 ring-2 ring-teal-200' : 'border-transparent'} ${hol ? 'bg-violet-50' : d.getDay() === 0 ? 'bg-slate-50' : ''}`}>
-                    <span className={`self-center text-xs sm:self-start ${iso === today ? 'flex h-5 w-5 items-center justify-center rounded-full bg-teal-600 font-bold text-white' : 'font-mono text-slate-700'}`}>{d.getDate()}</span>
+                    className={`flex min-h-[3rem] min-w-0 flex-col items-stretch rounded-xl border p-0.5 text-left sm:min-h-[5.5rem] sm:p-1 ${!inMonth ? 'opacity-35' : ''} ${sel ? 'border-teal-500 ring-2 ring-teal-200' : 'border-transparent'} ${hol || d.getDay() === 0 ? 'bg-rose-50' : ''}`}>
+                    <span className={`self-center text-xs sm:self-start ${iso === today ? 'flex h-5 w-5 items-center justify-center rounded-full bg-teal-600 font-bold text-white' : hol || d.getDay() === 0 ? 'font-mono font-bold text-rose-600' : 'font-mono text-slate-700'}`}>{d.getDate()}</span>
                     {/* phone: dots · wider screens: short labels */}
                     <span className="mt-0.5 flex flex-wrap justify-center gap-0.5 sm:hidden">
                       {list.slice(0, 5).map((i) => <span key={i.kind + i.id} className={`h-1.5 w-1.5 rounded-full ${KIND[i.kind].dot}`} />)}
@@ -187,7 +187,7 @@ export const WorkCalendarView: React.FC = () => {
         {/* Day agenda + next 7 days */}
         <div className="min-w-0 space-y-3">
           <div className="flex items-center justify-between px-1">
-            <div className="text-sm font-bold text-slate-800">{DOW[selDate.getDay()]} {fmt(selected)}</div>
+            <div className={`text-sm font-bold ${selDate.getDay() === 0 || on(selected).some((i) => i.kind === 'holiday') ? 'text-rose-600' : 'text-slate-800'}`}>{DOW[selDate.getDay()]} {fmt(selected)}</div>
             {isManager ? (
               <button type="button" onClick={() => setForm(newEvent())} className="flex items-center gap-1 rounded-xl bg-teal-600 px-3 py-1.5 text-xs font-bold text-white"><Plus className="h-4 w-4" /> ព្រឹត្តិការណ៍</button>
             ) : (

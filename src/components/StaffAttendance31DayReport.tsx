@@ -23,7 +23,7 @@ const CELL_UI: Record<Cell, string> = {
   L: 'bg-amber-100 text-amber-800 font-bold',
   A: 'bg-sky-100 text-sky-800 font-bold',
   O: 'bg-rose-100 text-rose-700 font-bold',
-  H: 'bg-violet-100 text-violet-700 font-bold',
+  H: 'bg-rose-100 text-rose-700 font-bold',
   '-': 'bg-slate-50 text-slate-300',
   '': 'text-slate-200',
 };
@@ -186,7 +186,7 @@ export const StaffAttendance31DayReport: React.FC = () => {
                 {days.map((d) => {
                   const dow = dowOf(d);
                   return (
-                    <th key={d} title={holidayOf(d)?.name} className={`sticky top-0 z-20 border border-slate-300 px-0.5 py-0.5 w-6 min-w-6 ${holidayOf(d) ? 'bg-violet-200 text-violet-900' : dow === 0 || dow === 6 ? 'bg-slate-200' : 'bg-slate-100'} ${d > daysInMonth ? 'text-slate-300' : ''}`}>
+                    <th key={d} title={holidayOf(d)?.name} className={`sticky top-0 z-20 border border-slate-300 px-0.5 py-0.5 w-6 min-w-6 ${holidayOf(d) ? 'bg-rose-200 text-rose-900' : dow === 0 ? 'bg-rose-100 text-rose-700 font-bold' : dow === 6 ? 'bg-slate-200' : 'bg-slate-100'} ${d > daysInMonth ? 'text-slate-300' : ''}`}>
                       {d}
                     </th>
                   );
@@ -199,7 +199,7 @@ export const StaffAttendance31DayReport: React.FC = () => {
                 {days.map((d) => {
                   const dow = dowOf(d);
                   return (
-                    <th key={d} title={holidayOf(d)?.name} className={`sticky top-[22px] z-20 border border-slate-300 px-0 py-0.5 text-[9px] font-normal ${holidayOf(d) ? 'bg-violet-200 text-violet-900' : dow === 0 || dow === 6 ? 'bg-slate-200' : 'bg-slate-100'}`}>
+                    <th key={d} title={holidayOf(d)?.name} className={`sticky top-[22px] z-20 border border-slate-300 px-0 py-0.5 text-[9px] font-normal ${holidayOf(d) ? 'bg-rose-200 text-rose-900' : dow === 0 ? 'bg-rose-100 text-rose-700 font-bold' : dow === 6 ? 'bg-slate-200' : 'bg-slate-100'}`}>
                       {dow >= 0 ? KH_DAY_SHORT[dow] : ''}
                     </th>
                   );
@@ -238,7 +238,7 @@ export const StaffAttendance31DayReport: React.FC = () => {
           <span><b className="text-amber-700">L</b> មកយឺត</span>
           <span><b className="text-sky-700">A</b> ច្បាប់ (បានអនុម័ត)</span>
           <span><b className="text-rose-700">O</b> អត់ច្បាប់</span>
-          <span><b className="text-violet-700">H</b> ថ្ងៃឈប់សម្រាក</span>
+          <span><b className="text-rose-700">H</b> ថ្ងៃឈប់សម្រាក</span>
           <span><b className="text-slate-400">-</b> ថ្ងៃឈប់ / គ្មានវេន</span>
           <span>% = (មក + យឺត) ÷ (ថ្ងៃធ្វើការ − ច្បាប់)</span>
         </div>
