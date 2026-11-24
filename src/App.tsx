@@ -23,6 +23,7 @@ import { MyScheduleView } from './components/MyScheduleView';
 import { StudentRecordsView } from './components/StudentRecordsView';
 import { WorkPlanView } from './components/WorkPlanView';
 import { CollabView } from './components/CollabView';
+import { WorkCalendarView } from './components/WorkCalendarView';
 import { StudentPaymentHistoryView } from './components/StudentPaymentHistoryView';
 import { StaffShiftsView } from './components/StaffShiftsView';
 import { SystemSettingsView } from './components/SystemSettingsView';
@@ -310,6 +311,7 @@ function MainApp() {
           {activeTab === 'student_records' && <StudentRecordsView />}
           {activeTab === 'work_plan' && <WorkPlanView />}
           {activeTab === 'meetings' && <CollabView />}
+          {activeTab === 'work_calendar' && <WorkCalendarView />}
 
           {activeTab === 'teacher_attendance' && (
             <TeacherManagementView initialSubTab="teacher_attendance" />

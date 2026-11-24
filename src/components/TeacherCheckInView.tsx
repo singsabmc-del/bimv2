@@ -482,6 +482,7 @@ export const TeacherCheckInView: React.FC<{ page?: 'home' | 'mine' }> = ({ page 
             { label: 'សុំច្បាប់', en: 'Leave', Icon: Send, onClick: () => go('teacher_leave'), badge: pendingLeaves ? `${pendingLeaves}` : '' },
             { label: 'ផែនការការងារ', en: 'Work plan', Icon: ListChecks, onClick: () => go('work_plan'), badge: openTasks ? `${openTasks}` : '' },
             { label: 'ប្រជុំ & សំណើ', en: 'Meetings', Icon: Users, onClick: () => go('meetings'), badge: myMeetings ? `${myMeetings}` : '' },
+            { label: 'ប្រតិទិនការងារ', en: 'Calendar', Icon: CalendarDays, onClick: () => go('work_calendar') },
             { label: 'កាលវិភាគ', en: 'My schedule', Icon: CalendarDays, onClick: () => go('my_schedule') },
             { label: 'កំណត់ត្រាសិស្ស', en: 'Student Records', Icon: ClipboardList, onClick: () => go('student_records') },
             { label: 'ដាក់ពិន្ទុ', en: 'Scores', Icon: FileText, onClick: () => go('academic_scores') },
