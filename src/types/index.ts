@@ -1007,3 +1007,30 @@ export interface LetterContent {
   signerTitle: string;
   signerName: string;
 }
+
+// ==========================================
+// Staff work plan (ផែនការសកម្មភាពការងារ)
+// ==========================================
+export type WorkTaskStatus = 'todo' | 'doing' | 'done' | 'cancelled';
+
+export interface WorkPlanTask {
+  id: string;
+  title: string;
+  description?: string;
+  category: string;
+  assigneeIds: string[]; // TeacherRecord ids (staff)
+  assigneeNames: string[];
+  startDate: string; // YYYY-MM-DD
+  dueDate: string; // YYYY-MM-DD
+  dueTime?: string; // HH:MM
+  priority: 'low' | 'normal' | 'high';
+  status: WorkTaskStatus;
+  progress: number; // 0–100
+  checklist?: { text: string; done: boolean }[];
+  comments?: { by: string; at: string; text: string }[];
+  createdBy: string;
+  createdById?: string;
+  createdAt: string;
+  updatedAt?: string;
+  completedAt?: string;
+}

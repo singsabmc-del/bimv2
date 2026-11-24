@@ -30,7 +30,7 @@ const STATUS_UI: Record<string, { label: string; cls: string }> = {
 
 /** page 'mine' = វត្តមានរបស់ខ្ញុំ (own history, monthly totals, correction requests) on its own page */
 export const TeacherCheckInView: React.FC<{ page?: 'home' | 'mine' }> = ({ page = 'home' }) => {
-  const { teachers, teacherCheckIn, setTeacherCheckIn, currentUser, settings, showNotification, linkedTeacher, sendTelegramAlert, syncedGet, syncedSet } = useApp() as any;
+  const { teachers, teacherCheckIn, setTeacherCheckIn, currentUser, settings, showNotification, linkedTeacher, sendTelegramAlert, syncedGet, syncedSet, syncedEntries } = useApp() as any;
   /** Keep the older daily Teacher Attendance sheet in step with check-ins (shared store) */
   const mirrorToAttendanceSheet = (d: string, teacherId: string, status: TeacherCheckInRecord['status'], note?: string) => {
     const key = `BIM_RANGSEI_TEACHER_ATT_${d}`;
@@ -334,6 +334,8 @@ export const TeacherCheckInView: React.FC<{ page?: 'home' | 'mine' }> = ({ page 
       .sort((a: TeacherCheckInRecord, b: TeacherCheckInRecord) => b.date.localeCompare(a.date));
     const mine = monthly.rows[0];
     const pendingLeaves = (teacherCheckIn.leaveRequests || []).filter((r: any) => r.teacherId === selectedId && r.status === 'pending').length;
+    // my open work-plan tasks (shared store, one key per task)
+    const openTasks = (syncedEntries('BIM_WORKPLAN_') as [string, any][]).filter(([, t]) => t && (t.assigneeIds || []).includes(selectedId) && (t.status === 'todo' || t.status === 'doing')).length;
     const doneToday = !!selectedRec?.checkOut || selectedRec?.status === 'leave';
     const todayHoliday = holidayOn(teacherCheckIn, date);
     const btnLabel = todayHoliday && !selectedRec?.checkIn ? 'ថ្ងៃឈប់' : !selectedRec?.checkIn ? 'CHECK IN' : !selectedRec?.checkOut ? 'CHECK OUT' : 'DONE';
@@ -476,6 +478,7 @@ export const TeacherCheckInView: React.FC<{ page?: 'home' | 'mine' }> = ({ page 
           {[
             { label: 'វត្តមានរបស់ខ្ញុំ', en: 'Attendance', Icon: Clock, onClick: () => go('my_attendance'), badge: mine ? `${mine.present}` : '' },
             { label: 'សុំច្បាប់', en: 'Leave', Icon: Send, onClick: () => go('teacher_leave'), badge: pendingLeaves ? `${pendingLeaves}` : '' },
+            { label: 'ផែនការការងារ', en: 'Work plan', Icon: ListChecks, onClick: () => go('work_plan'), badge: openTasks ? `${openTasks}` : '' },
             { label: 'កាលវិភាគ', en: 'My schedule', Icon: CalendarDays, onClick: () => go('my_schedule') },
             { label: 'កំណត់ត្រាសិស្ស', en: 'Student Records', Icon: ClipboardList, onClick: () => go('student_records') },
             { label: 'ដាក់ពិន្ទុ', en: 'Scores', Icon: FileText, onClick: () => go('academic_scores') },
