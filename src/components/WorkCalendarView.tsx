@@ -108,9 +108,10 @@ export const WorkCalendarView: React.FC = () => {
             key={i.kind + i.id}
             type="button"
             onClick={() => (i.kind === 'event' && isManager ? setForm(i.raw) : i.go ? (window.location.hash = i.go) : undefined)}
-            className={`flex w-full items-start gap-2.5 rounded-2xl border p-2.5 text-left ${KIND[i.kind].chip}`}
+            className={`flex w-full min-w-0 items-start gap-2.5 rounded-2xl border p-2.5 text-left ${KIND[i.kind].chip}`}
           >
-            <span className="w-11 shrink-0 text-center font-mono text-[11px] font-bold">{i.time || (i.from !== i.to ? '⟷' : '•')}</span>
+            <span className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${KIND[i.kind].dot}`} />
+            {i.time && <span className="shrink-0 font-mono text-[11px] font-bold">{i.time}</span>}
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-bold">{i.title}</span>
               {(i.sub || i.from !== i.to) && (
@@ -129,9 +130,9 @@ export const WorkCalendarView: React.FC = () => {
   const selDate = new Date(selected + 'T00:00:00');
 
   return (
-    <div className="mx-auto max-w-5xl space-y-3 font-khmer">
-      <div className="grid gap-3 lg:grid-cols-[1fr_20rem]">
-        <div className="space-y-3">
+    <div className="mx-auto w-full max-w-5xl space-y-3 overflow-x-hidden font-khmer">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="min-w-0 space-y-3">
           {/* Month header */}
           <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-2xs">
             <div className="flex items-center gap-2">
@@ -139,7 +140,7 @@ export const WorkCalendarView: React.FC = () => {
               <button type="button" onClick={() => { setCursor(new Date()); setSelected(today); }} className="flex-1 text-center text-base font-bold text-slate-900">ខែ{KH_M[cursor.getMonth()]} {cursor.getFullYear()}</button>
               <button type="button" onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))} className="rounded-xl border border-slate-200 p-2"><ChevronRight className="h-4 w-4" /></button>
             </div>
-            <div className="mt-2 flex gap-1.5 overflow-x-auto no-scrollbar">
+            <div className="mt-2 flex max-w-full gap-1.5 overflow-x-auto no-scrollbar">
               {ORDER.map((k) => {
                 const off = hidden.includes(k);
                 return (
@@ -155,7 +156,7 @@ export const WorkCalendarView: React.FC = () => {
           {/* Month grid */}
           <div className="rounded-2xl border border-slate-200 bg-white p-2 shadow-2xs">
             <div className="grid grid-cols-7 text-center text-[10px] font-bold text-slate-400">{DOW.map((d) => <div key={d} className="py-1">{d}</div>)}</div>
-            <div className="grid grid-cols-7 gap-1">
+            <div className="grid grid-cols-7 gap-0.5 sm:gap-1">
               {cells.map((d) => {
                 const iso = isoOf(d);
                 const inMonth = d.getMonth() === cursor.getMonth();
@@ -164,7 +165,7 @@ export const WorkCalendarView: React.FC = () => {
                 const sel = iso === selected;
                 return (
                   <button key={iso} type="button" onClick={() => setSelected(iso)}
-                    className={`flex min-h-[3.25rem] flex-col items-stretch rounded-xl border p-1 text-left sm:min-h-[5.5rem] ${!inMonth ? 'opacity-35' : ''} ${sel ? 'border-teal-500 ring-2 ring-teal-200' : 'border-transparent'} ${hol ? 'bg-violet-50' : d.getDay() === 0 ? 'bg-slate-50' : ''}`}>
+                    className={`flex min-h-[3rem] min-w-0 flex-col items-stretch rounded-xl border p-0.5 text-left sm:min-h-[5.5rem] sm:p-1 ${!inMonth ? 'opacity-35' : ''} ${sel ? 'border-teal-500 ring-2 ring-teal-200' : 'border-transparent'} ${hol ? 'bg-violet-50' : d.getDay() === 0 ? 'bg-slate-50' : ''}`}>
                     <span className={`self-center text-xs sm:self-start ${iso === today ? 'flex h-5 w-5 items-center justify-center rounded-full bg-teal-600 font-bold text-white' : 'font-mono text-slate-700'}`}>{d.getDate()}</span>
                     {/* phone: dots · wider screens: short labels */}
                     <span className="mt-0.5 flex flex-wrap justify-center gap-0.5 sm:hidden">
@@ -184,7 +185,7 @@ export const WorkCalendarView: React.FC = () => {
         </div>
 
         {/* Day agenda + next 7 days */}
-        <div className="space-y-3">
+        <div className="min-w-0 space-y-3">
           <div className="flex items-center justify-between px-1">
             <div className="text-sm font-bold text-slate-800">{DOW[selDate.getDay()]} {fmt(selected)}</div>
             {isManager ? (

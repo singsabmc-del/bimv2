@@ -374,6 +374,8 @@ html[data-sidebar-tone='dark'][data-icon-chips='on'] .app-sidebar .nav-icon { ba
   html.is-phone main select { width: 100%; }
   html.is-phone main .flex:not(.flex-col) > select { width: auto; flex: 1 1 0%; }
   html.is-phone main > * { max-width: 100%; }
+  /* grid/flex children never push the page wider than the screen */
+  html.is-phone main .grid > * { min-width: 0; }
 
   /* filter cards: two controls per row instead of one */
   html.is-phone main .grid.grid-cols-1:is(:has(> * > select), :has(> select), :has(> * > input[type='date']), :has(> * > input[type='month'])) {
