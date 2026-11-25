@@ -536,3 +536,18 @@ html[data-sidebar-tone='dark'][data-icon-chips='on'] .app-sidebar .nav-icon { ba
   /* when a field is focused, keep it clear of the keyboard */
   html.is-phone .fixed.inset-0 :is(input, select, textarea) { scroll-margin-bottom: 96px; }
 }
+
+/* ===================== Collapsed sidebar (desktop icon rail) ===================== */
+.app-sidebar { transition-property: transform, width; }
+@media (min-width: 1024px) {
+  .app-sidebar.is-mini { width: 72px; }
+  .app-sidebar.is-mini .mini-hide { display: none !important; }
+  .app-sidebar.is-mini > div:first-child { justify-content: center; padding-left: 0; padding-right: 0; }
+  .app-sidebar.is-mini > div:nth-child(2) > button { justify-content: center; padding: 0.4rem; border: 0; box-shadow: none; }
+  .app-sidebar.is-mini .nav-sec { height: 1px; padding: 0; margin: 0.35rem 0.75rem; overflow: hidden; color: transparent; background: #e2e8f0; pointer-events: none; }
+  .app-sidebar.is-mini .nav-item { justify-content: center; padding-left: 0; padding-right: 0; }
+  .app-sidebar.is-mini .nav-item .nav-icon, .app-sidebar.is-mini .nav-item svg { width: 20px; height: 20px; }
+  .app-sidebar.is-mini > div:nth-child(3) { padding-left: 0.6rem; padding-right: 0.6rem; scrollbar-width: none; }
+  .app-sidebar.is-mini .sidebar-foot { flex-direction: column; justify-content: center; padding-left: 0; padding-right: 0; }
+  .app-sidebar.is-mini .sidebar-foot > div { flex-direction: column; }
+}

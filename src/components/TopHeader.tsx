@@ -438,7 +438,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
           <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-shrink">
             <button
               onClick={onToggleSidebar}
-              className="p-2 -ml-1 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 lg:hidden shrink-0"
+              className="p-2 -ml-1 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 shrink-0"
               aria-label="Toggle Menu"
             >
               <Menu className="w-5 h-5" />

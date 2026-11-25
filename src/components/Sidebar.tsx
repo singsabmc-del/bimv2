@@ -21,6 +21,8 @@ import {
   LogOut,
   ChevronRight,
   ChevronDown,
+  PanelLeftClose,
+  PanelLeftOpen,
   Menu,
   X,
   CreditCard,
@@ -107,6 +109,8 @@ interface SidebarProps {
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
   onOpenUserModal: () => void;
+  mini?: boolean;
+  onToggleMini?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -115,6 +119,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isOpen,
   setIsOpen,
   onOpenUserModal,
+  mini = false,
+  onToggleMini,
 }) => {
   const { currentUser, logout, language, setLanguage, t, settings, currentBranch, openInvoiceVerification, openAutoBackupModal, classData } = useApp();
 
@@ -499,7 +505,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Sidebar Container — light teal design (v2) */}
       <aside
-        className={`app-sidebar fixed top-0 bottom-0 left-0 z-50 flex w-64 flex-col justify-between border-r border-slate-200/80 bg-white text-slate-700 transition-transform duration-300 ease-in-out lg:translate-x-0 print:hidden ${
+        className={`app-sidebar ${mini ? 'is-mini' : ''} fixed top-0 bottom-0 left-0 z-50 flex w-64 flex-col justify-between border-r border-slate-200/80 bg-white text-slate-700 transition-transform duration-300 ease-in-out lg:translate-x-0 print:hidden ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -513,7 +519,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <GraduationCap className="h-5 w-5" />
               )}
             </div>
-            <div className="min-w-0">
+            <div className="mini-hide min-w-0">
               <div className="font-display truncate text-[15px] font-bold leading-tight text-teal-800">
                 {language === 'km' ? settings.schoolNameKhmer : settings.schoolNameEnglish}
               </div>
@@ -540,15 +546,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 (currentUser.name || 'U').slice(0, 1)
               )}
             </div>
-            <div className="min-w-0 flex-1">
+            <div className="mini-hide min-w-0 flex-1">
               <div className="truncate text-[13px] font-bold text-slate-900 font-khmer">{currentUser.khmerName.split('(')[0].trim()}</div>
               <div className="truncate text-[11px] text-slate-500 font-khmer">
                 {language === 'km' ? ROLE_LABELS[currentUser.role]?.km : ROLE_LABELS[currentUser.role]?.en}
               </div>
             </div>
-            <ChevronRight className="h-4 w-4 shrink-0 text-slate-300 group-hover:text-teal-600" />
+            <ChevronRight className="mini-hide h-4 w-4 shrink-0 text-slate-300 group-hover:text-teal-600" />
           </button>
-          <div className="mt-2 flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50/60 px-2.5 py-1.5 text-[11px] text-slate-600">
+          <div className="mini-hide mt-2 flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50/60 px-2.5 py-1.5 text-[11px] text-slate-600">
             <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
             <span className="truncate font-khmer">
               {language === 'km' ? currentBranch.nameKhmer.split('(')[0].trim() : currentBranch.nameEnglish.split('(')[0].trim()}
@@ -567,12 +573,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <button
                   type="button"
                   onClick={() => toggleSection(sec.id)}
-                  className="group flex w-full items-center justify-between px-2 pb-1 text-[11px] font-semibold text-slate-400 hover:text-slate-600"
+                  className="nav-sec group flex w-full items-center justify-between px-2 pb-1 text-[11px] font-semibold text-slate-400 hover:text-slate-600"
                 >
                   <span className={`truncate ${language === 'km' ? 'font-khmer' : 'uppercase tracking-wider'}`}>{sectionTitle}</span>
                   <ChevronDown className={`h-3.5 w-3.5 text-slate-300 opacity-0 transition group-hover:opacity-100 ${isCollapsed ? '-rotate-90 opacity-100' : ''}`} />
                 </button>
-                {!isCollapsed && (
+                {(!isCollapsed || mini) && (
                   <div className="space-y-0.5">
                     {sec.items.map((item) => {
                       const isActive = activeTab === item.id || (item.activeMatch && item.activeMatch.includes(activeTab as any));
@@ -583,15 +589,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         <button
                           key={item.id}
                           onClick={() => handleNavClick(item.id)}
-                          className={`flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition ${
+                          title={mini ? itemTitle : undefined}
+                          className={`nav-item flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition ${
                             isActive ? 'nav-item-active bg-teal-50 font-bold text-teal-800' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                           } ${language === 'km' ? 'font-khmer' : ''}`}
                         >
                           <Icon className={`nav-icon h-[18px] w-[18px] shrink-0 ${isActive ? 'text-teal-700' : 'text-slate-400'}`} strokeWidth={1.8} />
-                          <span className="flex-1 truncate leading-tight">{itemTitle}</span>
+                          <span className="mini-hide flex-1 truncate leading-tight">{itemTitle}</span>
                           {badge !== undefined && badge > 0 && (
                             <span
-                              className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-[10px] ${
+                              className={`mini-hide shrink-0 rounded-full px-2 py-0.5 font-mono text-[10px] ${
                                 isActive ? 'bg-teal-100 text-teal-800' : 'bg-slate-100 text-slate-500'
                               }`}
                             >
@@ -609,7 +616,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {/* System (hidden for teacher accounts: none of these tools apply) */}
           {currentUser.role !== 'teacher' && currentUser.role !== 'student' && <div>
-            <div className={`px-2 pb-1 text-[11px] font-semibold text-slate-400 ${language === 'km' ? 'font-khmer' : 'uppercase tracking-wider'}`}>
+            <div className={`nav-sec px-2 pb-1 text-[11px] font-semibold text-slate-400 ${language === 'km' ? 'font-khmer' : 'uppercase tracking-wider'}`}>
               {language === 'km' ? 'ប្រព័ន្ធ' : 'System'}
             </div>
             <div className="space-y-0.5">
@@ -652,12 +659,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <button
                   key={key}
                   onClick={onClick}
-                  className={`flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition ${
+                  title={mini ? label : undefined}
+                  className={`nav-item flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition ${
                     active ? 'bg-teal-50 font-bold text-teal-800' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                   } ${language === 'km' ? 'font-khmer' : ''}`}
                 >
                   <Icon className={`h-[18px] w-[18px] shrink-0 ${active ? 'text-teal-700' : 'text-slate-400'}`} strokeWidth={1.8} />
-                  <span className="truncate">{label}</span>
+                  <span className="mini-hide truncate">{label}</span>
                 </button>
               ))}
             </div>
@@ -665,16 +673,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="flex shrink-0 items-center justify-between border-t border-slate-100 px-4 py-3 text-[11px] text-slate-400">
-          <span>Version 2.0</span>
+        <div className="sidebar-foot flex shrink-0 items-center justify-between border-t border-slate-100 px-4 py-3 text-[11px] text-slate-400">
+          <span className="mini-hide">Version 2.0</span>
           <div className="flex items-center gap-1">
+            <button
+              onClick={onToggleMini}
+              className="hidden items-center rounded-lg px-2 py-1 text-slate-500 transition hover:bg-slate-100 hover:text-teal-700 lg:flex"
+              title={mini ? (language === 'km' ? 'ពង្រីកម៉ឺនុយ' : 'Expand menu') : (language === 'km' ? 'បង្រួមម៉ឺនុយ' : 'Collapse menu')}
+            >
+              {mini ? <PanelLeftOpen className="h-3.5 w-3.5" /> : <PanelLeftClose className="h-3.5 w-3.5" />}
+            </button>
             <button
               onClick={() => setLanguage(language === 'km' ? 'en' : 'km')}
               className="flex items-center gap-1 rounded-lg px-2 py-1 font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-teal-700"
               title={language === 'km' ? 'Switch to English' : 'ប្តូរជាភាសាខ្មែរ'}
             >
               <Languages className="h-3.5 w-3.5" />
-              {language === 'km' ? 'EN / ខ្មែរ' : 'ខ្មែរ / EN'}
+              <span className="mini-hide">{language === 'km' ? 'EN / ខ្មែរ' : 'ខ្មែរ / EN'}</span>
             </button>
             <button
               onClick={logout}
