@@ -71,6 +71,16 @@ function MainApp() {
     return isNavTab(h) ? h : 'overview';
   };
   const [activeTab, setActiveTabState] = useState<NavTab>(readTabFromUrl);
+  // Desktop: sidebar can collapse to an icon rail (remembered on this device)
+  const [sidebarMini, setSidebarMini] = useState<boolean>(() => {
+    try { return localStorage.getItem('BIM_SIDEBAR_MINI') === '1'; } catch { return false; }
+  });
+  const toggleSidebarMini = useCallback(() => {
+    setSidebarMini((v) => {
+      try { localStorage.setItem('BIM_SIDEBAR_MINI', v ? '0' : '1'); } catch { /* ignore */ }
+      return !v;
+    });
+  }, []);
   const setActiveTab = useCallback((tab: NavTab) => {
     setActiveTabState(tab);
     if (window.location.hash.replace(/^#\/?/, '') !== tab) {
@@ -168,15 +178,17 @@ function MainApp() {
         isOpen={isSidebarOpen}
         setIsOpen={setIsSidebarOpen}
         onOpenUserModal={() => setIsUserModalOpen(true)}
+        mini={sidebarMini}
+        onToggleMini={toggleSidebarMini}
       />
 
-      {/* Main Content Area (Offset by sidebar on desktop lg:pl-64) */}
-      <div className="flex-1 flex flex-col min-w-0 lg:pl-64 print:pl-0 transition-all duration-300">
+      {/* Main Content Area (Offset by sidebar on desktop: lg:pl-64, or 72px when collapsed) */}
+      <div className={`flex-1 flex flex-col min-w-0 ${sidebarMini ? 'lg:pl-[72px]' : 'lg:pl-64'} print:pl-0 transition-all duration-300`}>
         {/* Sticky Top Bar with Search Dropdown & Quick User Control */}
         <TopHeader
           activeTab={activeTab}
           setActiveTab={setActiveTab}
-          onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
+          onToggleSidebar={() => (window.innerWidth >= 1024 ? toggleSidebarMini() : setIsSidebarOpen((prev) => !prev))}
           onPrint={() => setIsPrintOpen(true)}
           onOpenUserModal={() => setIsUserModalOpen(true)}
         />
