@@ -175,7 +175,7 @@ export interface StudentFeeRecord {
   feesGroup: 'October' | 'Unpaid' | 'Already' | 'Stopped' | string;
   startDate: string;
   paymentDate: string;
-  caseType: 'Full' | 'Contribute' | '50%';
+  caseType: 'Full' | 'Contribute' | '50%' | 'Free';
   paidBy: 'ABA' | 'AC' | 'Cash' | '$ -';
   cash: number; // in USD
   dob?: string;
@@ -198,6 +198,7 @@ export interface StudentFeeSummaryRow {
   general: number;
   contribute: number;
   fiftyPercent: number;
+  free?: number;
   totalStudents: number;
   totalCash: number; // in USD
 }
@@ -214,6 +215,8 @@ export interface ClassFeeData {
   homeroomTeacher?: string;
   teacherPhone?: string;
   branchId?: string;
+  /** full monthly tuition (USD) for this class level; Full = 100%, 50% = half, Contribute = $5, Free = $0 */
+  fullFeeUSD?: number;
   // ── Academic (scores) — kept per class, so each academic year's archive keeps its own scores ──
   subjectIds?: string[]; // subjects taught/scored in this class (ids from SubjectItem)
   scores?: ClassScoreBook; // { periodKey: { studentId: { subjectId: score(0-100) } } }

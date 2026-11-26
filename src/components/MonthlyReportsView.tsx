@@ -1,3 +1,4 @@
+import { fullFeeOf } from '../utils/tuition';
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { computeMonthlyFeeSummary } from '../utils/feeSummary';
@@ -393,12 +394,13 @@ export const MonthlyReportsView: React.FC<MonthlyReportsViewProps> = ({
                       <th className="py-2.5 px-3 border-r border-blue-200 text-center">ពេញថ្លៃ (General)</th>
                       <th className="py-2.5 px-3 border-r border-blue-200 text-center">ឧបត្ថម្ភ (Contribute)</th>
                       <th className="py-2.5 px-3 border-r border-blue-200 text-center">បញ្ចុះ 50%</th>
+                      <th className="py-2.5 px-3 border-r border-blue-200 text-center">មិនគិតថ្លៃ (Free)</th>
                       <th className="py-2.5 px-3 border-r border-blue-200 text-center font-bold">សរុបសិស្ស</th>
                       <th className="py-2.5 px-4 text-right font-bold">ទឹកប្រាក់ទទួលបាន ($)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
-                    {computeMonthlyFeeSummary(currentClass.students || [], globalMonth, globalYear).rows.map((row) => (
+                    {computeMonthlyFeeSummary(currentClass.students || [], globalMonth, globalYear, fullFeeOf(currentClass)).rows.map((row) => (
                       <tr key={row.id} className="hover:bg-slate-50">
                         <td className="py-2.5 px-3 text-center font-mono border-r border-slate-200 text-slate-500">
                           {row.id}
@@ -415,6 +417,9 @@ export const MonthlyReportsView: React.FC<MonthlyReportsViewProps> = ({
                         <td className="py-2.5 px-3 text-center font-mono border-r border-slate-200">
                           {row.fiftyPercent}
                         </td>
+                        <td className="py-2.5 px-3 text-center font-mono border-r border-slate-200">
+                          {row.free || 0}
+                        </td>
                         <td className="py-2.5 px-3 text-center font-mono font-bold text-slate-900 border-r border-slate-200">
                           {row.totalStudents}
                         </td>
@@ -426,7 +431,7 @@ export const MonthlyReportsView: React.FC<MonthlyReportsViewProps> = ({
                   </tbody>
                   <tfoot>
                     <tr className="bg-slate-100 font-bold border-t-2 border-slate-300">
-                      <td colSpan={5} className="py-3 px-4 text-right border-r border-slate-300">
+                      <td colSpan={6} className="py-3 px-4 text-right border-r border-slate-300">
                         សរុបថវិកាទទួលបានជាក់ស្តែង (Actual Cash Received):
                       </td>
                       <td className="py-3 px-3 text-center font-mono font-black text-slate-900 border-r border-slate-300">

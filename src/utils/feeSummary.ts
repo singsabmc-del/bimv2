@@ -1,6 +1,6 @@
 import type { StudentFeeRecord, StudentFeePaymentItem, StudentFeeSummaryRow } from '../types';
 
-const rateFor = (s: StudentFeeRecord) => (s.caseType === 'Full' ? 12.5 : s.caseType === '50%' ? 6.25 : 5.0);
+import { caseRate, DEFAULT_FULL_FEE_USD } from './tuition';
 
 const recordMonths = (rec: StudentFeePaymentItem): string[] =>
   rec.months && rec.months.length > 0
@@ -15,8 +15,10 @@ const recordMonths = (rec: StudentFeePaymentItem): string[] =>
 export function computeMonthlyFeeSummary(
   students: StudentFeeRecord[],
   month: string,
-  year: number | string
+  year: number | string,
+  fullFee: number = DEFAULT_FULL_FEE_USD
 ): { rows: StudentFeeSummaryRow[]; totalCollected: number } {
+  const rateFor = (s: StudentFeeRecord) => caseRate(s.caseType, fullFee);
   const m = month.trim().toLowerCase();
   const full = `${m} ${year}`;
   const isTarget = (entry: string) => {
@@ -24,12 +26,13 @@ export function computeMonthlyFeeSummary(
     return e === full || e === m;
   };
 
-  const blank = () => ({ general: 0, contribute: 0, fiftyPercent: 0, cash: 0 });
+  const blank = () => ({ general: 0, contribute: 0, fiftyPercent: 0, free: 0, cash: 0 });
   const due = blank(), stopped = blank(), prepaid = blank(), unpaid = blank(), paid = blank();
   const add = (b: ReturnType<typeof blank>, s: StudentFeeRecord, cash: number) => {
     if (s.caseType === 'Full') b.general++;
     else if (s.caseType === 'Contribute') b.contribute++;
     else if (s.caseType === '50%') b.fiftyPercent++;
+    else if (s.caseType === 'Free') b.free++;
     b.cash += cash;
   };
 
@@ -41,6 +44,8 @@ export function computeMonthlyFeeSummary(
       add(stopped, s, rateFor(s));
       return;
     }
+    // Free students study without paying: never "unpaid"
+    if (s.caseType === 'Free') return;
 
     const rec = (s.feeHistory || []).find(
       (r) => r.status !== 'pending' && recordMonths(r).some(isTarget)
@@ -65,13 +70,14 @@ export function computeMonthlyFeeSummary(
     else add(unpaid, s, rateFor(s));
   });
 
-  const total = (b: ReturnType<typeof blank>) => b.general + b.contribute + b.fiftyPercent;
+  const total = (b: ReturnType<typeof blank>) => b.general + b.contribute + b.fiftyPercent + b.free;
   const row = (id: number, caseKhmer: string, b: ReturnType<typeof blank>, cash = b.cash): StudentFeeSummaryRow => ({
     id,
     caseKhmer,
     general: b.general,
     contribute: b.contribute,
     fiftyPercent: b.fiftyPercent,
+    free: b.free,
     totalStudents: total(b),
     totalCash: Math.round(cash * 100) / 100,
   });

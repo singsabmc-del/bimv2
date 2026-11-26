@@ -1,3 +1,4 @@
+import { TUITION_CASES, caseRate, caseOptionLabel, fullFeeOf } from '../utils/tuition';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { StudentFeeRecord, StudentAdmissionData } from '../types';
@@ -168,8 +169,8 @@ export const StudentAdmissionView: React.FC<StudentAdmissionViewProps> = ({
   const [parentSignDate, setParentSignDate] = useState(new Date().toISOString().slice(0, 10));
 
   // Fee Details
-  const [caseType, setCaseType] = useState<'Full' | 'Contribute' | '50%'>(existingStudent?.caseType || 'Full');
-  const [monthlyFeeUSD, setMonthlyFeeUSD] = useState<number>(existingStudent?.cash || 12.5);
+  const [caseType, setCaseType] = useState<'Full' | 'Contribute' | '50%' | 'Free'>(existingStudent?.caseType || 'Full');
+  const [monthlyFeeUSD, setMonthlyFeeUSD] = useState<number>(existingStudent?.cash || caseRate(existingStudent?.caseType || 'Full', fullFeeOf(classData[targetClassId || ''])));
 
   // Duplicate Prevention States
   const [allowDuplicateNameOverride, setAllowDuplicateNameOverride] = useState(false);
@@ -488,7 +489,7 @@ export const StudentAdmissionView: React.FC<StudentAdmissionViewProps> = ({
           paymentDate: new Date().toISOString().slice(0, 10),
           caseType,
           paidBy: '$ -',
-          cash: Number(monthlyFeeUSD) || 12.5,
+          cash: caseType === 'Free' ? 0 : Number(monthlyFeeUSD) || 0,
           admissionData,
         });
 
@@ -1366,15 +1367,13 @@ export const StudentAdmissionView: React.FC<StudentAdmissionViewProps> = ({
                   onChange={(e) => {
                     const val = e.target.value as any;
                     setCaseType(val);
-                    if (val === 'Full') setMonthlyFeeUSD(12.5);
-                    else if (val === '50%') setMonthlyFeeUSD(6.25);
-                    else setMonthlyFeeUSD(5.0);
+                    setMonthlyFeeUSD(caseRate(val, fullFeeOf(classData[selectedClassId])));
                   }}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-khmer bg-white"
                 >
-                  <option value="Full">Full (100% - $12.50)</option>
-                  <option value="50%">50% ($6.25)</option>
-                  <option value="Contribute">Contribute (ឧបត្ថម្ភ - $5.00)</option>
+                  {TUITION_CASES.map((c) => (
+                    <option key={c.value} value={c.value}>{caseOptionLabel(c, fullFeeOf(classData[selectedClassId]))}</option>
+                  ))}
                 </select>
               </div>
 

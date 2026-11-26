@@ -1,3 +1,4 @@
+import { caseRate, fullFeeOf } from '../utils/tuition';
 import { StudentRecordsView } from './StudentRecordsView';
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
@@ -576,10 +577,10 @@ export const StudentPortalView: React.FC = () => {
                 <div className="p-4 rounded-xl bg-slate-50 border border-slate-100">
                   <div className="text-xs text-slate-500 font-khmer">ថ្លៃសិក្សាត្រូវបង់ (Due)</div>
                   <div className="text-xl font-bold font-mono text-slate-900 mt-1">
-                    ${currentStudent.caseType === 'Full' ? '12.50' : currentStudent.caseType === '50%' ? '6.25' : '5.00'}
+                    ${caseRate(currentStudent.caseType, fullFeeOf(currentStudentClass)).toFixed(2)}
                   </div>
                   <div className="text-[11px] text-slate-400 font-mono mt-0.5">
-                    ≈ {((currentStudent.caseType === 'Full' ? 12.5 : currentStudent.caseType === '50%' ? 6.25 : 5.0) * settings.exchangeRate).toLocaleString()} ៛
+                    ≈ {(caseRate(currentStudent.caseType, fullFeeOf(currentStudentClass)) * settings.exchangeRate).toLocaleString()} ៛
                   </div>
                 </div>
 

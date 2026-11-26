@@ -1,3 +1,4 @@
+import { fullFeeOf } from '../utils/tuition';
 import React from 'react';
 import { useApp } from '../context/AppContext';
 import { computeMonthlyFeeSummary } from '../utils/feeSummary';
@@ -171,18 +172,20 @@ export const OfficialPrintReport: React.FC<OfficialPrintReportProps> = ({
                     <th className="py-1.5 px-2 border-r border-slate-400 text-center">General</th>
                     <th className="py-1.5 px-2 border-r border-slate-400 text-center">Contribute</th>
                     <th className="py-1.5 px-2 border-r border-slate-400 text-center">50%</th>
+                    <th className="py-1.5 px-2 border-r border-slate-400 text-center">Free</th>
                     <th className="py-1.5 px-2 border-r border-slate-400 text-center">Total</th>
                     <th className="py-1.5 px-3 text-right">Cash ($)</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-300">
-                  {computeMonthlyFeeSummary(currentClass.students || [], globalMonth, globalYear).rows.map((r) => (
+                  {computeMonthlyFeeSummary(currentClass.students || [], globalMonth, globalYear, fullFeeOf(currentClass)).rows.map((r) => (
                     <tr key={r.id}>
                       <td className="py-1 px-2 border-r border-slate-300 text-center font-mono">{r.id}</td>
                       <td className="py-1 px-3 border-r border-slate-300 font-khmer">{r.caseKhmer}</td>
                       <td className="py-1 px-2 border-r border-slate-300 text-center font-mono">{r.general}</td>
                       <td className="py-1 px-2 border-r border-slate-300 text-center font-mono">{r.contribute}</td>
                       <td className="py-1 px-2 border-r border-slate-300 text-center font-mono">{r.fiftyPercent}</td>
+                      <td className="py-1 px-2 border-r border-slate-300 text-center font-mono">{r.free || 0}</td>
                       <td className="py-1 px-2 border-r border-slate-300 text-center font-mono font-bold">{r.totalStudents}</td>
                       <td className="py-1 px-3 text-right font-mono font-bold">
                         {r.totalCash > 0 ? `$ ${r.totalCash.toFixed(2)}` : '$ -'}

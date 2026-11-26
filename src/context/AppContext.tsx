@@ -1,3 +1,4 @@
+import { caseRate, DEFAULT_FULL_FEE_USD } from '../utils/tuition';
 import React, { createContext, useContext, useState, useEffect, useRef, useMemo } from 'react';
 import { INITIAL_SUBJECTS } from '../data/initialSubjects';
 import { BIM_TEACHERS, BIM_SCHEDULE_1A, BIM_TIME_PERIODS } from '../data/initialTeachers';
@@ -2208,7 +2209,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Recalculate Class Summary Breakdown
-  const recomputeClassSummary = (students: StudentFeeRecord[]): {
+  const recomputeClassSummary = (students: StudentFeeRecord[], fullFee: number = DEFAULT_FULL_FEE_USD): {
     summaryRows: StudentFeeSummaryRow[];
     totalCollected: number;
     totalExpected: number;
@@ -2219,8 +2220,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let generalAlready = 0, contributeAlready = 0, fiftyAlready = 0, cashAlready = 0;
     let generalUnpaid = 0, contributeUnpaid = 0, fiftyUnpaid = 0, cashUnpaid = 0;
     let generalPaid = 0, contributePaid = 0, fiftyPaid = 0, cashPaid = 0;
+    let freeCount = 0;
 
     students.forEach((s) => {
+      if (s.caseType === 'Free') {
+        if (!s.feesGroup.toLowerCase().includes('stop')) freeCount++;
+        return;
+      }
       const isStopped = s.feesGroup.toLowerCase().includes('stop');
       const isAlready = s.feesGroup.toLowerCase().includes('already');
       const isUnpaid = s.feesGroup.toLowerCase().includes('unpaid') || s.cash === 0;
@@ -2243,7 +2249,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (s.caseType === 'Full') generalUnpaid++;
         else if (s.caseType === 'Contribute') contributeUnpaid++;
         else if (s.caseType === '50%') fiftyUnpaid++;
-        cashUnpaid += s.caseType === 'Full' ? 12.5 : s.caseType === '50%' ? 6.25 : 5.0;
+        cashUnpaid += caseRate(s.caseType, fullFee);
       } else {
         if (s.caseType === 'Full') generalPaid++;
         else if (s.caseType === 'Contribute') contributePaid++;
@@ -2257,7 +2263,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const rate = totalExpected > 0 ? Math.round((cashPaid / totalExpected) * 100) : 0;
 
     const summaryRows: StudentFeeSummaryRow[] = [
-      { id: 1, caseKhmer: 'ចំនួនសិស្សត្រូវបង់ខែ (Total Due)', general: generalDue, contribute: contributeDue, fiftyPercent: fiftyDue, totalStudents, totalCash: totalExpected },
+      { id: 1, caseKhmer: 'ចំនួនសិស្សត្រូវបង់ខែ (Total Due)', general: generalDue, contribute: contributeDue, fiftyPercent: fiftyDue, free: freeCount, totalStudents, totalCash: totalExpected },
       { id: 2, caseKhmer: 'សិស្សឈប់រៀនក្នុងខែ (Dropped / Stopped)', general: generalStopped, contribute: contributeStopped, fiftyPercent: fiftyStopped, totalStudents: generalStopped + contributeStopped + fiftyStopped, totalCash: cashStopped },
       { id: 3, caseKhmer: 'សិស្សបានបង់ពីខែមុនរួច (Prepaid)', general: generalAlready, contribute: contributeAlready, fiftyPercent: fiftyAlready, totalStudents: generalAlready + contributeAlready + fiftyAlready, totalCash: cashAlready },
       { id: 4, caseKhmer: 'សិស្សមិនទាន់បង់ខែ (Unpaid)', general: generalUnpaid, contribute: contributeUnpaid, fiftyPercent: fiftyUnpaid, totalStudents: generalUnpaid + contributeUnpaid + fiftyUnpaid, totalCash: cashUnpaid },
@@ -2312,7 +2318,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return { ...st, ...updates, feeHistory };
       });
 
-      const { summaryRows, totalCollected, totalExpected, rate } = recomputeClassSummary(updatedStudents);
+      const { summaryRows, totalCollected, totalExpected, rate } = recomputeClassSummary(updatedStudents, cls?.fullFeeUSD);
       return {
         ...prev,
         [classId]: {
@@ -2418,7 +2424,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         );
       }
 
-      const { summaryRows, totalCollected, totalExpected, rate } = recomputeClassSummary(updatedStudents);
+      const { summaryRows, totalCollected, totalExpected, rate } = recomputeClassSummary(updatedStudents, cls?.fullFeeUSD);
       return {
         ...prev,
         [classId]: {
@@ -2514,7 +2520,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       const updatedStudents = [...currentCls.students, newStudent];
-      const { summaryRows, totalCollected, totalExpected, rate } = recomputeClassSummary(updatedStudents);
+      const { summaryRows, totalCollected, totalExpected, rate } = recomputeClassSummary(updatedStudents, cls?.fullFeeUSD);
 
       return {
         ...prev,
@@ -2583,7 +2589,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const currentCls = prev[classId];
       if (!currentCls) return prev;
       const updatedStudents = [...currentCls.students, ...addedStudents];
-      const { summaryRows, totalCollected, totalExpected, rate } = recomputeClassSummary(updatedStudents);
+      const { summaryRows, totalCollected, totalExpected, rate } = recomputeClassSummary(updatedStudents, cls?.fullFeeUSD);
 
       return {
         ...prev,
@@ -2619,7 +2625,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const cls = prev[classId];
       if (!cls) return prev;
       const updatedStudents = cls.students.filter((s) => s.id !== studentId);
-      const { summaryRows, totalCollected, totalExpected, rate } = recomputeClassSummary(updatedStudents);
+      const { summaryRows, totalCollected, totalExpected, rate } = recomputeClassSummary(updatedStudents, cls?.fullFeeUSD);
       return {
         ...prev,
         [classId]: {
@@ -2684,7 +2690,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       if (!deleted) return prev;
 
-      const { summaryRows, totalCollected, totalExpected, rate } = recomputeClassSummary(updatedStudents);
+      const { summaryRows, totalCollected, totalExpected, rate } = recomputeClassSummary(updatedStudents, cls?.fullFeeUSD);
       return {
         ...prev,
         [classId]: {
@@ -2765,7 +2771,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
       });
 
-      const { summaryRows, totalCollected, totalExpected, rate } = recomputeClassSummary(updatedStudents);
+      const { summaryRows, totalCollected, totalExpected, rate } = recomputeClassSummary(updatedStudents, cls?.fullFeeUSD);
       return {
         ...prev,
         [classId]: {
@@ -2837,7 +2843,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           };
         });
 
-        const { summaryRows, totalCollected, totalExpected, rate } = recomputeClassSummary(updatedStudents);
+        const { summaryRows, totalCollected, totalExpected, rate } = recomputeClassSummary(updatedStudents, cls?.fullFeeUSD);
         nextClassData[cid] = {
           ...cls,
           students: updatedStudents,
@@ -3621,7 +3627,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Recompute fee summaries once per new class
     Object.values(newClassDataMap).forEach((cls) => {
-      const summary = recomputeClassSummary(cls.students);
+      const summary = recomputeClassSummary(cls.students, cls.fullFeeUSD);
       cls.summaryRows = summary.summaryRows;
       cls.totalCollectedCash = summary.totalCollected;
       cls.totalExpectedCash = summary.totalExpected;
