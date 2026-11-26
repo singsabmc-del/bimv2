@@ -1,3 +1,4 @@
+import { TUITION_CASES, caseRate, caseOptionLabel, fullFeeOf } from '../utils/tuition';
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { computeMonthlyFeeSummary } from '../utils/feeSummary';
@@ -296,7 +297,7 @@ export const StudentFeesView: React.FC<StudentFeesViewProps> = ({ onPrintReport,
   const [newStudentLatin, setNewStudentLatin] = useState('');
   const [newStudentGender, setNewStudentGender] = useState<'Man' | 'Female'>('Man');
   const [newStudentNote, setNewStudentNote] = useState<'Old' | 'New'>('Old');
-  const [newStudentCase, setNewStudentCase] = useState<'Full' | 'Contribute' | '50%'>('Full');
+  const [newStudentCase, setNewStudentCase] = useState<'Full' | 'Contribute' | '50%' | 'Free'>('Full');
   const [newStudentFeesGroup, setNewStudentFeesGroup] = useState(globalMonth);
   const [newStudentStartDate, setNewStudentStartDate] = useState(new Date().toISOString().slice(0, 10));
   const [newStudentPaymentDate, setNewStudentPaymentDate] = useState(new Date().toISOString().slice(0, 10));
@@ -432,8 +433,7 @@ export const StudentFeesView: React.FC<StudentFeesViewProps> = ({ onPrintReport,
   // Open Quick Pay Modal with Multi-Month support
   const handleOpenQuickPay = (student: StudentFeeRecord) => {
     setSelectedStudent(student);
-    const suggestedRate =
-      student.caseType === 'Full' ? 12.5 : student.caseType === '50%' ? 6.25 : 5.0;
+    const suggestedRate = caseRate(student.caseType, fullFeeOf(currentClass));
 
     // Detect all months already paid by student
     const alreadyPaidMonths = new Set<string>();
@@ -643,7 +643,7 @@ export const StudentFeesView: React.FC<StudentFeesViewProps> = ({ onPrintReport,
   const collectionRate = currentClass.targetCollectionRate;
   const totalCashCollected = currentClass.totalCollectedCash;
   // Official summary follows the month chosen in the filter
-  const monthlySummary = computeMonthlyFeeSummary(currentClass.students || [], globalMonth, globalYear);
+  const monthlySummary = computeMonthlyFeeSummary(currentClass.students || [], globalMonth, globalYear, fullFeeOf(currentClass));
 
   // ---------- Bulk actions on selected students ----------
   const canBulk = !!permissions.canEdit;
@@ -656,9 +656,10 @@ export const StudentFeesView: React.FC<StudentFeesViewProps> = ({ onPrintReport,
     });
     return ACADEMIC_MONTHS.find((m) => !paid.has(m)) || `${globalMonth} ${globalYear}`;
   };
-  const rateOf = (st: StudentFeeRecord) => (st.caseType === 'Full' ? 12.5 : st.caseType === '50%' ? 6.25 : 5.0);
+  const rateOf = (st: StudentFeeRecord) => caseRate(st.caseType, fullFeeOf(currentClass));
   // stopped students are skipped
-  const bulkPayable = selectedRows.filter((st) => !st.feesGroup.toLowerCase().includes('stop'));
+  // stopped and Free students are skipped (Free students pay nothing)
+  const bulkPayable = selectedRows.filter((st) => !st.feesGroup.toLowerCase().includes('stop') && st.caseType !== 'Free');
   const bulkPayTotal = bulkPayable.reduce((sum, st) => sum + rateOf(st), 0);
 
   const handleBulkPay = () => {
@@ -695,7 +696,7 @@ export const StudentFeesView: React.FC<StudentFeesViewProps> = ({ onPrintReport,
   };
 
   const handleBulkRemind = () => {
-    const targets = selectedRows.filter((st) => !st.feesGroup.toLowerCase().includes('stop'));
+    const targets = selectedRows.filter((st) => !st.feesGroup.toLowerCase().includes('stop') && st.caseType !== 'Free');
     if (targets.length === 0) return;
     sendTelegramAlert?.(
       `📨 រំលឹកបង់ថ្លៃសិក្សា · ${currentClass.className}`,
@@ -1021,9 +1022,7 @@ export const StudentFeesView: React.FC<StudentFeesViewProps> = ({ onPrintReport,
                   onChange={(e) => setNewStudentCase(e.target.value as any)}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg"
                 >
-                  <option value="Full">Full (100%)</option>
-                  <option value="Contribute">Contribute</option>
-                  <option value="50%">50%</option>
+                  {TUITION_CASES.map((c) => <option key={c.value} value={c.value}>{caseOptionLabel(c, fullFeeOf(currentClass))}</option>)}
                 </select>
               </div>
             </div>
@@ -1708,7 +1707,8 @@ export const StudentFeesView: React.FC<StudentFeesViewProps> = ({ onPrintReport,
               <option value="all">{t('គ្រប់ Case (All Cases)', 'All Cases')}</option>
               <option value="full">Full (ទូទៅ 100%)</option>
               <option value="contribute">Contribute (ឧបត្ថម្ភ)</option>
-              <option value="50%">50% (អាហារូបករណ៍)</option>
+              <option value="50%">50% (ពាក់កណ្តាល)</option>
+              <option value="free">Free (មិនគិតថ្លៃ)</option>
             </select>
           </div>
 
@@ -2286,6 +2286,7 @@ export const StudentFeesView: React.FC<StudentFeesViewProps> = ({ onPrintReport,
                 <th className="py-2.5 px-3 border-r border-amber-500 text-center">General</th>
                 <th className="py-2.5 px-3 border-r border-amber-500 text-center">Contribute</th>
                 <th className="py-2.5 px-3 border-r border-amber-500 text-center">50%</th>
+                <th className="py-2.5 px-3 border-r border-amber-500 text-center">Free</th>
                 <th className="py-2.5 px-3 border-r border-amber-500 text-center">Total Students</th>
                 <th className="py-2.5 px-4 text-right">Cash ($)</th>
               </tr>
@@ -2314,6 +2315,9 @@ export const StudentFeesView: React.FC<StudentFeesViewProps> = ({ onPrintReport,
                     <td className="py-2 px-3 border-r border-slate-200 text-center font-mono tabular-nums">
                       {row.fiftyPercent}
                     </td>
+                    <td className="py-2 px-3 border-r border-slate-200 text-center font-mono tabular-nums">
+                      {row.free || 0}
+                    </td>
                     <td className="py-2 px-3 border-r border-slate-200 text-center font-mono font-bold tabular-nums">
                       {row.totalStudents}
                     </td>
@@ -2326,7 +2330,7 @@ export const StudentFeesView: React.FC<StudentFeesViewProps> = ({ onPrintReport,
             </tbody>
             <tfoot>
               <tr className="bg-amber-300 font-bold text-slate-900 border-t-2 border-amber-500">
-                <td colSpan={6} className="py-2 px-4 text-right border-r border-amber-400 uppercase tracking-wide font-khmer">
+                <td colSpan={7} className="py-2 px-4 text-right border-r border-amber-400 uppercase tracking-wide font-khmer">
                   Grand Total Collected
                 </td>
                 <td className="py-2 px-4 text-right font-mono tabular-nums text-sm font-black">
@@ -2391,7 +2395,7 @@ export const StudentFeesView: React.FC<StudentFeesViewProps> = ({ onPrintReport,
                     Case: {selectedStudent.caseType}
                   </span>
                   <span className="text-slate-400 font-mono text-[11px]">
-                    (ស្តង់ដារ ${selectedStudent.caseType === 'Full' ? '12.50' : selectedStudent.caseType === '50%' ? '6.25' : '5.00'}/ខែ)
+                    (ស្តង់ដារ ${caseRate(selectedStudent.caseType, fullFeeOf(currentClass)).toFixed(2)}/ខែ)
                   </span>
                 </div>
               </div>
@@ -2989,9 +2993,7 @@ export const StudentFeesView: React.FC<StudentFeesViewProps> = ({ onPrintReport,
                     onChange={(e) => setNewStudentCase(e.target.value as any)}
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg"
                   >
-                    <option value="Full">Full</option>
-                    <option value="Contribute">Contribute</option>
-                    <option value="50%">50%</option>
+                    {TUITION_CASES.map((c) => <option key={c.value} value={c.value}>{caseOptionLabel(c, fullFeeOf(currentClass))}</option>)}
                   </select>
                 </div>
               </div>

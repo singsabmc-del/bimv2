@@ -169,11 +169,14 @@ export function cleanPhoneNumber(raw?: string): string {
 /**
  * Maps raw case name (General, Landfill, FC) to standard system caseType
  */
-export function mapCaseType(raw?: string): { caseType: 'Full' | 'Contribute' | '50%'; rawCase: string } {
+export function mapCaseType(raw?: string): { caseType: 'Full' | 'Contribute' | '50%' | 'Free'; rawCase: string } {
   if (!raw) return { caseType: 'Full', rawCase: 'General' };
   const trimmed = raw.trim();
   const lower = trimmed.toLowerCase();
 
+  if (lower === 'free' || lower.includes('ឥតគិតថ្លៃ') || lower.includes('មិនគិតថ្លៃ') || lower === '0%') {
+    return { caseType: 'Free', rawCase: trimmed };
+  }
   if (lower === '50%' || lower.includes('fifty') || lower.includes('៥០')) {
     return { caseType: '50%', rawCase: trimmed };
   }

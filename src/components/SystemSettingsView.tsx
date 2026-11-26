@@ -37,9 +37,11 @@ import {
   RefreshCw,
   Zap,
   CalendarOff,
+  Wallet,
 } from 'lucide-react';
 import { checkSupabaseHealth, SupabaseHealthResult } from '../lib/supabase';
 import { HolidaySettingsPanel } from './HolidaySettingsPanel';
+import { TuitionSettingsPanel } from './TuitionSettingsPanel';
 
 export const SystemSettingsView: React.FC = () => {
   const {
@@ -80,7 +82,7 @@ export const SystemSettingsView: React.FC = () => {
     restoreFromSupabaseNow,
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'general' | 'branches' | 'holidays' | 'telegram' | 'supabase' | 'backup' | 'roles'>(() => {
+  const [activeTab, setActiveTab] = useState<'general' | 'branches' | 'tuition' | 'holidays' | 'telegram' | 'supabase' | 'backup' | 'roles'>(() => {
     // Other pages can open a specific tab (e.g. the attendance report → Holidays)
     try {
       const want = localStorage.getItem('BIM_SETTINGS_TAB');
@@ -857,6 +859,16 @@ export const SystemSettingsView: React.FC = () => {
           </button>
 
           <button
+            onClick={() => setActiveTab('tuition')}
+            className={`px-3.5 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 ${
+              activeTab === 'tuition' ? 'bg-teal-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <Wallet className="w-3.5 h-3.5" />
+            <span>{t('ថ្លៃសិក្សា (Tuition)', 'Tuition')}</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('holidays')}
             className={`px-3.5 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 ${
               activeTab === 'holidays' ? 'bg-violet-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
@@ -909,6 +921,7 @@ export const SystemSettingsView: React.FC = () => {
         </div>
       </div>
 
+      {activeTab === 'tuition' && <TuitionSettingsPanel />}
       {activeTab === 'holidays' && <HolidaySettingsPanel />}
 
       {/* Tab 1: General Profile */}
