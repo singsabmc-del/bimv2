@@ -1,4 +1,4 @@
-import { stampForSync } from './fullStateMerge';
+import { stampForSync, getSyncBaseline, restoreSyncBaseline } from './fullStateMerge';
 /**
  * Multi-tier Persistent Storage Adapter for BIM Rangsei School Management
  * 
@@ -228,6 +228,7 @@ export function syncStateToServer(stateBundle: any): void {
         window.dispatchEvent(new CustomEvent('bim-supabase-sync', { detail: { ok, error, at: Date.now() } }));
       } catch {}
     };
+    const baseline = getSyncBaseline();
     try {
       const res = await fetch('/api/state', {
         method: 'POST',
@@ -249,7 +250,10 @@ export function syncStateToServer(stateBundle: any): void {
       }
       if (res.ok && json.savedToSupabase) report(true);
       else report(false, json.supabaseError || json.error || `HTTP ${res.status}`);
+      // not stored → keep these edits marked as unsent, so the next save sends them again
+      if (!res.ok) restoreSyncBaseline(baseline);
     } catch (err: any) {
+      restoreSyncBaseline(baseline);
       report(false, err?.message || 'Server unreachable');
     } finally {
       postInFlight = Math.max(0, postInFlight - 1);
@@ -311,10 +315,13 @@ export async function restoreStateOnStartup(): Promise<any | null> {
   // C. Check Server API
   let serverData: any = null;
   let serverSavedAt = 0;
+  // true only when the server answered and its cloud store really is empty (not when it is down)
+  let serverAnswered = false;
   try {
     const res = await fetch('/api/state');
     if (res.ok) {
       const json = await res.json();
+      if (json && json.success) serverAnswered = true;
       if (json && json.success && json.data && typeof json.data === 'object' && Object.keys(json.data).length > 0) {
         serverData = json.data;
         serverSavedAt = serverData.lastSavedAt || 0;
@@ -327,6 +334,9 @@ export async function restoreStateOnStartup(): Promise<any | null> {
   // or the local browser data was saved MORE RECENTLY than the server data (e.g. server was just redeployed):
   // KEEP THE BROWSER DATA, and push it to the server container!
   if (bestLocalData && (!serverData || bestLocalTimestamp >= serverSavedAt)) {
+    // Push this device's copy only when the server is reachable. If the cloud could not be read
+    // (outage, quota), pushing would replace the real school data with whatever this device has.
+    if (!serverData && !serverAnswered) return bestLocalData;
     try {
       fetch('/api/state', {
         method: 'POST',

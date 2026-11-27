@@ -295,12 +295,8 @@ export async function createApp() {
         }
         return old;
       } catch (e: any) {
-        // Firebase unreachable: serve the last copy we have rather than nothing
         console.warn('Firebase read failed:', e?.message);
-        if (fs.existsSync(STORE_FILE)) {
-          return { data: JSON.parse(fs.readFileSync(STORE_FILE, 'utf-8')), source: 'local_file', updatedAt: null };
-        }
-        throw e;
+        return { data: null, source: 'none', updatedAt: null, cloudError: `Firebase: ${e?.message || 'read failed'}` };
       }
     }
     return fetchFromSupabaseOrFile();
@@ -325,6 +321,7 @@ export async function createApp() {
     }
 
     // 2. Try Supabase REST Client with timeout
+    let cloudError: string | null = null;
     if (supabaseAdmin) try {
       const restPromise = supabaseAdmin.from('bim_school_state').select('data, updated_at').eq('id', 'latest').single();
       const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000));
@@ -332,7 +329,12 @@ export async function createApp() {
       if (!error && data && data.data) {
         return { data: data.data, source: 'supabase_rest', updatedAt: data.updated_at };
       }
-    } catch {}
+      // "no rows" = genuinely empty; anything else means the cloud could not be read
+      if (error && error.code !== 'PGRST116') cloudError = error.message || 'Supabase read failed';
+    } catch (e: any) {
+      cloudError = e?.message || 'Supabase unreachable';
+    }
+    if (cloudError) return { data: null, source: 'none', updatedAt: null, cloudError };
 
     // 3. Fall back to local STORE_FILE
     if (fs.existsSync(STORE_FILE)) {
@@ -429,7 +431,8 @@ export async function createApp() {
   // Persistent Server-Side State Endpoints with Supabase backing
   app.get(['/api/state', '/api/supabase/state'], async (req, res) => {
     try {
-      const result = await fetchSchoolState();
+      const result: any = await fetchSchoolState();
+      if (result.cloudError) return res.status(503).json({ success: false, error: result.cloudError });
       return res.json({
         success: true,
         data: result.data,
@@ -477,8 +480,14 @@ export async function createApp() {
       // Parts written by many devices at once (attendance, check-ins, leave) are merged with
       // what is already stored, so one device's save does not wipe another device's entries.
       let prevSavedAt: number | null = null;
+      // If the cloud copy cannot be read right now, do NOT save: a blind save would replace the
+      // school's real data with whatever this one device holds. The device keeps its changes locally.
+      const storedCheck: any = await fetchSchoolState();
+      if (storedCheck?.cloudError) {
+        return res.status(503).json({ success: false, savedToSupabase: false, supabaseError: `Cloud unavailable — not saved: ${storedCheck.cloudError}` });
+      }
       try {
-        const stored = await fetchSchoolState();
+        const stored = storedCheck;
         if (stored?.data) {
           prevSavedAt = Number(stored.data.lastSavedAt) || null;
           payload = mergeSharedSections(stored.data, mergeFullState(stored.data, payload));
