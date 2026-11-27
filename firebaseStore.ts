@@ -125,16 +125,37 @@ async function readChunked(collection: string, id: string): Promise<{ value: any
 
 // ── Public API ──────────────────────────────────────────────────────────────
 
+// Each server instance keeps the last state it read or wrote. Polls first read only the small
+// head document (1 Firestore read) and download the chunks only when the state really changed —
+// this keeps reads / egress low (the old store ran out of egress quota from full-state polling).
+let cache: { stamp: string; data: any; updatedAt: string | null } | null = null;
+const stampOf = (head: any) => `${num(head.lastSavedAt) ?? ''}|${head.updatedAt?.timestampValue || ''}|${num(head.chunks) ?? ''}`;
+
+/** Only the head document: { lastSavedAt } (1 read) — null when nothing is stored yet */
+export async function firebaseVersion(): Promise<{ lastSavedAt: number | null } | null> {
+  const head = await call('GET', `${BASE}/bim_state/latest`, undefined, 8000);
+  if (head.status === 404) return null;
+  if (!head.ok) throw new Error(head.json?.error?.message || `Firestore read failed (${head.status})`);
+  return { lastSavedAt: num(fieldsOf(head.json).lastSavedAt) };
+}
+
 export async function firebaseLoadState(): Promise<{ data: any; updatedAt: string | null } | null> {
+  const head = await call('GET', `${BASE}/bim_state/latest`, undefined, 8000);
+  if (head.status === 404) return null;
+  if (!head.ok) throw new Error(head.json?.error?.message || `Firestore read failed (${head.status})`);
+  const stamp = stampOf(fieldsOf(head.json));
+  if (cache && cache.stamp === stamp) return { data: cache.data, updatedAt: cache.updatedAt };
   const r = await readChunked('bim_state', 'latest');
   if (!r) return null;
-  return { data: r.value, updatedAt: r.head.updatedAt?.timestampValue || null };
+  cache = { stamp: stampOf(r.head), data: r.value, updatedAt: r.head.updatedAt?.timestampValue || null };
+  return { data: r.value, updatedAt: cache.updatedAt };
 }
 
 export async function firebaseSaveState(payload: any): Promise<void> {
   await writeChunked('bim_state', 'latest', payload, {
     lastSavedAt: { integerValue: String(Number(payload?.lastSavedAt) || Date.now()) },
   });
+  cache = null; // next read re-validates against the stored head
 }
 
 export async function firebaseSaveBackup(id: string, title: string, meta: any, data: any): Promise<void> {

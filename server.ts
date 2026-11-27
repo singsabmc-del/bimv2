@@ -8,7 +8,7 @@ import { GoogleGenAI } from '@google/genai';
 import fs from 'fs';
 import pg from 'pg';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
-import { firebaseEnabled, firebaseProjectId, firebaseLoadState, firebaseSaveState, firebaseSaveBackup, firebasePing } from './firebaseStore.js';
+import { firebaseEnabled, firebaseProjectId, firebaseLoadState, firebaseSaveState, firebaseSaveBackup, firebasePing, firebaseVersion } from './firebaseStore.js';
 
 dotenv.config();
 
@@ -444,6 +444,12 @@ export async function createApp() {
   // Version of the saved state (cheap check before downloading everything)
   app.get('/api/state/version', async (req, res) => {
     try {
+      if (firebaseEnabled) {
+        try {
+          const v = await firebaseVersion();
+          if (v) return res.json({ success: true, lastSavedAt: v.lastSavedAt });
+        } catch {}
+      }
       const result = await fetchSchoolState();
       return res.json({ success: true, lastSavedAt: Number((result.data as any)?.lastSavedAt) || null });
     } catch (err: any) {
