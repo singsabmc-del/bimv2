@@ -255,6 +255,12 @@ export const hasLocalChanges = (bundle: any, section: string) => {
   return cur.plain[section] !== lastSnap.plain[section];
 };
 
+/** The change-tracking baseline, so a save that did not reach the server can be undone */
+export const getSyncBaseline = () => lastSnap;
+export const restoreSyncBaseline = (snap: typeof lastSnap) => {
+  lastSnap = snap;
+};
+
 /** Stamp a bundle before sending it: changed items get `_u`, removals become tombstones. */
 export const stampForSync = (bundle: any, now = Date.now()) => {
   const out: any = { ...bundle };
