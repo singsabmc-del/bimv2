@@ -186,6 +186,14 @@ export function getStoredItemWithFallback<T>(primaryKey: string, legacyKeySuffix
  * - Server REST endpoint /api/state
  */
 let debounceTimeout: any = null;
+// Save activity, so a cloud pull never overwrites edits that are still on their way to the server
+let savePending = false;
+let postInFlight = 0;
+let lastPostStartedAt = 0;
+/** true while this device has changes not yet confirmed by the server */
+export const isSaveBusy = () => savePending || postInFlight > 0;
+/** when this device last started sending a save */
+export const getLastPostStartedAt = () => lastPostStartedAt;
 
 export function syncStateToServer(stateBundle: any): void {
   if (typeof window === 'undefined' || !stateBundle) return;
@@ -205,7 +213,11 @@ export function syncStateToServer(stateBundle: any): void {
 
   // 2. Debounced sync to IndexedDB and Server to optimize performance
   if (debounceTimeout) clearTimeout(debounceTimeout);
+  savePending = true;
   debounceTimeout = setTimeout(async () => {
+    savePending = false;
+    postInFlight++;
+    lastPostStartedAt = Date.now();
     // Durable IndexedDB write
     saveToIndexedDB(PRIMARY_KEY, bundleWithTimestamp).catch(() => {});
 
@@ -239,6 +251,8 @@ export function syncStateToServer(stateBundle: any): void {
       else report(false, json.supabaseError || json.error || `HTTP ${res.status}`);
     } catch (err: any) {
       report(false, err?.message || 'Server unreachable');
+    } finally {
+      postInFlight = Math.max(0, postInFlight - 1);
     }
   }, 600);
 }

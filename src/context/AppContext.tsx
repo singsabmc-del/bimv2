@@ -74,6 +74,8 @@ import {
   getStoredItemWithFallback,
   syncStateToServer,
   restoreStateOnStartup,
+  isSaveBusy,
+  getLastPostStartedAt,
 } from '../utils/persistentStorage';
 import {
   checkDuplicateStudent,
@@ -1389,13 +1391,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     busAttendance: setBusAttendance, settings: setSettings,
   };
   /** Take in sections other people changed — but never over this device's own unsaved edits */
+  const ownPrevSavedAtRef = useRef<number | null>(null);
   const pullLatestState = async () => {
     try {
+      // our own edits are still being saved → pull after they land (the next check does it)
+      if (isSaveBusy()) return;
+      const startedAt = Date.now();
       const res = await fetch('/api/state');
       if (!res.ok) return;
       const json = await res.json();
       const data = json?.data;
       if (!json?.success || !data || typeof data !== 'object') return;
+      // a save started while this pull was on its way → this copy is already out of date
+      if (isSaveBusy() || getLastPostStartedAt() > startedAt) return;
+      // the copy from just before our last save (slow / cached server) → it lacks our edits, ignore it
+      if (data.lastSavedAt && ownPrevSavedAtRef.current && Number(data.lastSavedAt) === ownPrevSavedAtRef.current) return;
       const take: any = { _sync: data._sync };
       Object.keys(SECTION_SETTERS).forEach((sec) => {
         if (data[sec] === undefined) return;
@@ -1411,9 +1421,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     const onPost = (e: Event) => {
       const { prevSavedAt, lastSavedAt } = (e as CustomEvent).detail || {};
+      if (prevSavedAt) ownPrevSavedAtRef.current = Number(prevSavedAt);
       const othersSaved = prevSavedAt && lastSeenSavedAtRef.current && Number(prevSavedAt) !== lastSeenSavedAtRef.current;
       if (lastSavedAt) lastSeenSavedAtRef.current = Number(lastSavedAt);
-      if (othersSaved) pullLatestState();
+      if (othersSaved) setTimeout(pullLatestState, 300); // after this save is marked done
     };
     window.addEventListener('bim-post-result', onPost);
     const check = async () => {
