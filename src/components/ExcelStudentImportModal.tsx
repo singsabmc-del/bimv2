@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import {
   parsePastedTable,
-  isHeaderRow,
+  extractDataTable,
   detectColumnField,
   normalizeBirthDate,
   normalizeGender,
@@ -99,9 +99,11 @@ export const ExcelStudentImportModal: React.FC<ExcelStudentImportModalProps> = (
     const matrix = parsePastedTable(rawText);
     if (matrix.length === 0) return;
 
-    const hasHeader = isHeaderRow(matrix[0]);
-    const headers = hasHeader ? matrix[0] : matrix[0].map((_, i) => `ជួរឈរ ${i + 1}`);
-    const dataRows = hasHeader ? matrix.slice(1) : matrix;
+    // find the student table even when the sheet has titles / blank rows above it
+    const table = extractDataTable(matrix);
+    const dataRows = table.dataRows;
+    const width = Math.max(table.headers?.length || 0, ...dataRows.map((r) => r.length), 1);
+    const headers = Array.from({ length: width }, (_, i) => (table.headers?.[i] || '').trim() || `ជួរឈរ ${i + 1}`);
 
     setHeaderNames(headers);
 
@@ -123,8 +125,7 @@ export const ExcelStudentImportModal: React.FC<ExcelStudentImportModalProps> = (
     }
 
     const matrix = parsePastedTable(rawText);
-    const hasHeader = isHeaderRow(matrix[0]);
-    const dataRows = hasHeader ? matrix.slice(1) : matrix;
+    const dataRows = extractDataTable(matrix).dataRows;
 
     const rows: ParsedStudentRow[] = dataRows.map((rawRow, idx) => {
       let name = '';

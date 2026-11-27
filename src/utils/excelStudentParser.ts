@@ -357,15 +357,77 @@ export function isHeaderRow(firstRow: string[]): boolean {
     'ផ្សេងៗ',
   ];
 
+  return headerScore(firstRow, headerKeywords) >= 2;
+}
+
+const HEADER_KEYWORDS = ['ល.រ', 'លរ', 'no', 'ឈ្មោះ', 'ភេទ', 'gender', 'sex', 'ចំណាំ', 'ករណី', 'ថ្ងៃខែ', 'កំណើត', 'dob', 'birth', 'ទូរស័ព្ទ', 'ទូរសព្ទ', 'phone', 'tel', 'លំនៅ', 'អាសយដ្ឋាន', 'address', 'ឪពុក', 'ម្តាយ', 'ម្ដាយ', 'father', 'mother', 'ផ្សេងៗ', 'name', 'អត្តលេខ', 'id', 'ថ្នាក់', 'class', 'remark'];
+
+/** how many cells of a row look like column titles */
+export function headerScore(row: string[], keywords: string[] = HEADER_KEYWORDS): number {
   let matches = 0;
-  firstRow.forEach((col) => {
-    const lower = col.toLowerCase().trim();
-    if (headerKeywords.some((kw) => lower.includes(kw))) {
+  (row || []).forEach((col) => {
+    const lower = (col || '').toLowerCase().trim();
+    if (!lower || lower.length > 40) return;
+    if (keywords.some((kw) => (kw.length <= 3 && /^[a-z.]+$/.test(kw) ? lower.replace(/[.\s]/g, '') === kw.replace('.', '') || lower.split(/[\s/()]+/).includes(kw) : lower.includes(kw)))) {
       matches += 1;
     }
   });
+  return matches;
+}
 
-  return matches >= 2;
+const filled = (row: string[]) => (row || []).filter((c) => (c || '').trim() !== '').length;
+const hasLetters = (row: string[]) => (row || []).some((c) => /[\u1780-\u17FFA-Za-z]{2,}/.test(c || ''));
+const FOOTER_RE = /^(សរុប|total|grand total|ធ្វើនៅ|រៀបចំដោយ|បានឃើញ|ហត្ថលេខា|នាយក|principal|prepared by|signature)/i;
+
+/**
+ * Finds the real data table inside a sheet that may have a school title, class name,
+ * blank rows or a sub-header above it, and totals / signatures below it.
+ * Returns the header row (if any) and the student rows only.
+ */
+export function extractDataTable(matrix: string[][]): { headers: string[] | null; dataRows: string[][] } {
+  if (!matrix.length) return { headers: null, dataRows: [] };
+
+  // 1. header = the row (in the first 30) with the most column-title words
+  let headerIdx = -1;
+  let best = 1;
+  matrix.slice(0, 30).forEach((row, i) => {
+    const sc = headerScore(row);
+    if (sc > best || (sc === best && sc >= 2 && filled(row) > filled(matrix[headerIdx] || []))) {
+      best = sc;
+      headerIdx = i;
+    }
+  });
+
+  // 2. no header: the table starts at the first row that is as wide as the table body
+  let start = headerIdx + 1;
+  if (headerIdx < 0) {
+    const widths = matrix.map(filled).sort((a, b) => a - b);
+    const typical = widths[Math.floor(widths.length / 2)] || 1;
+    const need = Math.max(2, Math.ceil(typical * 0.6));
+    start = Math.max(0, matrix.findIndex((r) => filled(r) >= need && hasLetters(r)));
+  }
+
+  const width = headerIdx >= 0 ? matrix[headerIdx].length : Math.max(...matrix.slice(start).map((r) => r.length));
+  const minCells = width >= 3 ? 2 : 1;
+
+  // 3. keep student rows only
+  const dataRows: string[][] = [];
+  for (const row of matrix.slice(start)) {
+    const first = (row.find((c) => (c || '').trim()) || '').trim();
+    if (FOOTER_RE.test(first) && filled(row) <= 3) break; // totals / signature block ends the table
+    if (filled(row) < minCells) continue; // blank or stray single-cell rows
+    if (!hasLetters(row)) continue; // (1) (2) (3) numbering rows under the header
+    if (headerScore(row) >= 2 && headerIdx >= 0) continue; // repeated header on the next page
+    dataRows.push(row);
+  }
+
+  // 4. drop empty columns on the left (table not starting in column A)
+  const headers = headerIdx >= 0 ? matrix[headerIdx] : null;
+  const all = headers ? [headers, ...dataRows] : dataRows;
+  let lead = 0;
+  while (all.length && all.every((r) => !(r[lead] || '').trim()) && lead < width) lead++;
+  const cut = (r: string[]) => r.slice(lead);
+  return { headers: headers ? cut(headers) : null, dataRows: dataRows.map(cut) };
 }
 
 /**
