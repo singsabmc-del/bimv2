@@ -8,6 +8,7 @@ import { GoogleGenAI } from '@google/genai';
 import fs from 'fs';
 import pg from 'pg';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { firebaseEnabled, firebaseProjectId, firebaseLoadState, firebaseSaveState, firebaseSaveBackup, firebasePing } from './firebaseStore.js';
 
 dotenv.config();
 
@@ -181,6 +182,12 @@ export async function createApp() {
   });
 
   // Health check
+  app.get('/api/firebase/status', async (req, res) => {
+    if (!firebaseEnabled) return res.json({ configured: false, message: 'FIREBASE_SERVICE_ACCOUNT is not set — using Supabase' });
+    const ping = await firebasePing();
+    return res.json({ configured: true, projectId: firebaseProjectId, connected: ping.ok, lastSavedAt: ping.lastSavedAt ?? null, error: ping.error || null });
+  });
+
   app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', serverTime: new Date().toISOString() });
   });
@@ -271,6 +278,35 @@ export async function createApp() {
 
   // Helper to fetch master state from Supabase or local fallback
   const fetchSchoolState = async () => {
+    // 0. Firebase (Firestore) is the main store when FIREBASE_SERVICE_ACCOUNT is set
+    if (firebaseEnabled) {
+      try {
+        const fb = await firebaseLoadState();
+        if (fb?.data) return { data: fb.data, source: 'firebase', updatedAt: fb.updatedAt };
+        // Firestore still empty → read the old store below and copy it across once
+        const old = await fetchFromSupabaseOrFile();
+        if (old.data) {
+          try {
+            await firebaseSaveState(old.data);
+            console.log(`✅ Copied school data from ${old.source} to Firebase`);
+          } catch (e: any) {
+            console.warn('Firebase seed failed:', e?.message);
+          }
+        }
+        return old;
+      } catch (e: any) {
+        // Firebase unreachable: serve the last copy we have rather than nothing
+        console.warn('Firebase read failed:', e?.message);
+        if (fs.existsSync(STORE_FILE)) {
+          return { data: JSON.parse(fs.readFileSync(STORE_FILE, 'utf-8')), source: 'local_file', updatedAt: null };
+        }
+        throw e;
+      }
+    }
+    return fetchFromSupabaseOrFile();
+  };
+
+  const fetchFromSupabaseOrFile = async () => {
     // 1. Try Supabase Postgres if configured and initialized
     if (pgPool && pgInitialized) {
       try {
@@ -317,6 +353,16 @@ export async function createApp() {
 
     let savedToSupabase = false;
     let supabaseError: string | null = null;
+
+    // Firebase replaces Supabase when configured ("savedToSupabase" = saved to the cloud store)
+    if (firebaseEnabled) {
+      try {
+        await firebaseSaveState(payload);
+        return { savedToSupabase: true, supabaseError: null, savedAt: new Date().toISOString() };
+      } catch (err: any) {
+        return { savedToSupabase: false, supabaseError: `Firebase: ${err?.message || 'save failed'}`, savedAt: new Date().toISOString() };
+      }
+    }
 
     // Save to Supabase PostgreSQL if pool is available and initialized
     if (pgPool && pgInitialized) {
@@ -1264,6 +1310,13 @@ Return a single clean JSON object matching this schema without markdown fences. 
         } catch {
           supabaseSynced = false;
         }
+      }
+
+      if (firebaseEnabled) {
+        try {
+          await firebaseSaveBackup(snapshotName, `Backup ${datePart}`, { filename: snapshotName, date: datePart }, backupData);
+          supabaseSynced = true;
+        } catch {}
       }
 
       let tgResult = null;
