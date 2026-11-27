@@ -1,3 +1,4 @@
+import { xlsxToTsv } from '../utils/xlsxReader';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import {
@@ -269,20 +270,40 @@ export const ExcelStudentImportModal: React.FC<ExcelStudentImportModalProps> = (
     setActiveTab('preview');
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const text = event.target?.result as string;
+    const name = file.name.toLowerCase();
+    try {
+      if (name.endsWith('.xlsx') || name.endsWith('.xlsm')) {
+        const tsv = await xlsxToTsv(file);
+        if (!tsv.trim()) {
+          alert('ឯកសារ Excel នេះគ្មានទិន្នន័យនៅក្នុង Sheet ទី១ទេ។');
+          return;
+        }
+        setRawText(tsv);
+        setActiveTab('preview');
+        return;
+      }
+      if (name.endsWith('.xls')) {
+        alert('ឯកសារ .xls ចាស់ មិនអាចអានបានទេ។ សូមបើកក្នុង Excel ហើយ Save As ជា .xlsx ឬ CSV UTF-8 ឬ Copy ហើយ Paste ផ្ទាល់។');
+        return;
+      }
+      const text = await file.text();
+      // binary file (e.g. a renamed Excel file) — don't show garbage rows
+      if (text.startsWith('PK') || text.includes('\u0000')) {
+        alert('ឯកសារនេះមិនមែនជាអត្ថបទ CSV ទេ។ សូមជ្រើសឯកសារ .xlsx ឬ CSV UTF-8 ឬ Copy ពី Excel ហើយ Paste ផ្ទាល់។');
+        return;
+      }
       if (text) {
-        setRawText(text);
+        setRawText(text.replace(/^\uFEFF/, ''));
         setActiveTab('preview');
       }
-    };
-    reader.readAsText(file);
-    e.target.value = '';
+    } catch (err) {
+      console.error('[import] file read failed', err);
+      alert('មិនអាចអានឯកសារនេះបានទេ។ សូម Copy ពី Excel ហើយ Paste ផ្ទាល់ (Ctrl+V)។');
+    }
   };
 
   // Execute Batch Import into AppContext
@@ -472,7 +493,7 @@ export const ExcelStudentImportModal: React.FC<ExcelStudentImportModalProps> = (
                   type="file"
                   ref={fileInputRef}
                   onChange={handleFileUpload}
-                  accept=".csv, .tsv, .txt"
+                  accept=".xlsx,.xlsm,.xls,.csv,.tsv,.txt"
                   className="hidden"
                 />
                 <button
@@ -481,7 +502,7 @@ export const ExcelStudentImportModal: React.FC<ExcelStudentImportModalProps> = (
                   className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-lg font-bold font-khmer text-xs transition-colors"
                 >
                   <Upload className="w-3.5 h-3.5" />
-                  <span>បញ្ចូលឯកសារ (.csv / .tsv)</span>
+                  <span>បញ្ចូលឯកសារ (.xlsx / .csv)</span>
                 </button>
 
                 {rawText && (
