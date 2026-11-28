@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import express from 'express';
 import { mergeSharedSections } from './src/utils/stateMerge.js';
 import { mergeFullState } from './src/utils/fullStateMerge.js';
@@ -8,7 +9,7 @@ import { GoogleGenAI } from '@google/genai';
 import fs from 'fs';
 import pg from 'pg';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
-import { firebaseEnabled, firebaseProjectId, firebaseLoadState, firebaseSaveState, firebaseSaveBackup, firebasePing, firebaseVersion } from './firebaseStore.js';
+import { isFirebaseEnabled, getFirebaseProjectId, firebaseLoadState, firebaseSaveState, firebaseSaveBackup, firebasePing, firebaseVersion, parseServiceAccount, testServiceAccount, useServiceAccount } from './firebaseStore.js';
 
 dotenv.config();
 
@@ -186,7 +187,7 @@ export async function createApp() {
   app.get('/api/cron/daily-backup', async (req, res) => {
     const secret = process.env.CRON_SECRET;
     if (secret && req.headers.authorization !== `Bearer ${secret}`) return res.status(401).json({ success: false });
-    if (!firebaseEnabled) return res.json({ success: false, error: 'Firebase not configured' });
+    if (!isFirebaseEnabled()) return res.json({ success: false, error: 'Firebase not configured' });
     try {
       const state = await firebaseLoadState();
       if (!state?.data) return res.json({ success: false, error: 'No data to back up' });
@@ -198,10 +199,86 @@ export async function createApp() {
     }
   });
 
+  // ── Super Admin: connect this school's deployment to its own Firebase ─────────────────────
+  // Needs env BIM_SUPERADMIN_PIN. With VERCEL_TOKEN (+ VERCEL_TEAM_ID for team projects) the key is
+  // also saved to this Vercel project's environment and a production redeploy is started, so it
+  // survives restarts; without it the key works only until this server instance restarts.
+  const setupAttempts = new Map<string, { n: number; until: number }>();
+  const pinOk = (pin: unknown) => {
+    const expected = process.env.BIM_SUPERADMIN_PIN || '';
+    if (!expected || typeof pin !== 'string') return false;
+    const a = Buffer.from(pin), b = Buffer.from(expected);
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
+  };
+  const vercelApi = async (pathAndQuery: string, method: string, body?: any) => {
+    const team = process.env.VERCEL_TEAM_ID ? `${pathAndQuery.includes('?') ? '&' : '?'}teamId=${process.env.VERCEL_TEAM_ID}` : '';
+    const r = await fetch(`https://api.vercel.com${pathAndQuery}${team}`, {
+      method,
+      headers: { Authorization: `Bearer ${process.env.VERCEL_TOKEN}`, 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const j: any = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j?.error?.message || `Vercel API ${r.status}`);
+    return j;
+  };
+
+  app.get('/api/setup/status', async (req, res) => {
+    const ping = isFirebaseEnabled() ? await firebasePing() : null;
+    return res.json({
+      superAdminPinSet: !!process.env.BIM_SUPERADMIN_PIN,
+      canSaveToVercel: !!(process.env.VERCEL_TOKEN && process.env.VERCEL_PROJECT_ID),
+      firebase: { configured: isFirebaseEnabled(), projectId: getFirebaseProjectId(), connected: ping?.ok ?? false, error: ping?.error || null },
+    });
+  });
+
+  app.post('/api/setup/firebase', async (req, res) => {
+    const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '?').split(',')[0].trim();
+    const now = Date.now();
+    const att = setupAttempts.get(ip);
+    if (att && att.until > now && att.n >= 5) return res.status(429).json({ success: false, error: 'Too many attempts — wait 15 minutes' });
+    if (!process.env.BIM_SUPERADMIN_PIN) return res.status(403).json({ success: false, error: 'BIM_SUPERADMIN_PIN is not set on this deployment' });
+    if (!pinOk(req.body?.pin)) {
+      setupAttempts.set(ip, { n: (att && att.until > now ? att.n : 0) + 1, until: now + 15 * 60 * 1000 });
+      return res.status(401).json({ success: false, error: 'Wrong PIN' });
+    }
+    setupAttempts.delete(ip);
+
+    const raw = typeof req.body?.serviceAccount === 'string' ? req.body.serviceAccount : JSON.stringify(req.body?.serviceAccount || '');
+    const sa = parseServiceAccount(raw);
+    if (!sa) return res.status(400).json({ success: false, error: 'This is not a Firebase service-account key (.json)' });
+
+    const test = await testServiceAccount(sa);
+    if (!test.ok) return res.status(400).json({ success: false, error: `Cannot use this key: ${test.error}` });
+
+    useServiceAccount(sa); // effective immediately on this instance
+    const result: any = { success: true, projectId: sa.project_id, hasData: !!test.hasData, savedToVercel: false, redeploy: null };
+
+    if (process.env.VERCEL_TOKEN && process.env.VERCEL_PROJECT_ID) {
+      try {
+        const pid = process.env.VERCEL_PROJECT_ID;
+        await vercelApi(`/v10/projects/${pid}/env?upsert=true`, 'POST', {
+          key: 'FIREBASE_SERVICE_ACCOUNT',
+          value: JSON.stringify(sa),
+          type: 'encrypted',
+          target: ['production', 'preview'],
+        });
+        result.savedToVercel = true;
+        if (process.env.VERCEL_DEPLOYMENT_ID) {
+          const proj = await vercelApi(`/v9/projects/${pid}`, 'GET');
+          const dep = await vercelApi('/v13/deployments', 'POST', { name: proj.name, deploymentId: process.env.VERCEL_DEPLOYMENT_ID, target: 'production' });
+          result.redeploy = dep?.url || 'started';
+        }
+      } catch (e: any) {
+        result.vercelError = e?.message || 'Vercel update failed';
+      }
+    }
+    return res.json(result);
+  });
+
   app.get('/api/firebase/status', async (req, res) => {
-    if (!firebaseEnabled) return res.json({ configured: false, message: 'FIREBASE_SERVICE_ACCOUNT is not set — using Supabase' });
+    if (!isFirebaseEnabled()) return res.json({ configured: false, message: 'FIREBASE_SERVICE_ACCOUNT is not set — using Supabase' });
     const ping = await firebasePing();
-    return res.json({ configured: true, projectId: firebaseProjectId, connected: ping.ok, lastSavedAt: ping.lastSavedAt ?? null, error: ping.error || null });
+    return res.json({ configured: true, projectId: getFirebaseProjectId(), connected: ping.ok, lastSavedAt: ping.lastSavedAt ?? null, error: ping.error || null });
   });
 
   app.get('/api/health', (req, res) => {
@@ -295,7 +372,7 @@ export async function createApp() {
   // Helper to fetch master state from Supabase or local fallback
   const fetchSchoolState = async () => {
     // 0. Firebase (Firestore) is the main store when FIREBASE_SERVICE_ACCOUNT is set
-    if (firebaseEnabled) {
+    if (isFirebaseEnabled()) {
       try {
         const fb = await firebaseLoadState();
         if (fb?.data) return { data: fb.data, source: 'firebase', updatedAt: fb.updatedAt };
@@ -373,7 +450,7 @@ export async function createApp() {
     let supabaseError: string | null = null;
 
     // Firebase replaces Supabase when configured ("savedToSupabase" = saved to the cloud store)
-    if (firebaseEnabled) {
+    if (isFirebaseEnabled()) {
       try {
         await firebaseSaveState(payload);
         return { savedToSupabase: true, supabaseError: null, savedAt: new Date().toISOString() };
@@ -463,7 +540,7 @@ export async function createApp() {
   // Version of the saved state (cheap check before downloading everything)
   app.get('/api/state/version', async (req, res) => {
     try {
-      if (firebaseEnabled) {
+      if (isFirebaseEnabled()) {
         try {
           const v = await firebaseVersion();
           if (v) return res.json({ success: true, lastSavedAt: v.lastSavedAt });
@@ -1233,7 +1310,7 @@ Return a single clean JSON object matching this schema without markdown fences. 
       fs.writeFileSync(filePath, JSON.stringify(payload, null, 2), 'utf-8');
 
       // Vercel's disk is temporary: keep the real copy in Firebase (one per day and type)
-      if (firebaseEnabled) {
+      if (isFirebaseEnabled()) {
         firebaseSaveBackup(`${typePart}_${datePart}`, `Backup ${typePart} ${datePart}`, { filename, source: typePart }, payload).catch((e) =>
           console.warn('Firebase backup failed:', e?.message),
         );
@@ -1350,7 +1427,7 @@ Return a single clean JSON object matching this schema without markdown fences. 
         }
       }
 
-      if (firebaseEnabled) {
+      if (isFirebaseEnabled()) {
         try {
           await firebaseSaveBackup(snapshotName, `Backup ${datePart}`, { filename: snapshotName, date: datePart }, backupData);
           supabaseSynced = true;
