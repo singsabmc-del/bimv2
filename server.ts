@@ -182,6 +182,22 @@ export async function createApp() {
   });
 
   // Health check
+  // Daily server-side backup (Vercel Cron, see vercel.json) — runs even when no browser is open.
+  app.get('/api/cron/daily-backup', async (req, res) => {
+    const secret = process.env.CRON_SECRET;
+    if (secret && req.headers.authorization !== `Bearer ${secret}`) return res.status(401).json({ success: false });
+    if (!firebaseEnabled) return res.json({ success: false, error: 'Firebase not configured' });
+    try {
+      const state = await firebaseLoadState();
+      if (!state?.data) return res.json({ success: false, error: 'No data to back up' });
+      const date = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10); // Cambodia date
+      await firebaseSaveBackup(`server_daily_${date}`, `Server daily backup ${date}`, { source: 'cron', date }, state.data);
+      return res.json({ success: true, id: `server_daily_${date}` });
+    } catch (e: any) {
+      return res.status(500).json({ success: false, error: e?.message || 'backup failed' });
+    }
+  });
+
   app.get('/api/firebase/status', async (req, res) => {
     if (!firebaseEnabled) return res.json({ configured: false, message: 'FIREBASE_SERVICE_ACCOUNT is not set — using Supabase' });
     const ping = await firebasePing();
@@ -1215,6 +1231,13 @@ Return a single clean JSON object matching this schema without markdown fences. 
       const filePath = path.join(BACKUPS_DIR, filename);
 
       fs.writeFileSync(filePath, JSON.stringify(payload, null, 2), 'utf-8');
+
+      // Vercel's disk is temporary: keep the real copy in Firebase (one per day and type)
+      if (firebaseEnabled) {
+        firebaseSaveBackup(`${typePart}_${datePart}`, `Backup ${typePart} ${datePart}`, { filename, source: typePart }, payload).catch((e) =>
+          console.warn('Firebase backup failed:', e?.message),
+        );
+      }
 
       // Keep maximum 30 backup files to manage disk space
       try {
