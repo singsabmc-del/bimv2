@@ -1818,7 +1818,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           serverSaved = true;
           return {
             success: true,
-            message: 'ទិន្នន័យត្រូវបានរក្សាទុកក្នុង Supabase Cloud Database ដោយជោគជ័យ!',
+            message: 'ទិន្នន័យត្រូវបានរក្សាទុកក្នុង Firebase Cloud ដោយជោគជ័យ!',
           };
         }
         if (data.supabaseError) {
@@ -1831,7 +1831,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // No direct browser → table fallback: the table is locked (RLS) so only the server can write it.
       return {
         success: false,
-        message: `បរាជ័យក្នុងការរក្សាទុកទៅ Supabase: ${serverErrorMsg || 'Server មិនអាចរក្សាទុកបាន'}`,
+        message: `បរាជ័យក្នុងការរក្សាទុកទៅ Cloud: ${serverErrorMsg || 'Server មិនអាចរក្សាទុកបាន'}`,
       };
     } catch (err: any) {
       return { success: false, message: err.message || 'Error connecting to Supabase' };
@@ -1854,7 +1854,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       } catch {}
 
       if (!d) {
-        return { success: false, message: 'ពុំមានទិន្នន័យរក្សាទុកក្នុង Supabase នៅឡើយទេ ឬមិនអាចទាញយកបាន' };
+        return { success: false, message: 'ពុំមានទិន្នន័យក្នុង Firebase នៅឡើយទេ ឬមិនអាចទាញយកបាន' };
       }
 
       if (d.classes) setClassData(d.classes);
@@ -1885,7 +1885,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (d.users) setUsers(d.users);
       if (d.settings) setSettings(d.settings);
 
-      return { success: true, message: 'បានទាញយកទិន្នន័យពី Supabase Database ដោយជោគជ័យ!' };
+      return { success: true, message: 'បានទាញយកទិន្នន័យពី Firebase ដោយជោគជ័យ!' };
     } catch (err: any) {
       return { success: false, message: err.message || 'Error restoring from Supabase' };
     }
