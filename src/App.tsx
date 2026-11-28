@@ -1,3 +1,4 @@
+import { FirebaseSetupView } from './components/FirebaseSetupView';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Sidebar, NavTab, isNavTab } from './components/Sidebar';
@@ -158,12 +159,22 @@ function MainApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, currentUser?.role]);
 
+  // Super Admin: /#setup connects this deployment to its Firebase (no login needed, PIN-protected)
+  const [isSetupPage, setIsSetupPage] = useState(() => window.location.hash === '#setup');
+  useEffect(() => {
+    const on = () => setIsSetupPage(window.location.hash === '#setup');
+    window.addEventListener('hashchange', on);
+    return () => window.removeEventListener('hashchange', on);
+  }, []);
+
   // Is an older academic year open? (switched from the header year menu)
   const activeAcademicYear = settings.academicYear || '2026-2027';
   const latestAcademicYear = Array.from(
     new Set([activeAcademicYear, ...Object.keys(academicYearArchives || {})])
   ).sort((a, b) => b.localeCompare(a))[0];
   const isViewingOldYear = activeAcademicYear !== latestAcademicYear;
+
+  if (isSetupPage) return <FirebaseSetupView />;
 
   if (!isAuthenticated) {
     return <LoginView />;

@@ -19,3 +19,20 @@ until then it keeps using Supabase.
 
 Layout: `bim_state/latest` (+ `latest_0…n` chunks of the JSON, because Firestore allows max 1 MiB per
 document) and `bim_backups/<id>` for cloud-sync backups.
+
+## New school: connect Firebase from the app (Super Admin)
+
+Each school runs its own Vercel project from this repo. Once per project, add these environment
+variables (Vercel → Settings → Environment Variables), then Redeploy:
+
+| Variable | Value |
+|---|---|
+| `BIM_SUPERADMIN_PIN` | a long PIN only the Super Admin knows |
+| `VERCEL_TOKEN` | a Vercel access token (Account Settings → Tokens) — lets the app save the key itself |
+| `VERCEL_TEAM_ID` | only if the project belongs to a Vercel team |
+
+Then open `https://<school-site>/#setup`, choose the school's service-account `.json`, enter the PIN and
+press **ពិនិត្យ & ភ្ជាប់ Firebase**. The app checks the key against Firebase, starts using it at once,
+saves it as `FIREBASE_SERVICE_ACCOUNT` in that Vercel project and starts a production redeploy
+(about 2 minutes). Without `VERCEL_TOKEN` the key works only until the server restarts.
+Wrong PINs are limited to 5 tries per 15 minutes.

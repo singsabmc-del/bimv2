@@ -12,13 +12,15 @@
 //   bim_backups/<id>           { title, createdAt, meta, chunks }  + bim_backups/<id>_0 … _n
 import crypto from 'crypto';
 
-type ServiceAccount = { project_id: string; client_email: string; private_key: string };
+export type ServiceAccount = { project_id: string; client_email: string; private_key: string };
 
+let cache: { stamp: string; data: any; updatedAt: string | null } | null = null;
 const CHUNK_CHARS = 250_000; // ≤ ~750 KB even if every character were 3-byte Khmer
 const MAX_OLD_CHUNKS = 40; // stale chunks beyond the new count are deleted up to this index
 
-function readServiceAccount(): ServiceAccount | null {
-  const raw = (process.env.FIREBASE_SERVICE_ACCOUNT || process.env.BIM_FIREBASE_SERVICE_ACCOUNT || '').trim();
+/** Parse service-account JSON (or base64 of it); null when it is not a usable key */
+export function parseServiceAccount(input: string): ServiceAccount | null {
+  const raw = (input || '').trim();
   if (!raw) return null;
   try {
     const text = raw.startsWith('{') ? raw : Buffer.from(raw, 'base64').toString('utf8');
@@ -27,18 +29,51 @@ function readServiceAccount(): ServiceAccount | null {
     sa.private_key = String(sa.private_key).replace(/\\n/g, '\n');
     return sa;
   } catch {
-    console.warn('⚠️ FIREBASE_SERVICE_ACCOUNT is set but is not valid service-account JSON');
     return null;
   }
 }
 
-const SA = readServiceAccount();
-export const firebaseEnabled = !!SA;
-export const firebaseProjectId = SA?.project_id || null;
-const BASE = SA ? `https://firestore.googleapis.com/v1/projects/${SA.project_id}/databases/(default)/documents` : '';
-const DOC_ROOT = SA ? `projects/${SA.project_id}/databases/(default)/documents` : '';
-
+// The active key: from the environment at start-up, or set later by the Super Admin setup page.
+let SA: ServiceAccount | null = parseServiceAccount(process.env.FIREBASE_SERVICE_ACCOUNT || process.env.BIM_FIREBASE_SERVICE_ACCOUNT || '');
+if (!SA && (process.env.FIREBASE_SERVICE_ACCOUNT || process.env.BIM_FIREBASE_SERVICE_ACCOUNT)) {
+  console.warn('⚠️ FIREBASE_SERVICE_ACCOUNT is set but is not valid service-account JSON');
+}
+let BASE = '';
+let DOC_ROOT = '';
 let token: { value: string; exp: number } | null = null;
+const applyKey = () => {
+  BASE = SA ? `https://firestore.googleapis.com/v1/projects/${SA.project_id}/databases/(default)/documents` : '';
+  DOC_ROOT = SA ? `projects/${SA.project_id}/databases/(default)/documents` : '';
+  token = null;
+  cache = null;
+};
+
+export const isFirebaseEnabled = () => !!SA;
+export const getFirebaseProjectId = () => SA?.project_id || null;
+
+/** Switch this server instance to another Firebase project (Super Admin setup) */
+export function useServiceAccount(sa: ServiceAccount) {
+  SA = sa;
+  applyKey();
+}
+
+/** Check a key works: can sign in and read the database (empty is fine) */
+export async function testServiceAccount(sa: ServiceAccount): Promise<{ ok: boolean; error?: string; hasData?: boolean }> {
+  const prev = SA;
+  try {
+    useServiceAccount(sa);
+    const head = await call('GET', `${BASE}/bim_state/latest`, undefined, 10000);
+    if (head.status === 404) return { ok: true, hasData: false };
+    if (!head.ok) return { ok: false, error: head.json?.error?.message || `HTTP ${head.status}` };
+    return { ok: true, hasData: true };
+  } catch (e: any) {
+    return { ok: false, error: e?.message || 'Firebase unreachable' };
+  } finally {
+    SA = prev;
+    applyKey();
+  }
+}
+
 async function accessToken(): Promise<string> {
   if (!SA) throw new Error('Firebase is not configured');
   const now = Math.floor(Date.now() / 1000);
@@ -128,7 +163,7 @@ async function readChunked(collection: string, id: string): Promise<{ value: any
 // Each server instance keeps the last state it read or wrote. Polls first read only the small
 // head document (1 Firestore read) and download the chunks only when the state really changed —
 // this keeps reads / egress low (the old store ran out of egress quota from full-state polling).
-let cache: { stamp: string; data: any; updatedAt: string | null } | null = null;
+
 const stampOf = (head: any) => `${num(head.lastSavedAt) ?? ''}|${head.updatedAt?.timestampValue || ''}|${num(head.chunks) ?? ''}`;
 
 /** Only the head document: { lastSavedAt } (1 read) — null when nothing is stored yet */
@@ -178,3 +213,5 @@ export async function firebasePing(): Promise<{ ok: boolean; error?: string; las
     return { ok: false, error: e?.message || 'Firebase unreachable' };
   }
 }
+
+applyKey();
